@@ -16,9 +16,9 @@ if [[ -z "$APP_KEY" ]]; then
   php artisan key:generate
 fi
 
-composer lint
 php artisan storage:link
 php artisan migrate
+composer lint
 php artisan db:seed
 npm run build
 php artisan optimize:clear
