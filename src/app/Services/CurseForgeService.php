@@ -116,7 +116,16 @@ class CurseForgeService
 
             $response->throw();
 
-            return $response->json('data', []);
+            $files = $response->json('data', []);
+
+            // If a specific game version was requested, filter results to ensure strict matching
+            // CurseForge API may return files for "1.20.1" when requesting "1.20"
+            // We need to check each file's gameVersions array for an exact match
+            if ($gameVersion && ! empty($files)) {
+                $files = $this->filterFilesByExactVersion($files, $gameVersion);
+            }
+
+            return $files;
         } catch (RequestException $e) {
             Log::error('CurseForge API error getting mod files', [
                 'mod_id' => $modId,
@@ -127,6 +136,92 @@ class CurseForgeService
 
             return [];
         }
+    }
+
+    /**
+     * Filter files to only include those that support the exact game version.
+     * This ensures strict version matching (e.g., "1.20" != "1.20.1").
+     *
+     * @param  array  $files  Array of file data from CurseForge API
+     * @param  string  $requestedVersion  The exact Minecraft version to match
+     * @return array Filtered array of files
+     */
+    private function filterFilesByExactVersion(array $files, string $requestedVersion): array
+    {
+        // Normalize the requested version for comparison
+        $normalizedRequested = $this->normalizeVersion($requestedVersion);
+
+        $filtered = [];
+
+        foreach ($files as $file) {
+            // CurseForge API may return gameVersions in different formats
+            // Try multiple possible field names
+            $gameVersions = $file['gameVersions']
+                ?? $file['gameVersion']
+                ?? [];
+
+            // If gameVersion is a single string, convert to array
+            if (is_string($gameVersions)) {
+                $gameVersions = [$gameVersions];
+            }
+
+            // If it's not an array, skip this file
+            if (! is_array($gameVersions)) {
+                continue;
+            }
+
+            // Check if any of the file's game versions exactly match the requested version
+            $hasExactMatch = false;
+            foreach ($gameVersions as $fileVersion) {
+                // Skip if not a string (could be an object/array in some API responses)
+                if (! is_string($fileVersion)) {
+                    // If it's an array/object, try to extract the version string
+                    if (is_array($fileVersion)) {
+                        $fileVersion = $fileVersion['versionString']
+                            ?? $fileVersion['name']
+                            ?? $fileVersion['gameVersion']
+                            ?? '';
+                    }
+                    // If still not a string, skip
+                    if (! is_string($fileVersion)) {
+                        continue;
+                    }
+                }
+
+                // Normalize the file's version for comparison
+                $normalizedFileVersion = $this->normalizeVersion($fileVersion);
+
+                // Strict equality check - versions must match exactly
+                if ($normalizedFileVersion === $normalizedRequested) {
+                    $hasExactMatch = true;
+                    break;
+                }
+            }
+
+            if ($hasExactMatch) {
+                $filtered[] = $file;
+            }
+        }
+
+        return $filtered;
+    }
+
+    /**
+     * Normalize a version string for comparison.
+     * Removes any non-version characters and ensures consistent formatting.
+     *
+     * @param  string  $version  Version string (e.g., "1.20", "1.20.1", "1.20.1-Fabric")
+     * @return string Normalized version string
+     */
+    private function normalizeVersion(string $version): string
+    {
+        // Remove any loader suffixes (e.g., "-Fabric", "-Forge")
+        $version = preg_replace('/-[A-Za-z]+$/', '', $version);
+
+        // Trim whitespace
+        $version = trim($version);
+
+        return $version;
     }
 
     /**

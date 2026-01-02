@@ -697,7 +697,7 @@ class ModPackTest extends TestCase
         ]);
 
         Http::fake([
-            'api.curseforge.com/v1/*' => Http::response([
+            'api.curseforge.com/v1/mods/123456/files*' => Http::response([
                 'data' => [
                     [
                         'id' => 789012,
@@ -705,6 +705,7 @@ class ModPackTest extends TestCase
                         'fileName' => 'jei-1.20.1-11.6.0.1015.jar',
                         'fileDate' => '2024-01-01T00:00:00Z',
                         'fileLength' => 1024000,
+                        'gameVersions' => ['1.20.1'], // File supports exactly 1.20.1
                     ],
                 ],
             ], 200),
@@ -718,6 +719,11 @@ class ModPackTest extends TestCase
                 '*' => ['id', 'displayName', 'fileName'],
             ],
         ]);
+
+        // Verify that the file is returned (strict version matching should pass)
+        $data = $response->json('data');
+        $this->assertCount(1, $data);
+        $this->assertEquals(789012, $data[0]['id']);
     }
 
     /**
@@ -852,5 +858,161 @@ class ModPackTest extends TestCase
                 ],
             ],
         ]);
+    }
+
+    /**
+     * Test that mod files are filtered to strictly match the exact Minecraft version.
+     * Files for "1.20.1" should NOT be returned when requesting "1.20".
+     */
+    public function test_mod_files_are_filtered_by_exact_minecraft_version(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20', // Requesting 1.20
+            'software' => 'fabric',
+        ]);
+
+        // Mock CurseForge API response that includes files for multiple versions
+        // The API might return files for 1.20.1 when we request 1.20
+        Http::fake([
+            'api.curseforge.com/v1/mods/123456/files*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 789012,
+                        'displayName' => 'JEI 1.20.1-11.6.0.1015',
+                        'fileName' => 'jei-1.20.1-11.6.0.1015.jar',
+                        'fileDate' => '2024-01-02T00:00:00Z',
+                        'fileLength' => 1024000,
+                        'gameVersions' => ['1.20.1', '1.20.2'], // File supports 1.20.1 and 1.20.2, NOT 1.20
+                    ],
+                    [
+                        'id' => 789013,
+                        'displayName' => 'JEI 1.20-11.6.0.1014',
+                        'fileName' => 'jei-1.20-11.6.0.1014.jar',
+                        'fileDate' => '2024-01-01T00:00:00Z',
+                        'fileLength' => 1023000,
+                        'gameVersions' => ['1.20'], // File supports exactly 1.20
+                    ],
+                    [
+                        'id' => 789014,
+                        'displayName' => 'JEI 1.19.4-11.6.0.1013',
+                        'fileName' => 'jei-1.19.4-11.6.0.1013.jar',
+                        'fileDate' => '2023-12-01T00:00:00Z',
+                        'fileLength' => 1022000,
+                        'gameVersions' => ['1.19.4'], // File supports 1.19.4, NOT 1.20
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/mod-files?mod_id=123456");
+
+        $response->assertStatus(200);
+        $data = $response->json('data');
+
+        // Should only return the file that supports exactly 1.20
+        $this->assertCount(1, $data);
+        $this->assertEquals(789013, $data[0]['id']); // The file with id 789013 supports 1.20
+        $this->assertStringContainsString('1.20', $data[0]['displayName']);
+
+        // Verify that files for 1.20.1 and 1.19.4 are NOT included
+        $fileIds = array_column($data, 'id');
+        $this->assertNotContains(789012, $fileIds); // File for 1.20.1 should be excluded
+        $this->assertNotContains(789014, $fileIds); // File for 1.19.4 should be excluded
+    }
+
+    /**
+     * Test that mod files filtering handles version strings with loader suffixes.
+     */
+    public function test_mod_files_filtering_handles_version_with_loader_suffixes(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20',
+            'software' => 'fabric',
+        ]);
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/123456/files*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 789015,
+                        'displayName' => 'JEI 1.20-11.6.0.1014',
+                        'fileName' => 'jei-1.20-11.6.0.1014.jar',
+                        'fileDate' => '2024-01-01T00:00:00Z',
+                        'fileLength' => 1023000,
+                        'gameVersions' => ['1.20-Fabric'], // Version with loader suffix
+                    ],
+                    [
+                        'id' => 789016,
+                        'displayName' => 'JEI 1.20.1-11.6.0.1015',
+                        'fileName' => 'jei-1.20.1-11.6.0.1015.jar',
+                        'fileDate' => '2024-01-02T00:00:00Z',
+                        'fileLength' => 1024000,
+                        'gameVersions' => ['1.20.1-Fabric'], // Different version with loader suffix
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/mod-files?mod_id=123456");
+
+        $response->assertStatus(200);
+        $data = $response->json('data');
+
+        // Should only return the file that supports 1.20 (normalized from "1.20-Fabric")
+        $this->assertCount(1, $data);
+        $this->assertEquals(789015, $data[0]['id']); // The file with id 789015 supports 1.20
+
+        // Verify that file for 1.20.1 is NOT included
+        $fileIds = array_column($data, 'id');
+        $this->assertNotContains(789016, $fileIds); // File for 1.20.1 should be excluded
+    }
+
+    /**
+     * Test that mod files filtering returns empty array when no exact version match exists.
+     */
+    public function test_mod_files_filtering_returns_empty_when_no_exact_match(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20', // Requesting 1.20
+            'software' => 'fabric',
+        ]);
+
+        // Mock API response with files that don't support 1.20
+        Http::fake([
+            'api.curseforge.com/v1/mods/123456/files*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 789017,
+                        'displayName' => 'JEI 1.20.1-11.6.0.1015',
+                        'fileName' => 'jei-1.20.1-11.6.0.1015.jar',
+                        'fileDate' => '2024-01-02T00:00:00Z',
+                        'fileLength' => 1024000,
+                        'gameVersions' => ['1.20.1'], // Only supports 1.20.1, not 1.20
+                    ],
+                    [
+                        'id' => 789018,
+                        'displayName' => 'JEI 1.19.4-11.6.0.1013',
+                        'fileName' => 'jei-1.19.4-11.6.0.1013.jar',
+                        'fileDate' => '2023-12-01T00:00:00Z',
+                        'fileLength' => 1022000,
+                        'gameVersions' => ['1.19.4'], // Only supports 1.19.4, not 1.20
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/mod-files?mod_id=123456");
+
+        $response->assertStatus(200);
+        $data = $response->json('data');
+
+        // Should return empty array since no files support exactly 1.20
+        $this->assertCount(0, $data);
     }
 }
