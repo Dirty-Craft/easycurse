@@ -1,5 +1,7 @@
 @import url("./variables.css");
 @import url("./landing.css");
+@import url("./auth.css");
+@import url("./dashboard.css");
 
 /* Base Styles */
 * {

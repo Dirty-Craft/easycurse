@@ -9,7 +9,16 @@
                         <span class="logo-text">CurseCool</span>
                     </div>
                     <div class="nav-actions">
-                        <a href="#" class="btn btn-secondary">Login</a>
+                        <Link
+                            v-if="$page.props.auth.user"
+                            href="/dashboard"
+                            class="btn btn-primary"
+                        >
+                            Open Dashboard
+                        </Link>
+                        <Link v-else href="/login" class="btn btn-secondary">
+                            Login
+                        </Link>
                     </div>
                 </div>
             </div>
@@ -34,10 +43,18 @@
                         Simple as that.
                     </p>
                     <div class="hero-actions">
-                        <a href="#" class="btn btn-primary">
+                        <Link
+                            v-if="!$page.props.auth.user"
+                            href="/register"
+                            class="btn btn-primary"
+                        >
                             <span>Get Started Free</span>
                             <span class="btn-arrow">→</span>
-                        </a>
+                        </Link>
+                        <Link v-else href="/dashboard" class="btn btn-primary">
+                            <span>Open Dashboard</span>
+                            <span class="btn-arrow">→</span>
+                        </Link>
                         <a href="#how-it-works" class="btn btn-secondary"
                             >Learn More</a
                         >
@@ -288,10 +305,22 @@
                         again. Start managing your mod collection the smart way.
                     </p>
                     <div class="cta-actions">
-                        <a href="#" class="btn btn-primary btn-large">
+                        <Link
+                            v-if="!$page.props.auth.user"
+                            href="/register"
+                            class="btn btn-primary btn-large"
+                        >
                             <span>Get Started Free</span>
                             <span class="btn-arrow">→</span>
-                        </a>
+                        </Link>
+                        <Link
+                            v-else
+                            href="/dashboard"
+                            class="btn btn-primary btn-large"
+                        >
+                            <span>Open Dashboard</span>
+                            <span class="btn-arrow">→</span>
+                        </Link>
                     </div>
                     <div class="cta-features">
                         <div class="cta-feature">✓ Free to start</div>
@@ -346,7 +375,7 @@
 </template>
 
 <script setup>
-import { Head } from "@inertiajs/vue3";
+import { Head, Link } from "@inertiajs/vue3";
 
 // Landing page component
 </script>
