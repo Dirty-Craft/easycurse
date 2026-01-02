@@ -11,12 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('mod_sets', function (Blueprint $table) {
+        Schema::create('mod_packs', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('name');
             $table->string('minecraft_version');
             $table->text('description')->nullable();
+            $table->string('software')->default('forge');
             $table->timestamps();
 
             $table->index('user_id');
@@ -29,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('mod_sets');
+        Schema::dropIfExists('mod_packs');
     }
 };

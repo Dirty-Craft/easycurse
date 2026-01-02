@@ -1,5 +1,5 @@
-# Curse Cool
-This repository contains the codebase for Curse Cool project.
+# Easy Curse
+This repository contains the codebase for Easy Curse project.
 
 ## Get Started
 To run the project quickly, run these commands:

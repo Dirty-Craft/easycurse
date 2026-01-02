@@ -1,79 +1,79 @@
 <template>
     <Head title="My Mods" />
-    <DashboardLayout>
+    <AppLayout>
         <div class="dashboard-content">
             <div class="dashboard-header">
                 <h1 class="dashboard-title">My Mods</h1>
-                <p class="dashboard-subtitle">Manage your mod sets</p>
+                <p class="dashboard-subtitle">Manage your mod packs</p>
             </div>
 
             <div class="dashboard-main">
-                <div class="mod-sets-actions">
+                <div class="mod-packs-actions">
                     <button
                         class="btn btn-primary"
                         @click="showCreateModal = true"
                     >
-                        + Create Mod Set
+                        + Create Mod Pack
                     </button>
                 </div>
 
-                <div v-if="modSets.length === 0" class="dashboard-card">
+                <div v-if="modPacks.length === 0" class="dashboard-card">
                     <p class="dashboard-placeholder">
-                        No mod sets yet. Create your first mod set to get
+                        No mod packs yet. Create your first mod pack to get
                         started!
                     </p>
                 </div>
 
-                <div v-else class="mod-sets-grid">
+                <div v-else class="mod-packs-grid">
                     <div
-                        v-for="modSet in modSets"
-                        :key="modSet.id"
-                        class="mod-set-card"
+                        v-for="modPack in modPacks"
+                        :key="modPack.id"
+                        class="mod-pack-card"
                     >
-                        <div class="mod-set-header">
-                            <h3 class="mod-set-name">{{ modSet.name }}</h3>
-                            <div class="mod-set-actions">
+                        <div class="mod-pack-header">
+                            <h3 class="mod-pack-name">{{ modPack.name }}</h3>
+                            <div class="mod-pack-actions">
                                 <Link
-                                    :href="`/mod-sets/${modSet.id}`"
+                                    :href="`/mod-packs/${modPack.id}`"
                                     class="btn btn-sm btn-secondary"
                                 >
                                     View
                                 </Link>
                                 <button
                                     class="btn btn-sm btn-danger"
-                                    @click="deleteModSet(modSet.id)"
+                                    @click="deleteModPack(modPack.id)"
                                 >
                                     Delete
                                 </button>
                             </div>
                         </div>
-                        <div class="mod-set-info">
+                        <div class="mod-pack-info">
                             <div class="info-item">
                                 <span class="info-label"
                                     >Minecraft Version:</span
                                 >
                                 <span class="info-value">{{
-                                    modSet.minecraft_version
+                                    modPack.minecraft_version
                                 }}</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Software:</span>
                                 <span class="info-value">{{
-                                    modSet.software_label
+                                    modPack.software
                                 }}</span>
                             </div>
                             <div class="info-item">
                                 <span class="info-label">Mods:</span>
                                 <span class="info-value">{{
-                                    modSet.items.length
+                                    modPack.items.length
                                 }}</span>
                             </div>
                         </div>
                         <p
-                            v-if="modSet.description"
-                            class="mod-set-description"
+                            v-if="modPack.description"
+                            class="mod-pack-description"
                         >
-                            {{ modSet.description }}
+                            {{ modPack.description }}
                         </p>
                     </div>
                 </div>
@@ -88,7 +88,7 @@
         >
             <div class="modal-content" @click.stop>
                 <div class="modal-header">
-                    <h2>Create Mod Set</h2>
+                    <h2>Create Mod Pack</h2>
                     <button
                         class="modal-close"
                         @click="showCreateModal = false"
@@ -96,7 +96,7 @@
                         ×
                     </button>
                 </div>
-                <form class="modal-body" @submit.prevent="createModSet">
+                <form class="modal-body" @submit.prevent="createModPack">
                     <div class="form-group">
                         <label for="name">Name</label>
                         <input
@@ -126,8 +126,20 @@
                             required
                             class="form-input"
                         >
-                            <option value="forge">Forge</option>
-                            <option value="fabric">Fabric</option>
+                            <option value="" disabled>
+                                {{
+                                    modLoaders.length === 0
+                                        ? "No loaders available"
+                                        : "Select a mod loader"
+                                }}
+                            </option>
+                            <option
+                                v-for="loader in modLoaders"
+                                :key="loader.id"
+                                :value="loader.slug"
+                            >
+                                {{ loader.name }}
+                            </option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -154,59 +166,79 @@
                 </form>
             </div>
         </div>
-    </DashboardLayout>
+    </AppLayout>
 </template>
 
 <script setup>
 import { Head, Link, router } from "@inertiajs/vue3";
-import { ref } from "vue";
-import DashboardLayout from "../../Layouts/DashboardLayout.vue";
+import { ref, watch } from "vue";
+import AppLayout from "../../Layouts/AppLayout.vue";
 
-defineProps({
-    modSets: Array,
+const props = defineProps({
+    modPacks: Array,
+    gameVersions: {
+        type: Array,
+        default: () => [],
+    },
+    modLoaders: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const showCreateModal = ref(false);
 const form = ref({
     name: "",
     minecraft_version: "",
-    software: "forge",
+    software: "",
     description: "",
 });
 
-const createModSet = () => {
-    router.post("/mod-sets", form.value, {
+watch(showCreateModal, (isOpen) => {
+    if (isOpen) {
+        // Reset form when modal opens
+        form.value = {
+            name: "",
+            minecraft_version: "",
+            software: "",
+            description: "",
+        };
+    }
+});
+
+const createModPack = () => {
+    router.post("/mod-packs", form.value, {
         onSuccess: () => {
             showCreateModal.value = false;
             form.value = {
                 name: "",
                 minecraft_version: "",
-                software: "forge",
+                software: "",
                 description: "",
             };
         },
     });
 };
 
-const deleteModSet = (id) => {
-    if (confirm("Are you sure you want to delete this mod set?")) {
-        router.delete(`/mod-sets/${id}`);
+const deleteModPack = (id) => {
+    if (confirm("Are you sure you want to delete this mod pack?")) {
+        router.delete(`/mod-packs/${id}`);
     }
 };
 </script>
 
 <style scoped>
-.mod-sets-actions {
+.mod-packs-actions {
     margin-bottom: var(--spacing-xl);
 }
 
-.mod-sets-grid {
+.mod-packs-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: var(--spacing-lg);
 }
 
-.mod-set-card {
+.mod-pack-card {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-xl);
@@ -214,12 +246,12 @@ const deleteModSet = (id) => {
     transition: all var(--transition-base);
 }
 
-.mod-set-card:hover {
+.mod-pack-card:hover {
     border-color: var(--color-primary);
     box-shadow: var(--shadow-glow);
 }
 
-.mod-set-header {
+.mod-pack-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -227,7 +259,7 @@ const deleteModSet = (id) => {
     gap: var(--spacing-md);
 }
 
-.mod-set-name {
+.mod-pack-name {
     font-size: 1.25rem;
     font-weight: 600;
     color: var(--color-text-primary);
@@ -235,12 +267,12 @@ const deleteModSet = (id) => {
     flex: 1;
 }
 
-.mod-set-actions {
+.mod-pack-actions {
     display: flex;
     gap: var(--spacing-sm);
 }
 
-.mod-set-info {
+.mod-pack-info {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
@@ -261,7 +293,7 @@ const deleteModSet = (id) => {
     color: var(--color-text-primary);
 }
 
-.mod-set-description {
+.mod-pack-description {
     color: var(--color-text-secondary);
     font-size: 0.875rem;
     margin: var(--spacing-md) 0 0 0;

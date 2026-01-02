@@ -1,6 +1,6 @@
 # CurseForge Integration
 
-This project integrates with the CurseForge API to enable mod search and version selection for mod sets.
+This project integrates with the CurseForge API to enable mod search and version selection for mod packs.
 
 ## Service Class
 
@@ -26,21 +26,21 @@ Optional configuration (with defaults):
 
 ## Usage in Mod Sets
 
-When adding mods to a mod set, users can:
+When adding mods to a mod pack, users can:
 
 1. Search for mods by name or slug
 2. Select a mod from search results
-3. Choose from available versions filtered by the mod set's Minecraft version and software type
+3. Choose from available versions filtered by the mod pack's Minecraft version and software type
 4. The selected mod is saved with CurseForge metadata (mod ID, file ID, slug)
 
-The integration ensures version compatibility by automatically filtering files based on the mod set's configuration.
+The integration ensures version compatibility by automatically filtering files based on the mod pack's configuration.
 
 ## API Endpoints
 
-The following endpoints are available for mod set management:
+The following endpoints are available for mod pack management:
 
-- `GET /mod-sets/{id}/search-mods?query={query}` - Search for mods
-- `GET /mod-sets/{id}/mod-files?mod_id={mod_id}` - Get available files for a mod
+- `GET /mod-packs/{id}/search-mods?query={query}` - Search for mods
+- `GET /mod-packs/{id}/mod-files?mod_id={mod_id}` - Get available files for a mod
 
 ## Database Schema
 

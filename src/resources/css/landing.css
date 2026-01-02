@@ -28,6 +28,12 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: var(--spacing-lg);
+    width: 100%;
+}
+
+.logo {
+    flex-shrink: 0;
 }
 
 .logo-text {
@@ -42,6 +48,19 @@
 .nav-actions {
     display: flex;
     gap: var(--spacing-md);
+    align-items: center;
+    flex-shrink: 0;
+    min-width: fit-content;
+}
+
+.nav-actions .btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.logout-form {
+    display: inline-block;
+    margin: 0;
 }
 
 /* Hero Section */

@@ -31,7 +31,7 @@ class AuthTest extends TestCase
 
         $response = $this->actingAs($user)->get('/login');
 
-        $response->assertRedirect('/dashboard');
+        $response->assertRedirect('/mod-packs');
     }
 
     /**
@@ -49,7 +49,7 @@ class AuthTest extends TestCase
             'password' => 'password123',
         ]);
 
-        $response->assertRedirect('/dashboard');
+        $response->assertRedirect('/mod-packs');
         $this->assertAuthenticatedAs($user);
     }
 
@@ -112,7 +112,7 @@ class AuthTest extends TestCase
             'remember' => true,
         ]);
 
-        $response->assertRedirect('/dashboard');
+        $response->assertRedirect('/mod-packs');
         $this->assertAuthenticatedAs($user);
         // Check that remember token is set
         $this->assertNotNull($user->fresh()->remember_token);
@@ -138,7 +138,7 @@ class AuthTest extends TestCase
 
         $response = $this->actingAs($user)->get('/register');
 
-        $response->assertRedirect('/dashboard');
+        $response->assertRedirect('/mod-packs');
     }
 
     /**
@@ -153,7 +153,7 @@ class AuthTest extends TestCase
             'password_confirmation' => 'password123',
         ]);
 
-        $response->assertRedirect('/dashboard');
+        $response->assertRedirect('/mod-packs');
         $this->assertDatabaseHas('users', [
             'name' => 'Test User',
             'email' => 'test@example.com',
@@ -274,29 +274,6 @@ class AuthTest extends TestCase
     }
 
     /**
-     * Test dashboard is accessible to authenticated users.
-     */
-    public function test_dashboard_is_accessible_to_authenticated_users(): void
-    {
-        $user = User::factory()->create();
-
-        $response = $this->actingAs($user)->get('/dashboard');
-
-        $response->assertStatus(200);
-        $response->assertInertia(fn ($page) => $page->component('Dashboard/Index'));
-    }
-
-    /**
-     * Test dashboard redirects unauthenticated users.
-     */
-    public function test_dashboard_redirects_unauthenticated_users(): void
-    {
-        $response = $this->get('/dashboard');
-
-        $response->assertRedirect('/login');
-    }
-
-    /**
      * Test login redirects to intended page after authentication.
      */
     public function test_login_redirects_to_intended_page(): void
@@ -306,7 +283,7 @@ class AuthTest extends TestCase
             'password' => Hash::make('password123'),
         ]);
 
-        $response = $this->get('/dashboard');
+        $response = $this->get('/mod-packs');
         $response->assertRedirect('/login');
 
         $response = $this->post('/login', [
@@ -314,6 +291,6 @@ class AuthTest extends TestCase
             'password' => 'password123',
         ]);
 
-        $response->assertRedirect('/dashboard');
+        $response->assertRedirect('/mod-packs');
     }
 }

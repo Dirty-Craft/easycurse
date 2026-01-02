@@ -1,20 +1,34 @@
 <template>
-    <Head :title="modSet.name" />
-    <DashboardLayout>
+    <Head :title="modPack.name" />
+    <AppLayout>
         <div class="dashboard-content">
             <div class="dashboard-header">
                 <div class="header-top">
-                    <Link href="/mod-sets" class="back-link">
-                        ← Back to Mod Sets
+                    <Link href="/mod-packs" class="back-link">
+                        ← Back to Mod Packs
                     </Link>
                 </div>
                 <div class="header-main">
                     <div class="header-left">
-                        <h1 class="dashboard-title">{{ modSet.name }}</h1>
-                        <p class="dashboard-subtitle">
-                            {{ modSet.minecraft_version }} •
-                            {{ modSet.software_label }}
-                        </p>
+                        <h1 class="dashboard-title">{{ modPack.name }}</h1>
+                        <div class="version-info">
+                            <p class="dashboard-subtitle">
+                                {{ modPack.minecraft_version }} •
+                                {{ modPack.software }}
+                                <button
+                                    class="btn-change-version"
+                                    @click="showChangeVersionModal = true"
+                                >
+                                    Change
+                                </button>
+                            </p>
+                            <p
+                                v-if="modPack.description"
+                                class="description-text"
+                            >
+                                {{ modPack.description }}
+                            </p>
+                        </div>
                     </div>
                     <div class="header-actions">
                         <button
@@ -23,7 +37,7 @@
                         >
                             Edit
                         </button>
-                        <button class="btn btn-danger" @click="deleteModSet">
+                        <button class="btn btn-danger" @click="deleteModPack">
                             Delete
                         </button>
                     </div>
@@ -31,17 +45,12 @@
             </div>
 
             <div class="dashboard-main">
-                <div v-if="modSet.description" class="dashboard-card">
-                    <h3 class="section-title">Description</h3>
-                    <p class="description-text">{{ modSet.description }}</p>
-                </div>
-
                 <div class="dashboard-card">
                     <div class="section-header">
                         <h3 class="section-title">Mods</h3>
                         <div class="section-actions">
                             <button
-                                v-if="modSet.items.length > 0"
+                                v-if="modPack.items.length > 0"
                                 class="btn btn-success"
                                 :class="{ 'btn-loading': isDownloadingAll }"
                                 :disabled="isDownloadingAll"
@@ -63,7 +72,7 @@
                         </div>
                     </div>
 
-                    <div v-if="modSet.items.length === 0" class="empty-state">
+                    <div v-if="modPack.items.length === 0" class="empty-state">
                         <p>
                             No mods added yet. Add your first mod to get
                             started!
@@ -72,7 +81,7 @@
 
                     <div v-else class="mods-list">
                         <div
-                            v-for="(item, index) in modSet.items"
+                            v-for="(item, index) in modPack.items"
                             :key="item.id"
                             class="mod-item"
                         >
@@ -126,12 +135,12 @@
         >
             <div class="modal-content" @click.stop>
                 <div class="modal-header">
-                    <h2>Edit Mod Set</h2>
+                    <h2>Edit Mod Pack</h2>
                     <button class="modal-close" @click="showEditModal = false">
                         ×
                     </button>
                 </div>
-                <form class="modal-body" @submit.prevent="updateModSet">
+                <form class="modal-body" @submit.prevent="updateModPack">
                     <div class="form-group">
                         <label for="edit-name">Name</label>
                         <input
@@ -141,30 +150,6 @@
                             required
                             class="form-input"
                         />
-                    </div>
-                    <div class="form-group">
-                        <label for="edit-minecraft_version"
-                            >Minecraft Version</label
-                        >
-                        <input
-                            id="edit-minecraft_version"
-                            v-model="editForm.minecraft_version"
-                            type="text"
-                            required
-                            class="form-input"
-                        />
-                    </div>
-                    <div class="form-group">
-                        <label for="edit-software">Software</label>
-                        <select
-                            id="edit-software"
-                            v-model="editForm.software"
-                            required
-                            class="form-input"
-                        >
-                            <option value="forge">Forge</option>
-                            <option value="fabric">Fabric</option>
-                        </select>
                     </div>
                     <div class="form-group">
                         <label for="edit-description"
@@ -182,6 +167,76 @@
                             type="button"
                             class="btn btn-secondary"
                             @click="showEditModal = false"
+                        >
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            Update
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Change Version Modal -->
+        <div
+            v-if="showChangeVersionModal"
+            class="modal-overlay"
+            @click="showChangeVersionModal = false"
+        >
+            <div class="modal-content" @click.stop>
+                <div class="modal-header">
+                    <h2>Change Version</h2>
+                    <button
+                        class="modal-close"
+                        @click="showChangeVersionModal = false"
+                    >
+                        ×
+                    </button>
+                </div>
+                <form class="modal-body" @submit.prevent="updateModPackVersion">
+                    <div class="form-group">
+                        <label for="change-minecraft_version"
+                            >Minecraft Version</label
+                        >
+                        <input
+                            id="change-minecraft_version"
+                            v-model="versionForm.minecraft_version"
+                            type="text"
+                            required
+                            class="form-input"
+                            placeholder="e.g., 1.20.1"
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label for="change-software">Software</label>
+                        <select
+                            id="change-software"
+                            v-model="versionForm.software"
+                            required
+                            class="form-input"
+                        >
+                            <option value="" disabled>
+                                {{
+                                    modLoaders.length === 0
+                                        ? "No loaders available"
+                                        : "Select a mod loader"
+                                }}
+                            </option>
+                            <option
+                                v-for="loader in modLoaders"
+                                :key="loader.id"
+                                :value="loader.slug"
+                            >
+                                {{ loader.name }}
+                            </option>
+                        </select>
+                    </div>
+                    <div class="modal-footer">
+                        <button
+                            type="button"
+                            class="btn btn-secondary"
+                            @click="showChangeVersionModal = false"
                         >
                             Cancel
                         </button>
@@ -312,9 +367,9 @@
                                 <p>
                                     Select a version for
                                     <strong>{{
-                                        modSet.minecraft_version
+                                        modPack.minecraft_version
                                     }}</strong>
-                                    ({{ modSet.software_label }})
+                                    ({{ modPack.software }})
                                 </p>
                             </div>
                             <div class="files-list-items">
@@ -364,9 +419,13 @@
                         <div v-else class="no-files">
                             <p>
                                 No compatible versions found for
-                                <strong>{{ modSet.minecraft_version }}</strong>
-                                ({{ modSet.software_label }}).
+                                <strong>{{ modPack.minecraft_version }}</strong>
+                                ({{ modPack.software }}).
                             </p>
+                        </div>
+
+                        <div v-if="addModError" class="error-message">
+                            <p>{{ addModError }}</p>
                         </div>
 
                         <div class="modal-footer">
@@ -390,29 +449,57 @@
                 </div>
             </div>
         </div>
-    </DashboardLayout>
+    </AppLayout>
 </template>
 
 <script setup>
 import { Head, Link, router, useForm } from "@inertiajs/vue3";
-import { ref, computed } from "vue";
-import DashboardLayout from "../../Layouts/DashboardLayout.vue";
+import { ref, computed, watch } from "vue";
+import AppLayout from "../../Layouts/AppLayout.vue";
 import axios from "axios";
 import { downloadZip } from "client-zip";
 
 const props = defineProps({
-    modSet: Object,
+    modPack: Object,
+    gameVersions: {
+        type: Array,
+        default: () => [],
+    },
+    modLoaders: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const showEditModal = ref(false);
 const showAddModModal = ref(false);
+const showChangeVersionModal = ref(false);
 const addModStep = ref("search"); // 'search' or 'selectVersion'
 
 const editForm = useForm({
-    name: props.modSet.name,
-    minecraft_version: props.modSet.minecraft_version,
-    software: props.modSet.software.value,
-    description: props.modSet.description || "",
+    name: props.modPack.name,
+    description: props.modPack.description || "",
+});
+
+const versionForm = useForm({
+    minecraft_version: props.modPack.minecraft_version,
+    software: props.modPack.software,
+});
+
+watch(showEditModal, (isOpen) => {
+    if (isOpen) {
+        // Update form with current values when modal opens
+        editForm.name = props.modPack.name;
+        editForm.description = props.modPack.description || "";
+    }
+});
+
+watch(showChangeVersionModal, (isOpen) => {
+    if (isOpen) {
+        // Update form with current values when modal opens
+        versionForm.minecraft_version = props.modPack.minecraft_version;
+        versionForm.software = props.modPack.software;
+    }
 });
 
 const modSearchQuery = ref("");
@@ -425,6 +512,7 @@ const isLoadingFiles = ref(false);
 const selectedFile = ref(null);
 const isDownloadingAll = ref(false);
 const downloadingItems = ref(new Set());
+const addModError = ref("");
 
 let searchTimeout = null;
 
@@ -454,7 +542,7 @@ const searchMods = async () => {
 
     try {
         const response = await axios.get(
-            `/mod-sets/${props.modSet.id}/search-mods`,
+            `/mod-packs/${props.modPack.id}/search-mods`,
             {
                 params: {
                     query: modSearchQuery.value,
@@ -477,10 +565,11 @@ const selectMod = async (mod) => {
     isLoadingFiles.value = true;
     modFiles.value = [];
     selectedFile.value = null;
+    addModError.value = "";
 
     try {
         const response = await axios.get(
-            `/mod-sets/${props.modSet.id}/mod-files`,
+            `/mod-packs/${props.modPack.id}/mod-files`,
             {
                 params: {
                     mod_id: mod.id,
@@ -515,10 +604,25 @@ const closeAddModModal = () => {
     selectedMod.value = null;
     modFiles.value = [];
     selectedFile.value = null;
+    addModError.value = "";
 };
 
 const addMod = () => {
     if (!selectedMod.value || !selectedFile.value) {
+        return;
+    }
+
+    // Clear any previous errors
+    addModError.value = "";
+
+    // Check if mod is already in the mod pack
+    const existingMod = props.modPack.items.find(
+        (item) => item.curseforge_mod_id === selectedMod.value.id,
+    );
+
+    if (existingMod) {
+        // Show error message
+        addModError.value = `This mod (${selectedMod.value.name}) is already added to the mod pack.`;
         return;
     }
 
@@ -531,30 +635,46 @@ const addMod = () => {
         curseforge_slug: selectedMod.value.slug,
     });
 
-    form.post(`/mod-sets/${props.modSet.id}/items`, {
+    form.post(`/mod-packs/${props.modPack.id}/items`, {
         onSuccess: () => {
             closeAddModModal();
+        },
+        onError: (errors) => {
+            // Handle backend validation errors
+            if (errors.curseforge_mod_id) {
+                addModError.value = errors.curseforge_mod_id;
+            } else {
+                addModError.value = "Failed to add mod. Please try again.";
+            }
         },
     });
 };
 
-const updateModSet = () => {
-    editForm.put(`/mod-sets/${props.modSet.id}`, {
+const updateModPack = () => {
+    editForm.put(`/mod-packs/${props.modPack.id}`, {
         onSuccess: () => {
             showEditModal.value = false;
         },
     });
 };
 
-const deleteModSet = () => {
-    if (confirm("Are you sure you want to delete this mod set?")) {
-        router.delete(`/mod-sets/${props.modSet.id}`);
+const updateModPackVersion = () => {
+    versionForm.put(`/mod-packs/${props.modPack.id}`, {
+        onSuccess: () => {
+            showChangeVersionModal.value = false;
+        },
+    });
+};
+
+const deleteModPack = () => {
+    if (confirm("Are you sure you want to delete this mod pack?")) {
+        router.delete(`/mod-packs/${props.modPack.id}`);
     }
 };
 
 const deleteModItem = (itemId) => {
     if (confirm("Are you sure you want to remove this mod?")) {
-        router.delete(`/mod-sets/${props.modSet.id}/items/${itemId}`);
+        router.delete(`/mod-packs/${props.modPack.id}/items/${itemId}`);
     }
 };
 
@@ -595,7 +715,7 @@ const downloadModItem = async (item) => {
 
     try {
         const response = await axios.get(
-            `/mod-sets/${props.modSet.id}/items/${item.id}/download-link`,
+            `/mod-packs/${props.modPack.id}/items/${item.id}/download-link`,
         );
 
         console.log("Download link response:", response.data);
@@ -637,20 +757,20 @@ const downloadModItem = async (item) => {
 const downloadAllAsZip = async () => {
     try {
         if (
-            !props.modSet ||
-            !props.modSet.items ||
-            props.modSet.items.length === 0
+            !props.modPack ||
+            !props.modPack.items ||
+            props.modPack.items.length === 0
         ) {
             return;
         }
 
         isDownloadingAll.value = true;
 
-        console.log("Fetching download links for mod set:", props.modSet.id);
+        console.log("Fetching download links for mod pack:", props.modPack.id);
 
         // Get all download links
         const response = await axios.get(
-            `/mod-sets/${props.modSet.id}/download-links`,
+            `/mod-packs/${props.modPack.id}/download-links`,
         );
 
         console.log("Download links response:", response.data);
@@ -797,7 +917,7 @@ const downloadAllAsZip = async () => {
         const url = URL.createObjectURL(zipBlob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `${props.modSet.name.replace(/[^a-z0-9]/gi, "_")}_mods.zip`;
+        a.download = `${props.modPack.name.replace(/[^a-z0-9]/gi, "_")}_mods.zip`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -805,11 +925,11 @@ const downloadAllAsZip = async () => {
 
         console.log("ZIP download triggered");
     } catch (error) {
-        console.error("Error downloading mod set:", error);
+        console.error("Error downloading mod pack:", error);
         const errorMessage =
             error?.message || error?.toString() || "Unknown error";
         alert(
-            `Failed to download mod set: ${errorMessage}. Please check the console for details.`,
+            `Failed to download mod pack: ${errorMessage}. Please check the console for details.`,
         );
     } finally {
         isDownloadingAll.value = false;
@@ -851,6 +971,41 @@ const downloadAllAsZip = async () => {
 .header-actions {
     display: flex;
     gap: var(--spacing-md);
+}
+
+.dashboard-subtitle {
+    color: var(--color-text-secondary);
+    font-size: 0.9375rem;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.version-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.btn-change-version {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--color-background-light);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-base);
+    margin-left: var(--spacing-xs);
+}
+
+.btn-change-version:hover {
+    background: var(--color-surface-light);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
 }
 
 .section-header {
@@ -1097,6 +1252,12 @@ const downloadAllAsZip = async () => {
 .form-input textarea {
     resize: vertical;
     min-height: 80px;
+}
+
+.form-help-text {
+    margin-top: var(--spacing-xs);
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
 }
 
 .modal-footer {
@@ -1357,5 +1518,19 @@ const downloadAllAsZip = async () => {
     color: var(--color-primary);
     font-size: 1.25rem;
     font-weight: bold;
+}
+
+.error-message {
+    margin: var(--spacing-md) 0;
+    padding: var(--spacing-md);
+    background: rgb(239 68 68 / 10%);
+    border: 1px solid var(--color-error);
+    border-radius: var(--radius-md);
+    color: var(--color-error);
+    font-size: 0.875rem;
+}
+
+.error-message p {
+    margin: 0;
 }
 </style>

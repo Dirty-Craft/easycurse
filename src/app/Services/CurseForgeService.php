@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Enums\Software;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -88,7 +88,7 @@ class CurseForgeService
     /**
      * Get files for a mod.
      */
-    public function getModFiles(int $modId, ?string $gameVersion = null, ?Software $software = null): array
+    public function getModFiles(int $modId, ?string $gameVersion = null, ?string $software = null): array
     {
         try {
             $queryParams = [];
@@ -98,9 +98,18 @@ class CurseForgeService
             }
 
             if ($software) {
-                // Map Software enum to CurseForge mod loader type
-                // 1 = Forge, 4 = Fabric, 2 = Quilt (uses same as Fabric)
-                $queryParams['modLoaderType'] = $software === Software::Forge ? 1 : 4;
+                // Map software string to CurseForge mod loader type
+                // 1 = Forge, 4 = Fabric, 2 = Quilt
+                $modLoaderType = match (strtolower($software)) {
+                    'forge' => 1,
+                    'fabric' => 4,
+                    'quilt' => 2,
+                    default => null,
+                };
+
+                if ($modLoaderType) {
+                    $queryParams['modLoaderType'] = $modLoaderType;
+                }
             }
 
             $response = $this->client()->get($this->baseUrl.'mods/'.$modId.'/files', $queryParams);
@@ -112,7 +121,7 @@ class CurseForgeService
             Log::error('CurseForge API error getting mod files', [
                 'mod_id' => $modId,
                 'game_version' => $gameVersion,
-                'software' => $software?->value,
+                'software' => $software,
                 'error' => $e->getMessage(),
             ]);
 
@@ -171,7 +180,7 @@ class CurseForgeService
     /**
      * Get the latest file for a mod matching the game version and software.
      */
-    public function getLatestModFile(int $modId, string $gameVersion, Software $software): ?array
+    public function getLatestModFile(int $modId, string $gameVersion, string $software): ?array
     {
         $files = $this->getModFiles($modId, $gameVersion, $software);
 
@@ -182,6 +191,229 @@ class CurseForgeService
         // Files are typically returned in descending order (newest first)
         // Return the first file (latest)
         return $files[0];
+    }
+
+    /**
+     * Get game versions for Minecraft.
+     * Results are cached for 24 hours to avoid excessive API calls.
+     */
+    public function getGameVersions(): array
+    {
+        // Check cache first - cache for 24 hours since game versions don't change frequently
+        $cached = Cache::get('curseforge_game_versions');
+        if ($cached !== null && is_array($cached) && ! empty($cached)) {
+            return $cached;
+        }
+
+        // Cache is empty or doesn't exist, fetch from API
+        try {
+            // Check if API key is configured
+            if (empty($this->apiKey)) {
+                Log::error('CurseForge API key is not configured');
+
+                return [];
+            }
+
+            // CurseForge API v1 game versions endpoint
+            // According to API docs, this endpoint uses POST with a body containing gameIds
+            $url = $this->baseUrl.'games/versions';
+
+            Log::debug('Fetching game versions from CurseForge API', [
+                'url' => $url,
+                'game_id' => $this->minecraftGameId,
+                'has_api_key' => ! empty($this->apiKey),
+            ]);
+
+            // CurseForge API v1 game versions endpoint uses POST with JSON body
+            $response = $this->client()->asJson()->post($url, [
+                'gameIds' => [(int) $this->minecraftGameId],
+            ]);
+
+            $statusCode = $response->status();
+            $responseBody = $response->json();
+
+            Log::debug('CurseForge API response', [
+                'status' => $statusCode,
+                'has_data' => isset($responseBody['data']),
+                'data_count' => isset($responseBody['data']) ? count($responseBody['data']) : 0,
+                'response_keys' => array_keys($responseBody ?? []),
+                'full_response' => $responseBody,
+            ]);
+
+            // Check for HTTP errors first
+            if (! $response->successful()) {
+                Log::error('CurseForge API request failed', [
+                    'status' => $statusCode,
+                    'url' => $url,
+                    'response' => $responseBody,
+                    'body' => $response->body(),
+                ]);
+
+                return [];
+            }
+
+            // Check for API errors in response
+            if (isset($responseBody['error']) || isset($responseBody['errors'])) {
+                Log::error('CurseForge API returned error', [
+                    'error' => $responseBody['error'] ?? $responseBody['errors'] ?? null,
+                    'response' => $responseBody,
+                ]);
+
+                return [];
+            }
+
+            // CurseForge API v1 wraps responses in 'data' key
+            // The response might be nested under the game ID key: { "data": { "432": [...] } }
+            // Or it might be a direct array: { "data": [...] }
+            $data = [];
+            if (isset($responseBody['data'])) {
+                if (is_array($responseBody['data'])) {
+                    // Check if data is nested under game ID
+                    $gameIdStr = (string) $this->minecraftGameId;
+                    if (isset($responseBody['data'][$gameIdStr]) && is_array($responseBody['data'][$gameIdStr])) {
+                        $data = $responseBody['data'][$gameIdStr];
+                    } elseif (! isset($responseBody['data'][0]) || is_numeric(array_key_first($responseBody['data']))) {
+                        // If it's not numeric keys, it might be an object with game IDs as keys
+                        // Try to get the first value
+                        $firstKey = array_key_first($responseBody['data']);
+                        if ($firstKey && isset($responseBody['data'][$firstKey]) && is_array($responseBody['data'][$firstKey])) {
+                            $data = $responseBody['data'][$firstKey];
+                        } else {
+                            // Direct array
+                            $data = $responseBody['data'];
+                        }
+                    } else {
+                        // Direct array
+                        $data = $responseBody['data'];
+                    }
+                }
+            } elseif (is_array($responseBody) && ! isset($responseBody['data'])) {
+                // Response might be directly an array
+                $data = $responseBody;
+            }
+
+            if (empty($data) || ! is_array($data)) {
+                Log::warning('CurseForge API returned empty game versions', [
+                    'response' => $responseBody,
+                    'status' => $statusCode,
+                    'response_structure' => [
+                        'has_data_key' => isset($responseBody['data']),
+                        'data_type' => isset($responseBody['data']) ? gettype($responseBody['data']) : 'none',
+                        'data_keys' => isset($responseBody['data']) && is_array($responseBody['data']) ? array_keys($responseBody['data']) : [],
+                    ],
+                ]);
+
+                return [];
+            }
+
+            // Log first version structure for debugging
+            if (! empty($data[0])) {
+                Log::debug('CurseForge game version structure', [
+                    'first_version' => $data[0],
+                    'keys' => array_keys($data[0]),
+                ]);
+            }
+
+            // Transform and normalize the data
+            // CurseForge API v1 returns versions with various possible field names
+            $versions = [];
+            foreach ($data as $version) {
+                // Try multiple possible field names for version string
+                $name = $version['name']
+                    ?? $version['versionString']
+                    ?? $version['gameVersion']
+                    ?? '';
+
+                if (empty($name)) {
+                    Log::debug('Skipping version without name', [
+                        'version' => $version,
+                        'keys' => array_keys($version),
+                    ]);
+
+                    continue;
+                }
+
+                $versions[] = [
+                    'id' => $version['id'] ?? $version['gameVersionId'] ?? null,
+                    'name' => $name,
+                    'slug' => $version['slug'] ?? str_replace('.', '-', $name),
+                    'type' => $version['gameVersionTypeID'] ?? $version['gameVersionTypeId'] ?? null,
+                ];
+            }
+
+            if (empty($versions)) {
+                Log::warning('No valid versions found after processing', [
+                    'raw_data_count' => count($data),
+                    'first_item' => $data[0] ?? null,
+                ]);
+
+                return [];
+            }
+
+            // Sort versions - newest first using version_compare
+            usort($versions, function ($a, $b) {
+                // Remove any non-version characters for comparison
+                $aVersion = preg_replace('/[^0-9.]/', '', $a['name']);
+                $bVersion = preg_replace('/[^0-9.]/', '', $b['name']);
+
+                return version_compare($bVersion, $aVersion);
+            });
+
+            Log::info('Successfully loaded game versions', [
+                'count' => count($versions),
+                'first' => $versions[0]['name'] ?? null,
+                'last' => end($versions)['name'] ?? null,
+            ]);
+
+            $result = array_values($versions);
+
+            // Only cache if we have valid data
+            if (! empty($result)) {
+                Cache::put('curseforge_game_versions', $result, 24 * 60 * 60);
+            }
+
+            return $result;
+        } catch (RequestException $e) {
+            $errorDetails = [
+                'url' => $this->baseUrl.'games/versions',
+                'status' => $e->response?->status(),
+                'error' => $e->getMessage(),
+                'response_body' => $e->response?->body(),
+                'response_json' => $e->response?->json(),
+            ];
+
+            Log::error('CurseForge API error getting game versions', $errorDetails);
+
+            // Don't cache errors
+            return [];
+        } catch (\Exception $e) {
+            Log::error('Unexpected error getting game versions', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            // Don't cache errors
+            return [];
+        }
+    }
+
+    /**
+     * Get available mod loaders.
+     * Returns common mod loaders with their CurseForge modLoaderType IDs.
+     */
+    public function getModLoaders(): array
+    {
+        // CurseForge mod loader types:
+        // 1 = Forge
+        // 2 = Quilt
+        // 4 = Fabric
+        // 6 = NeoForge
+        return [
+            ['id' => 1, 'name' => 'Forge', 'slug' => 'forge'],
+            ['id' => 4, 'name' => 'Fabric', 'slug' => 'fabric'],
+            ['id' => 2, 'name' => 'Quilt', 'slug' => 'quilt'],
+            ['id' => 6, 'name' => 'NeoForge', 'slug' => 'neoforge'],
+        ];
     }
 
     /**

@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LandingController;
 use Illuminate\Support\Facades\Route;
 
@@ -17,15 +16,14 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    Route::resource('mod-sets', \App\Http\Controllers\ModSetController::class)->parameters([
-        'mod-sets' => 'id',
+    Route::resource('mod-packs', \App\Http\Controllers\ModPackController::class)->parameters([
+        'mod-packs' => 'id',
     ]);
-    Route::get('/mod-sets/{id}/search-mods', [\App\Http\Controllers\ModSetController::class, 'searchMods'])->name('mod-sets.search-mods');
-    Route::get('/mod-sets/{id}/mod-files', [\App\Http\Controllers\ModSetController::class, 'getModFiles'])->name('mod-sets.mod-files');
-    Route::post('/mod-sets/{id}/items', [\App\Http\Controllers\ModSetController::class, 'storeItem'])->name('mod-sets.items.store');
-    Route::delete('/mod-sets/{id}/items/{itemId}', [\App\Http\Controllers\ModSetController::class, 'destroyItem'])->name('mod-sets.items.destroy');
-    Route::get('/mod-sets/{id}/download-links', [\App\Http\Controllers\ModSetController::class, 'getDownloadLinks'])->name('mod-sets.download-links');
-    Route::get('/mod-sets/{id}/items/{itemId}/download-link', [\App\Http\Controllers\ModSetController::class, 'getItemDownloadLink'])->name('mod-sets.items.download-link');
+    Route::get('/mod-packs/{id}/search-mods', [\App\Http\Controllers\ModPackController::class, 'searchMods'])->name('mod-packs.search-mods');
+    Route::get('/mod-packs/{id}/mod-files', [\App\Http\Controllers\ModPackController::class, 'getModFiles'])->name('mod-packs.mod-files');
+    Route::post('/mod-packs/{id}/items', [\App\Http\Controllers\ModPackController::class, 'storeItem'])->name('mod-packs.items.store');
+    Route::delete('/mod-packs/{id}/items/{itemId}', [\App\Http\Controllers\ModPackController::class, 'destroyItem'])->name('mod-packs.items.destroy');
+    Route::get('/mod-packs/{id}/download-links', [\App\Http\Controllers\ModPackController::class, 'getDownloadLinks'])->name('mod-packs.download-links');
+    Route::get('/mod-packs/{id}/items/{itemId}/download-link', [\App\Http\Controllers\ModPackController::class, 'getItemDownloadLink'])->name('mod-packs.items.download-link');
 });

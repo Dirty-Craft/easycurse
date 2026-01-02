@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class ModSetItem extends Model
+class ModPackItem extends Model
 {
     use HasFactory;
 
@@ -16,7 +16,7 @@ class ModSetItem extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'mod_set_id',
+        'mod_pack_id',
         'mod_name',
         'mod_version',
         'sort_order',
@@ -26,10 +26,17 @@ class ModSetItem extends Model
     ];
 
     /**
-     * Get the mod set that owns the item.
+     * The table associated with the model.
+     *
+     * @var string
      */
-    public function modSet(): BelongsTo
+    protected $table = 'mod_pack_items';
+
+    /**
+     * Get the mod pack that owns the item.
+     */
+    public function modPack(): BelongsTo
     {
-        return $this->belongsTo(ModSet::class);
+        return $this->belongsTo(ModPack::class);
     }
 }

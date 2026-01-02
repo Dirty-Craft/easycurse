@@ -48,10 +48,10 @@ class User extends Authenticatable
     }
 
     /**
-     * Get the mod sets for the user.
+     * Get the mod packs for the user.
      */
-    public function modSets(): HasMany
+    public function modPacks(): HasMany
     {
-        return $this->hasMany(ModSet::class);
+        return $this->hasMany(ModPack::class);
     }
 }

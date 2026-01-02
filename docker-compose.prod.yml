@@ -4,8 +4,8 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    image: cursecool
-    container_name: cursecool
+    image: easycurse
+    container_name: easycurse
     restart: unless-stopped
     environment:
       SERVICE_NAME: app
@@ -17,7 +17,7 @@ services:
       - ./docs/:/var/www/docs
       - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
     networks:
-      - cursecool-network
+      - easycurse-network
     depends_on:
       db:
         condition: service_healthy
@@ -29,33 +29,33 @@ services:
       timeout: 10s
       retries: 3
   queue:
-    image: cursecool
-    container_name: cursecool-queue
+    image: easycurse
+    container_name: easycurse-queue
     restart: unless-stopped
     volumes:
       - ./src:/var/www
     command: php artisan queue:work --sleep=3 --tries=3
     networks:
-      - cursecool-network
+      - easycurse-network
     depends_on:
       - app
   scheduler:
-    image: cursecool
-    container_name: cursecool-scheduler
+    image: easycurse
+    container_name: easycurse-scheduler
     restart: unless-stopped
     volumes:
       - ./src:/var/www
     command: >
       sh -c "while [ true ]; do php artisan schedule:run --no-ansi & sleep 60; done"
     networks:
-      - cursecool-network
+      - easycurse-network
     depends_on:
       - app
   webserver:
     build:
       context: .
       dockerfile: docker/nginx/Dockerfile
-    container_name: cursecool-webserver
+    container_name: easycurse-webserver
     restart: unless-stopped
     ports:
       - "${APP_HTTP_PORT:-9090}:80"
@@ -67,20 +67,20 @@ services:
       - ./docker/nginx/:/etc/nginx/conf.d/
       - ./docker/ssl:/etc/letsencrypt
     networks:
-      - cursecool-network
+      - easycurse-network
     depends_on:
       - app
   db:
     image: mariadb:10.6.12
-    container_name: cursecool-db
+    container_name: easycurse-db
     restart: unless-stopped
     environment:
-      MARIADB_DATABASE: ${DB_NAME:-cursecool_db}
+      MARIADB_DATABASE: ${DB_NAME:-easycurse_db}
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-toor}
     volumes:
       - db_data:/var/lib/mysql
     networks:
-      - cursecool-network
+      - easycurse-network
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 30s
@@ -88,12 +88,12 @@ services:
       retries: 5
   redis:
     image: redis:alpine
-    container_name: cursecool-redis
+    container_name: easycurse-redis
     restart: unless-stopped
     volumes:
       - redis_data:/data
     networks:
-      - cursecool-network
+      - easycurse-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -103,5 +103,5 @@ volumes:
   db_data:
   redis_data:
 networks:
-  cursecool-network:
+  easycurse-network:
     driver: bridge

@@ -16,6 +16,10 @@ class AuthController extends Controller
      */
     public function showLogin()
     {
+        if (Auth::check()) {
+            return redirect('/mod-packs');
+        }
+
         return Inertia::render('Auth/Login');
     }
 
@@ -32,7 +36,7 @@ class AuthController extends Controller
         if (Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
             $request->session()->regenerate();
 
-            return redirect()->intended('/dashboard');
+            return redirect()->intended('/mod-packs');
         }
 
         throw ValidationException::withMessages([
@@ -45,6 +49,10 @@ class AuthController extends Controller
      */
     public function showRegister()
     {
+        if (Auth::check()) {
+            return redirect('/mod-packs');
+        }
+
         return Inertia::render('Auth/Register');
     }
 
@@ -67,7 +75,7 @@ class AuthController extends Controller
 
         Auth::login($user);
 
-        return redirect('/dashboard');
+        return redirect('/mod-packs');
     }
 
     /**

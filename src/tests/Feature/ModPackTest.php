@@ -2,87 +2,86 @@
 
 namespace Tests\Feature;
 
-use App\Enums\Software;
-use App\Models\ModSet;
-use App\Models\ModSetItem;
+use App\Models\ModPack;
+use App\Models\ModPackItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-class ModSetTest extends TestCase
+class ModPackTest extends TestCase
 {
     use RefreshDatabase;
 
     /**
-     * Test that mod sets index page is accessible to authenticated users.
+     * Test that mod packs index page is accessible to authenticated users.
      */
-    public function test_mod_sets_index_is_accessible_to_authenticated_users(): void
+    public function test_mod_packs_index_is_accessible_to_authenticated_users(): void
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->get('/mod-sets');
+        $response = $this->actingAs($user)->get('/mod-packs');
 
         $response->assertStatus(200);
-        $response->assertInertia(fn ($page) => $page->component('ModSets/Index'));
+        $response->assertInertia(fn ($page) => $page->component('ModPacks/Index'));
     }
 
     /**
-     * Test that mod sets index redirects unauthenticated users.
+     * Test that mod packs index redirects unauthenticated users.
      */
-    public function test_mod_sets_index_redirects_unauthenticated_users(): void
+    public function test_mod_packs_index_redirects_unauthenticated_users(): void
     {
-        $response = $this->get('/mod-sets');
+        $response = $this->get('/mod-packs');
 
         $response->assertRedirect('/login');
     }
 
     /**
-     * Test that mod sets index shows only user's mod sets.
+     * Test that mod packs index shows only user's mod packs.
      */
-    public function test_mod_sets_index_shows_only_user_mod_sets(): void
+    public function test_mod_packs_index_shows_only_user_mod_packs(): void
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
 
-        ModSet::factory()->count(3)->create(['user_id' => $user->id]);
-        ModSet::factory()->count(2)->create(['user_id' => $otherUser->id]);
+        ModPack::factory()->count(3)->create(['user_id' => $user->id]);
+        ModPack::factory()->count(2)->create(['user_id' => $otherUser->id]);
 
-        $response = $this->actingAs($user)->get('/mod-sets');
+        $response = $this->actingAs($user)->get('/mod-packs');
 
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page
-            ->component('ModSets/Index')
-            ->has('modSets', 3)
+            ->component('ModPacks/Index')
+            ->has('modPacks', 3)
         );
     }
 
     /**
-     * Test that mod sets index includes items relationship.
+     * Test that mod packs index includes items relationship.
      */
-    public function test_mod_sets_index_includes_items(): void
+    public function test_mod_packs_index_includes_items(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
-        ModSetItem::factory()->count(2)->create(['mod_set_id' => $modSet->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+        ModPackItem::factory()->count(2)->create(['mod_pack_id' => $modPack->id]);
 
-        $response = $this->actingAs($user)->get('/mod-sets');
+        $response = $this->actingAs($user)->get('/mod-packs');
 
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page
-            ->component('ModSets/Index')
-            ->has('modSets.0.items', 2)
+            ->component('ModPacks/Index')
+            ->has('modPacks.0.items', 2)
         );
     }
 
     /**
-     * Test that user can create a mod set.
+     * Test that user can create a mod pack.
      */
-    public function test_user_can_create_mod_set(): void
+    public function test_user_can_create_mod_pack(): void
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post('/mod-sets', [
+        $response = $this->actingAs($user)->post('/mod-packs', [
             'name' => 'Test Mod Pack',
             'minecraft_version' => '1.20.1',
             'software' => 'forge',
@@ -90,7 +89,7 @@ class ModSetTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('mod_sets', [
+        $this->assertDatabaseHas('mod_packs', [
             'user_id' => $user->id,
             'name' => 'Test Mod Pack',
             'minecraft_version' => '1.20.1',
@@ -100,11 +99,11 @@ class ModSetTest extends TestCase
     }
 
     /**
-     * Test that creating mod set requires authentication.
+     * Test that creating mod pack requires authentication.
      */
-    public function test_creating_mod_set_requires_authentication(): void
+    public function test_creating_mod_pack_requires_authentication(): void
     {
-        $response = $this->post('/mod-sets', [
+        $response = $this->post('/mod-packs', [
             'name' => 'Test Mod Pack',
             'minecraft_version' => '1.20.1',
             'software' => 'forge',
@@ -114,13 +113,13 @@ class ModSetTest extends TestCase
     }
 
     /**
-     * Test that creating mod set requires name.
+     * Test that creating mod pack requires name.
      */
-    public function test_creating_mod_set_requires_name(): void
+    public function test_creating_mod_pack_requires_name(): void
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post('/mod-sets', [
+        $response = $this->actingAs($user)->post('/mod-packs', [
             'minecraft_version' => '1.20.1',
             'software' => 'forge',
         ]);
@@ -129,13 +128,13 @@ class ModSetTest extends TestCase
     }
 
     /**
-     * Test that creating mod set requires minecraft version.
+     * Test that creating mod pack requires minecraft version.
      */
-    public function test_creating_mod_set_requires_minecraft_version(): void
+    public function test_creating_mod_pack_requires_minecraft_version(): void
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post('/mod-sets', [
+        $response = $this->actingAs($user)->post('/mod-packs', [
             'name' => 'Test Mod Pack',
             'software' => 'forge',
         ]);
@@ -144,13 +143,13 @@ class ModSetTest extends TestCase
     }
 
     /**
-     * Test that creating mod set requires software.
+     * Test that creating mod pack requires software.
      */
-    public function test_creating_mod_set_requires_software(): void
+    public function test_creating_mod_pack_requires_software(): void
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post('/mod-sets', [
+        $response = $this->actingAs($user)->post('/mod-packs', [
             'name' => 'Test Mod Pack',
             'minecraft_version' => '1.20.1',
         ]);
@@ -159,13 +158,13 @@ class ModSetTest extends TestCase
     }
 
     /**
-     * Test that creating mod set validates software enum.
+     * Test that creating mod pack validates software enum.
      */
-    public function test_creating_mod_set_validates_software_enum(): void
+    public function test_creating_mod_pack_validates_software_enum(): void
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post('/mod-sets', [
+        $response = $this->actingAs($user)->post('/mod-packs', [
             'name' => 'Test Mod Pack',
             'minecraft_version' => '1.20.1',
             'software' => 'invalid',
@@ -175,137 +174,137 @@ class ModSetTest extends TestCase
     }
 
     /**
-     * Test that creating mod set accepts forge software.
+     * Test that creating mod pack accepts forge software.
      */
-    public function test_creating_mod_set_accepts_forge_software(): void
+    public function test_creating_mod_pack_accepts_forge_software(): void
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post('/mod-sets', [
+        $response = $this->actingAs($user)->post('/mod-packs', [
             'name' => 'Test Mod Pack',
             'minecraft_version' => '1.20.1',
             'software' => 'forge',
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('mod_sets', [
+        $this->assertDatabaseHas('mod_packs', [
             'software' => 'forge',
         ]);
     }
 
     /**
-     * Test that creating mod set accepts fabric software.
+     * Test that creating mod pack accepts fabric software.
      */
-    public function test_creating_mod_set_accepts_fabric_software(): void
+    public function test_creating_mod_pack_accepts_fabric_software(): void
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post('/mod-sets', [
+        $response = $this->actingAs($user)->post('/mod-packs', [
             'name' => 'Test Mod Pack',
             'minecraft_version' => '1.20.1',
             'software' => 'fabric',
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('mod_sets', [
+        $this->assertDatabaseHas('mod_packs', [
             'software' => 'fabric',
         ]);
     }
 
     /**
-     * Test that description is optional when creating mod set.
+     * Test that description is optional when creating mod pack.
      */
-    public function test_creating_mod_set_description_is_optional(): void
+    public function test_creating_mod_pack_description_is_optional(): void
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post('/mod-sets', [
+        $response = $this->actingAs($user)->post('/mod-packs', [
             'name' => 'Test Mod Pack',
             'minecraft_version' => '1.20.1',
             'software' => 'forge',
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('mod_sets', [
+        $this->assertDatabaseHas('mod_packs', [
             'name' => 'Test Mod Pack',
             'description' => null,
         ]);
     }
 
     /**
-     * Test that user can view their mod set.
+     * Test that user can view their mod pack.
      */
-    public function test_user_can_view_their_mod_set(): void
+    public function test_user_can_view_their_mod_pack(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
 
-        $response = $this->actingAs($user)->get("/mod-sets/{$modSet->id}");
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}");
 
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page
-            ->component('ModSets/Show')
-            ->has('modSet')
-            ->where('modSet.id', $modSet->id)
+            ->component('ModPacks/Show')
+            ->has('modPack')
+            ->where('modPack.id', $modPack->id)
         );
     }
 
     /**
-     * Test that viewing mod set requires authentication.
+     * Test that viewing mod pack requires authentication.
      */
-    public function test_viewing_mod_set_requires_authentication(): void
+    public function test_viewing_mod_pack_requires_authentication(): void
     {
-        $modSet = ModSet::factory()->create();
+        $modPack = ModPack::factory()->create();
 
-        $response = $this->get("/mod-sets/{$modSet->id}");
+        $response = $this->get("/mod-packs/{$modPack->id}");
 
         $response->assertRedirect('/login');
     }
 
     /**
-     * Test that user cannot view other user's mod set.
+     * Test that user cannot view other user's mod pack.
      */
-    public function test_user_cannot_view_other_user_mod_set(): void
+    public function test_user_cannot_view_other_user_mod_pack(): void
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $otherUser->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $otherUser->id]);
 
-        $response = $this->actingAs($user)->get("/mod-sets/{$modSet->id}");
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}");
 
         $response->assertNotFound();
     }
 
     /**
-     * Test that viewing mod set includes items.
+     * Test that viewing mod pack includes items.
      */
-    public function test_viewing_mod_set_includes_items(): void
+    public function test_viewing_mod_pack_includes_items(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
-        ModSetItem::factory()->count(3)->create(['mod_set_id' => $modSet->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+        ModPackItem::factory()->count(3)->create(['mod_pack_id' => $modPack->id]);
 
-        $response = $this->actingAs($user)->get("/mod-sets/{$modSet->id}");
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}");
 
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page
-            ->has('modSet.items', 3)
+            ->has('modPack.items', 3)
         );
     }
 
     /**
-     * Test that user can update their mod set.
+     * Test that user can update their mod pack.
      */
-    public function test_user_can_update_their_mod_set(): void
+    public function test_user_can_update_their_mod_pack(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create([
+        $modPack = ModPack::factory()->create([
             'user_id' => $user->id,
             'name' => 'Original Name',
-            'software' => Software::Forge,
+            'software' => 'forge',
         ]);
 
-        $response = $this->actingAs($user)->put("/mod-sets/{$modSet->id}", [
+        $response = $this->actingAs($user)->put("/mod-packs/{$modPack->id}", [
             'name' => 'Updated Name',
             'minecraft_version' => '1.21.0',
             'software' => 'fabric',
@@ -313,8 +312,8 @@ class ModSetTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('mod_sets', [
-            'id' => $modSet->id,
+        $this->assertDatabaseHas('mod_packs', [
+            'id' => $modPack->id,
             'name' => 'Updated Name',
             'minecraft_version' => '1.21.0',
             'software' => 'fabric',
@@ -323,13 +322,13 @@ class ModSetTest extends TestCase
     }
 
     /**
-     * Test that updating mod set requires authentication.
+     * Test that updating mod pack requires authentication.
      */
-    public function test_updating_mod_set_requires_authentication(): void
+    public function test_updating_mod_pack_requires_authentication(): void
     {
-        $modSet = ModSet::factory()->create();
+        $modPack = ModPack::factory()->create();
 
-        $response = $this->put("/mod-sets/{$modSet->id}", [
+        $response = $this->put("/mod-packs/{$modPack->id}", [
             'name' => 'Updated Name',
             'minecraft_version' => '1.21.0',
             'software' => 'forge',
@@ -339,15 +338,15 @@ class ModSetTest extends TestCase
     }
 
     /**
-     * Test that user cannot update other user's mod set.
+     * Test that user cannot update other user's mod pack.
      */
-    public function test_user_cannot_update_other_user_mod_set(): void
+    public function test_user_cannot_update_other_user_mod_pack(): void
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $otherUser->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $otherUser->id]);
 
-        $response = $this->actingAs($user)->put("/mod-sets/{$modSet->id}", [
+        $response = $this->actingAs($user)->put("/mod-packs/{$modPack->id}", [
             'name' => 'Updated Name',
             'minecraft_version' => '1.21.0',
             'software' => 'forge',
@@ -357,14 +356,14 @@ class ModSetTest extends TestCase
     }
 
     /**
-     * Test that updating mod set requires name.
+     * Test that updating mod pack requires name.
      */
-    public function test_updating_mod_set_requires_name(): void
+    public function test_updating_mod_pack_requires_name(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
 
-        $response = $this->actingAs($user)->put("/mod-sets/{$modSet->id}", [
+        $response = $this->actingAs($user)->put("/mod-packs/{$modPack->id}", [
             'minecraft_version' => '1.21.0',
             'software' => 'forge',
         ]);
@@ -373,79 +372,79 @@ class ModSetTest extends TestCase
     }
 
     /**
-     * Test that user can delete their mod set.
+     * Test that user can delete their mod pack.
      */
-    public function test_user_can_delete_their_mod_set(): void
+    public function test_user_can_delete_their_mod_pack(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
 
-        $response = $this->actingAs($user)->delete("/mod-sets/{$modSet->id}");
+        $response = $this->actingAs($user)->delete("/mod-packs/{$modPack->id}");
 
-        $response->assertRedirect('/mod-sets');
-        $this->assertDatabaseMissing('mod_sets', [
-            'id' => $modSet->id,
+        $response->assertRedirect('/mod-packs');
+        $this->assertDatabaseMissing('mod_packs', [
+            'id' => $modPack->id,
         ]);
     }
 
     /**
-     * Test that deleting mod set requires authentication.
+     * Test that deleting mod pack requires authentication.
      */
-    public function test_deleting_mod_set_requires_authentication(): void
+    public function test_deleting_mod_pack_requires_authentication(): void
     {
-        $modSet = ModSet::factory()->create();
+        $modPack = ModPack::factory()->create();
 
-        $response = $this->delete("/mod-sets/{$modSet->id}");
+        $response = $this->delete("/mod-packs/{$modPack->id}");
 
         $response->assertRedirect('/login');
     }
 
     /**
-     * Test that user cannot delete other user's mod set.
+     * Test that user cannot delete other user's mod pack.
      */
-    public function test_user_cannot_delete_other_user_mod_set(): void
+    public function test_user_cannot_delete_other_user_mod_pack(): void
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $otherUser->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $otherUser->id]);
 
-        $response = $this->actingAs($user)->delete("/mod-sets/{$modSet->id}");
+        $response = $this->actingAs($user)->delete("/mod-packs/{$modPack->id}");
 
         $response->assertNotFound();
     }
 
     /**
-     * Test that deleting mod set also deletes its items.
+     * Test that deleting mod pack also deletes its items.
      */
-    public function test_deleting_mod_set_deletes_items(): void
+    public function test_deleting_mod_pack_deletes_items(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
-        $item = ModSetItem::factory()->create(['mod_set_id' => $modSet->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
 
-        $this->actingAs($user)->delete("/mod-sets/{$modSet->id}");
+        $this->actingAs($user)->delete("/mod-packs/{$modPack->id}");
 
-        $this->assertDatabaseMissing('mod_set_items', [
+        $this->assertDatabaseMissing('mod_pack_items', [
             'id' => $item->id,
         ]);
     }
 
     /**
-     * Test that user can add mod item to their mod set.
+     * Test that user can add mod item to their mod pack.
      */
-    public function test_user_can_add_mod_item_to_mod_set(): void
+    public function test_user_can_add_mod_item_to_mod_pack(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
 
-        $response = $this->actingAs($user)->post("/mod-sets/{$modSet->id}/items", [
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/items", [
             'mod_name' => 'JEI',
             'mod_version' => '1.20.1-11.6.0.1015',
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('mod_set_items', [
-            'mod_set_id' => $modSet->id,
+        $this->assertDatabaseHas('mod_pack_items', [
+            'mod_pack_id' => $modPack->id,
             'mod_name' => 'JEI',
             'mod_version' => '1.20.1-11.6.0.1015',
         ]);
@@ -456,9 +455,9 @@ class ModSetTest extends TestCase
      */
     public function test_adding_mod_item_requires_authentication(): void
     {
-        $modSet = ModSet::factory()->create();
+        $modPack = ModPack::factory()->create();
 
-        $response = $this->post("/mod-sets/{$modSet->id}/items", [
+        $response = $this->post("/mod-packs/{$modPack->id}/items", [
             'mod_name' => 'JEI',
             'mod_version' => '1.20.1-11.6.0.1015',
         ]);
@@ -467,15 +466,15 @@ class ModSetTest extends TestCase
     }
 
     /**
-     * Test that user cannot add mod item to other user's mod set.
+     * Test that user cannot add mod item to other user's mod pack.
      */
-    public function test_user_cannot_add_mod_item_to_other_user_mod_set(): void
+    public function test_user_cannot_add_mod_item_to_other_user_mod_pack(): void
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $otherUser->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $otherUser->id]);
 
-        $response = $this->actingAs($user)->post("/mod-sets/{$modSet->id}/items", [
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/items", [
             'mod_name' => 'JEI',
             'mod_version' => '1.20.1-11.6.0.1015',
         ]);
@@ -489,9 +488,9 @@ class ModSetTest extends TestCase
     public function test_adding_mod_item_requires_mod_name(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
 
-        $response = $this->actingAs($user)->post("/mod-sets/{$modSet->id}/items", [
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/items", [
             'mod_version' => '1.20.1-11.6.0.1015',
         ]);
 
@@ -504,9 +503,9 @@ class ModSetTest extends TestCase
     public function test_adding_mod_item_requires_mod_version(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
 
-        $response = $this->actingAs($user)->post("/mod-sets/{$modSet->id}/items", [
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/items", [
             'mod_name' => 'JEI',
         ]);
 
@@ -519,37 +518,37 @@ class ModSetTest extends TestCase
     public function test_adding_mod_item_sets_sort_order(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
-        ModSetItem::factory()->create([
-            'mod_set_id' => $modSet->id,
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
             'sort_order' => 5,
         ]);
 
-        $this->actingAs($user)->post("/mod-sets/{$modSet->id}/items", [
+        $this->actingAs($user)->post("/mod-packs/{$modPack->id}/items", [
             'mod_name' => 'JEI',
             'mod_version' => '1.20.1-11.6.0.1015',
         ]);
 
-        $this->assertDatabaseHas('mod_set_items', [
-            'mod_set_id' => $modSet->id,
+        $this->assertDatabaseHas('mod_pack_items', [
+            'mod_pack_id' => $modPack->id,
             'mod_name' => 'JEI',
             'sort_order' => 6,
         ]);
     }
 
     /**
-     * Test that user can remove mod item from their mod set.
+     * Test that user can remove mod item from their mod pack.
      */
-    public function test_user_can_remove_mod_item_from_mod_set(): void
+    public function test_user_can_remove_mod_item_from_mod_pack(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
-        $item = ModSetItem::factory()->create(['mod_set_id' => $modSet->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
 
-        $response = $this->actingAs($user)->delete("/mod-sets/{$modSet->id}/items/{$item->id}");
+        $response = $this->actingAs($user)->delete("/mod-packs/{$modPack->id}/items/{$item->id}");
 
         $response->assertRedirect();
-        $this->assertDatabaseMissing('mod_set_items', [
+        $this->assertDatabaseMissing('mod_pack_items', [
             'id' => $item->id,
         ]);
     }
@@ -559,50 +558,50 @@ class ModSetTest extends TestCase
      */
     public function test_removing_mod_item_requires_authentication(): void
     {
-        $modSet = ModSet::factory()->create();
-        $item = ModSetItem::factory()->create(['mod_set_id' => $modSet->id]);
+        $modPack = ModPack::factory()->create();
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
 
-        $response = $this->delete("/mod-sets/{$modSet->id}/items/{$item->id}");
+        $response = $this->delete("/mod-packs/{$modPack->id}/items/{$item->id}");
 
         $response->assertRedirect('/login');
     }
 
     /**
-     * Test that user cannot remove mod item from other user's mod set.
+     * Test that user cannot remove mod item from other user's mod pack.
      */
-    public function test_user_cannot_remove_mod_item_from_other_user_mod_set(): void
+    public function test_user_cannot_remove_mod_item_from_other_user_mod_pack(): void
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $otherUser->id]);
-        $item = ModSetItem::factory()->create(['mod_set_id' => $modSet->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $otherUser->id]);
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
 
-        $response = $this->actingAs($user)->delete("/mod-sets/{$modSet->id}/items/{$item->id}");
+        $response = $this->actingAs($user)->delete("/mod-packs/{$modPack->id}/items/{$item->id}");
 
         $response->assertNotFound();
     }
 
     /**
-     * Test that mod sets are ordered by latest first.
+     * Test that mod packs are ordered by latest first.
      */
-    public function test_mod_sets_are_ordered_by_latest_first(): void
+    public function test_mod_packs_are_ordered_by_latest_first(): void
     {
         $user = User::factory()->create();
-        $oldModSet = ModSet::factory()->create(['user_id' => $user->id]);
-        $oldModSet->created_at = now()->subDays(2);
-        $oldModSet->save();
+        $oldModPack = ModPack::factory()->create(['user_id' => $user->id]);
+        $oldModPack->created_at = now()->subDays(2);
+        $oldModPack->save();
 
-        $newModSet = ModSet::factory()->create(['user_id' => $user->id]);
-        $newModSet->created_at = now();
-        $newModSet->save();
+        $newModPack = ModPack::factory()->create(['user_id' => $user->id]);
+        $newModPack->created_at = now();
+        $newModPack->save();
 
-        $response = $this->actingAs($user)->get('/mod-sets');
+        $response = $this->actingAs($user)->get('/mod-packs');
 
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page
-            ->has('modSets', 2)
-            ->where('modSets.0.id', $newModSet->id)
-            ->where('modSets.1.id', $oldModSet->id)
+            ->has('modPacks', 2)
+            ->where('modPacks.0.id', $newModPack->id)
+            ->where('modPacks.1.id', $oldModPack->id)
         );
     }
 
@@ -612,10 +611,10 @@ class ModSetTest extends TestCase
     public function test_user_can_search_for_mods(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create([
+        $modPack = ModPack::factory()->create([
             'user_id' => $user->id,
             'minecraft_version' => '1.20.1',
-            'software' => Software::Fabric,
+            'software' => 'fabric',
         ]);
 
         Http::fake([
@@ -631,7 +630,7 @@ class ModSetTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->actingAs($user)->get("/mod-sets/{$modSet->id}/search-mods?query=jei");
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/search-mods?query=jei");
 
         $response->assertStatus(200);
         $response->assertJsonStructure([
@@ -646,9 +645,9 @@ class ModSetTest extends TestCase
      */
     public function test_searching_mods_requires_authentication(): void
     {
-        $modSet = ModSet::factory()->create();
+        $modPack = ModPack::factory()->create();
 
-        $response = $this->get("/mod-sets/{$modSet->id}/search-mods", [
+        $response = $this->get("/mod-packs/{$modPack->id}/search-mods", [
             'query' => 'jei',
         ]);
 
@@ -656,15 +655,15 @@ class ModSetTest extends TestCase
     }
 
     /**
-     * Test that user cannot search mods for other user's mod set.
+     * Test that user cannot search mods for other user's mod pack.
      */
-    public function test_user_cannot_search_mods_for_other_user_mod_set(): void
+    public function test_user_cannot_search_mods_for_other_user_mod_pack(): void
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $otherUser->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $otherUser->id]);
 
-        $response = $this->actingAs($user)->get("/mod-sets/{$modSet->id}/search-mods", [
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/search-mods", [
             'query' => 'jei',
         ]);
 
@@ -677,9 +676,9 @@ class ModSetTest extends TestCase
     public function test_searching_mods_requires_query(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
 
-        $response = $this->actingAs($user)->get("/mod-sets/{$modSet->id}/search-mods");
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/search-mods");
 
         $response->assertStatus(302);
         $response->assertSessionHasErrors('query');
@@ -691,10 +690,10 @@ class ModSetTest extends TestCase
     public function test_user_can_get_mod_files(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create([
+        $modPack = ModPack::factory()->create([
             'user_id' => $user->id,
             'minecraft_version' => '1.20.1',
-            'software' => Software::Fabric,
+            'software' => 'fabric',
         ]);
 
         Http::fake([
@@ -711,7 +710,7 @@ class ModSetTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->actingAs($user)->get("/mod-sets/{$modSet->id}/mod-files?mod_id=123456");
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/mod-files?mod_id=123456");
 
         $response->assertStatus(200);
         $response->assertJsonStructure([
@@ -726,9 +725,9 @@ class ModSetTest extends TestCase
      */
     public function test_getting_mod_files_requires_authentication(): void
     {
-        $modSet = ModSet::factory()->create();
+        $modPack = ModPack::factory()->create();
 
-        $response = $this->get("/mod-sets/{$modSet->id}/mod-files", [
+        $response = $this->get("/mod-packs/{$modPack->id}/mod-files", [
             'mod_id' => 123456,
         ]);
 
@@ -736,15 +735,15 @@ class ModSetTest extends TestCase
     }
 
     /**
-     * Test that user cannot get mod files for other user's mod set.
+     * Test that user cannot get mod files for other user's mod pack.
      */
-    public function test_user_cannot_get_mod_files_for_other_user_mod_set(): void
+    public function test_user_cannot_get_mod_files_for_other_user_mod_pack(): void
     {
         $user = User::factory()->create();
         $otherUser = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $otherUser->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $otherUser->id]);
 
-        $response = $this->actingAs($user)->get("/mod-sets/{$modSet->id}/mod-files", [
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/mod-files", [
             'mod_id' => 123456,
         ]);
 
@@ -757,9 +756,9 @@ class ModSetTest extends TestCase
     public function test_getting_mod_files_requires_mod_id(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
 
-        $response = $this->actingAs($user)->get("/mod-sets/{$modSet->id}/mod-files");
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/mod-files");
 
         $response->assertStatus(302);
         $response->assertSessionHasErrors('mod_id');
@@ -771,9 +770,9 @@ class ModSetTest extends TestCase
     public function test_user_can_add_mod_item_with_curseforge_data(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
 
-        $response = $this->actingAs($user)->post("/mod-sets/{$modSet->id}/items", [
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/items", [
             'mod_name' => 'JEI',
             'mod_version' => '1.20.1-11.6.0.1015',
             'curseforge_mod_id' => 123456,
@@ -782,8 +781,8 @@ class ModSetTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('mod_set_items', [
-            'mod_set_id' => $modSet->id,
+        $this->assertDatabaseHas('mod_pack_items', [
+            'mod_pack_id' => $modPack->id,
             'mod_name' => 'JEI',
             'mod_version' => '1.20.1-11.6.0.1015',
             'curseforge_mod_id' => 123456,
@@ -798,16 +797,16 @@ class ModSetTest extends TestCase
     public function test_curseforge_fields_are_optional_when_adding_mod_item(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
 
-        $response = $this->actingAs($user)->post("/mod-sets/{$modSet->id}/items", [
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/items", [
             'mod_name' => 'JEI',
             'mod_version' => '1.20.1-11.6.0.1015',
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('mod_set_items', [
-            'mod_set_id' => $modSet->id,
+        $this->assertDatabaseHas('mod_pack_items', [
+            'mod_pack_id' => $modPack->id,
             'mod_name' => 'JEI',
             'mod_version' => '1.20.1-11.6.0.1015',
             'curseforge_mod_id' => null,
@@ -822,10 +821,10 @@ class ModSetTest extends TestCase
     public function test_searching_mods_by_slug_works(): void
     {
         $user = User::factory()->create();
-        $modSet = ModSet::factory()->create([
+        $modPack = ModPack::factory()->create([
             'user_id' => $user->id,
             'minecraft_version' => '1.20.1',
-            'software' => Software::Fabric,
+            'software' => 'fabric',
         ]);
 
         Http::fake([
@@ -841,7 +840,7 @@ class ModSetTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->actingAs($user)->get("/mod-sets/{$modSet->id}/search-mods?query=jei");
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/search-mods?query=jei");
 
         $response->assertStatus(200);
         $response->assertJson([

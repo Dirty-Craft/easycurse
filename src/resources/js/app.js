@@ -5,7 +5,7 @@ import { createApp, h } from "vue";
 import { createInertiaApp } from "@inertiajs/vue3";
 import { resolvePageComponent } from "laravel-vite-plugin/inertia-helpers";
 
-const appName = import.meta.env.VITE_APP_NAME || "CurseCool";
+const appName = import.meta.env.VITE_APP_NAME || "EasyCurse";
 
 createInertiaApp({
     title: (title) => (title ? `${title} | ${appName}` : appName),
