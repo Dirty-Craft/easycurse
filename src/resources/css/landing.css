@@ -34,7 +34,6 @@
     font-size: 1.5rem;
     font-weight: 700;
     background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
-    background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
     letter-spacing: -0.02em;
@@ -682,7 +681,7 @@
     font-size: clamp(2rem, 5vw, 3.5rem);
     font-weight: 700;
     margin-bottom: var(--spacing-lg);
-    color: #ffffff;
+    color: #fff;
     letter-spacing: -0.02em;
 }
 
