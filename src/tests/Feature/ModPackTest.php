@@ -301,13 +301,12 @@ class ModPackTest extends TestCase
         $modPack = ModPack::factory()->create([
             'user_id' => $user->id,
             'name' => 'Original Name',
+            'minecraft_version' => '1.20.2',
             'software' => 'forge',
         ]);
 
         $response = $this->actingAs($user)->put("/mod-packs/{$modPack->id}", [
             'name' => 'Updated Name',
-            'minecraft_version' => '1.21.0',
-            'software' => 'fabric',
             'description' => 'Updated description',
         ]);
 
@@ -315,8 +314,8 @@ class ModPackTest extends TestCase
         $this->assertDatabaseHas('mod_packs', [
             'id' => $modPack->id,
             'name' => 'Updated Name',
-            'minecraft_version' => '1.21.0',
-            'software' => 'fabric',
+            'minecraft_version' => '1.20.2', // Should remain unchanged
+            'software' => 'forge', // Should remain unchanged
             'description' => 'Updated description',
         ]);
     }
@@ -1200,11 +1199,12 @@ class ModPackTest extends TestCase
         ]);
 
         // Verify error message mentions the mod without version
-        $response->assertSessionHasErrors([
-            'version_change' => function ($message) {
-                return str_contains($message, 'OptiFine') && str_contains($message, '1.21.0');
-            },
-        ]);
+        $errors = $response->getSession()->get('errors');
+        $this->assertNotNull($errors);
+        $versionChangeError = $errors->get('version_change');
+        $this->assertNotEmpty($versionChangeError);
+        $this->assertStringContainsString('OptiFine', $versionChangeError[0]);
+        $this->assertStringContainsString('1.21.0', $versionChangeError[0]);
     }
 
     /**

@@ -33,7 +33,7 @@
                     <div class="header-actions">
                         <button
                             class="btn btn-secondary"
-                            @click="showEditModal = true"
+                            @click="openEditModal"
                         >
                             Edit
                         </button>
@@ -128,19 +128,15 @@
         </div>
 
         <!-- Edit Modal -->
-        <div
-            v-if="showEditModal"
-            class="modal-overlay"
-            @click="showEditModal = false"
-        >
+        <div v-if="showEditModal" class="modal-overlay" @click="closeEditModal">
             <div class="modal-content" @click.stop>
                 <div class="modal-header">
                     <h2>Edit Mod Pack</h2>
-                    <button class="modal-close" @click="showEditModal = false">
+                    <button class="modal-close" @click="closeEditModal">
                         ×
                     </button>
                 </div>
-                <form class="modal-body" @submit.prevent="updateModPack">
+                <form class="modal-body" @submit.prevent="handleUpdateModPack">
                     <div class="form-group">
                         <label for="edit-name">Name</label>
                         <input
@@ -149,7 +145,13 @@
                             type="text"
                             required
                             class="form-input"
+                            :class="{
+                                'form-input-error': editForm.errors.name,
+                            }"
                         />
+                        <div v-if="editForm.errors.name" class="form-error">
+                            {{ editForm.errors.name }}
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="edit-description"
@@ -161,17 +163,28 @@
                             class="form-input"
                             rows="3"
                         ></textarea>
+                        <div
+                            v-if="editForm.errors.description"
+                            class="form-error"
+                        >
+                            {{ editForm.errors.description }}
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button
                             type="button"
                             class="btn btn-secondary"
-                            @click="showEditModal = false"
+                            :disabled="editForm.processing"
+                            @click="closeEditModal"
                         >
                             Cancel
                         </button>
-                        <button type="submit" class="btn btn-primary">
-                            Update
+                        <button
+                            type="submit"
+                            class="btn btn-primary"
+                            :disabled="editForm.processing"
+                        >
+                            {{ editForm.processing ? "Updating..." : "Update" }}
                         </button>
                     </div>
                 </form>
@@ -197,13 +210,17 @@
                 <form class="modal-body" @submit.prevent="updateModPackVersion">
                     <div class="version-change-notice">
                         <p>
-                            <strong>Note:</strong> Changing the version will create a
-                            <strong>new mod pack</strong> with the same name plus
-                            "(Updated to X Y)". All mods will be updated to versions
-                            compatible with the selected Minecraft version and mod loader.
+                            <strong>Note:</strong> Changing the version will
+                            create a <strong>new mod pack</strong> with the same
+                            name plus "(Updated to X Y)". All mods will be
+                            updated to versions compatible with the selected
+                            Minecraft version and mod loader.
                         </p>
                     </div>
-                    <div v-if="versionForm.errors.version_change" class="error-message">
+                    <div
+                        v-if="versionForm.errors.version_change"
+                        class="error-message"
+                    >
                         <p>{{ versionForm.errors.version_change }}</p>
                     </div>
                     <div class="form-group">
@@ -264,8 +281,16 @@
                         >
                             Cancel
                         </button>
-                        <button type="submit" class="btn btn-primary" :disabled="versionForm.processing">
-                            {{ versionForm.processing ? 'Creating...' : 'Create New Mod Pack' }}
+                        <button
+                            type="submit"
+                            class="btn btn-primary"
+                            :disabled="versionForm.processing"
+                        >
+                            {{
+                                versionForm.processing
+                                    ? "Creating..."
+                                    : "Create New Mod Pack"
+                            }}
                         </button>
                     </div>
                 </form>
@@ -510,13 +535,17 @@ const versionForm = useForm({
     software: props.modPack.software,
 });
 
-watch(showEditModal, (isOpen) => {
-    if (isOpen) {
-        // Update form with current values when modal opens
-        editForm.name = props.modPack.name;
-        editForm.description = props.modPack.description || "";
-    }
-});
+const openEditModal = () => {
+    editForm.name = props.modPack.name;
+    editForm.description = props.modPack.description || "";
+    editForm.clearErrors();
+    showEditModal.value = true;
+};
+
+const closeEditModal = () => {
+    showEditModal.value = false;
+    editForm.clearErrors();
+};
 
 watch(showChangeVersionModal, (isOpen) => {
     if (isOpen) {
@@ -676,10 +705,13 @@ const addMod = () => {
     });
 };
 
-const updateModPack = () => {
+const handleUpdateModPack = () => {
     editForm.put(`/mod-packs/${props.modPack.id}`, {
         onSuccess: () => {
-            showEditModal.value = false;
+            closeEditModal();
+        },
+        onError: () => {
+            // Errors are displayed in the form
         },
     });
 };
@@ -692,7 +724,7 @@ const updateModPackVersion = () => {
         },
         onError: (errors) => {
             // Errors are already displayed in the form
-            console.error('Error changing version:', errors);
+            console.error("Error changing version:", errors);
         },
     });
 };
@@ -1283,6 +1315,16 @@ const downloadAllAsZip = async () => {
 .form-input textarea {
     resize: vertical;
     min-height: 80px;
+}
+
+.form-input-error {
+    border-color: var(--color-error);
+}
+
+.form-error {
+    margin-top: var(--spacing-xs);
+    font-size: 0.875rem;
+    color: var(--color-error);
 }
 
 .form-help-text {
