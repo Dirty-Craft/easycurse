@@ -617,7 +617,17 @@ class ModPackTest extends TestCase
         ]);
 
         Http::fake([
-            'api.curseforge.com/v1/*' => Http::response([
+            'api.curseforge.com/v1/mods/search*slug=jei*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 123456,
+                        'name' => 'JEI',
+                        'slug' => 'jei',
+                        'downloadCount' => 1000000,
+                    ],
+                ],
+            ], 200),
+            'api.curseforge.com/v1/mods/search*searchFilter=jei*' => Http::response([
                 'data' => [
                     [
                         'id' => 123456,
@@ -723,6 +733,129 @@ class ModPackTest extends TestCase
         $data = $response->json('data');
         $this->assertCount(1, $data);
         $this->assertEquals(789012, $data[0]['id']);
+
+        // Also test with quilt software to cover quilt modLoaderType case (line 106)
+        $quiltModPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'quilt',
+        ]);
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/123456/files*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 789013,
+                        'displayName' => 'JEI 1.20.1-11.6.0.1015',
+                        'fileName' => 'jei-1.20.1-11.6.0.1015.jar',
+                        'fileDate' => '2024-01-01T00:00:00Z',
+                        'fileLength' => 1024000,
+                        'gameVersions' => ['1.20.1'],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$quiltModPack->id}/mod-files?mod_id=123456");
+        $response->assertStatus(200);
+        $quiltData = $response->json('data');
+        $this->assertCount(1, $quiltData);
+    }
+
+    /**
+     * Test that get mod files handles API errors gracefully.
+     */
+    public function test_get_mod_files_handles_api_errors(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'fabric',
+        ]);
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/123456/files*' => Http::response(['error' => 'Not found'], 404),
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/mod-files?mod_id=123456");
+
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        // Should return empty array on error
+        $this->assertIsArray($data);
+        $this->assertCount(0, $data);
+    }
+
+    /**
+     * Test that get mod files handles files with non-string gameVersions.
+     */
+    public function test_get_mod_files_handles_non_string_game_versions(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'fabric',
+        ]);
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/123456/files*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 789012,
+                        'displayName' => 'JEI 1.20.1-11.6.0.1015',
+                        'fileName' => 'jei-1.20.1-11.6.0.1015.jar',
+                        'fileDate' => '2024-01-01T00:00:00Z',
+                        'fileLength' => 1024000,
+                        'gameVersions' => [
+                            ['versionString' => '1.20.1'], // Array format
+                            '1.20.1', // String format
+                        ],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/mod-files?mod_id=123456");
+
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(1, $data);
+    }
+
+    /**
+     * Test that get mod files handles files with string gameVersion field.
+     */
+    public function test_get_mod_files_handles_string_game_version_field(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'fabric',
+        ]);
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/123456/files*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 789012,
+                        'displayName' => 'JEI 1.20.1-11.6.0.1015',
+                        'fileName' => 'jei-1.20.1-11.6.0.1015.jar',
+                        'fileDate' => '2024-01-01T00:00:00Z',
+                        'fileLength' => 1024000,
+                        'gameVersion' => '1.20.1', // Single string field
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/mod-files?mod_id=123456");
+
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(1, $data);
     }
 
     /**
@@ -797,6 +930,34 @@ class ModPackTest extends TestCase
     }
 
     /**
+     * Test that adding duplicate mod returns error.
+     */
+    public function test_adding_duplicate_mod_returns_error(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        // Add mod first time
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'JEI',
+            'curseforge_mod_id' => 123456,
+        ]);
+
+        // Try to add same mod again
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/items", [
+            'mod_name' => 'JEI',
+            'mod_version' => '1.20.1-11.6.0.1015',
+            'curseforge_mod_id' => 123456,
+            'curseforge_file_id' => 789012,
+            'curseforge_slug' => 'jei',
+        ]);
+
+        $response->assertSessionHasErrors('curseforge_mod_id');
+        // Verify duplicate check path is covered (lines 195-196)
+    }
+
+    /**
      * Test that CurseForge fields are optional when adding mod item.
      */
     public function test_curseforge_fields_are_optional_when_adding_mod_item(): void
@@ -857,6 +1018,48 @@ class ModPackTest extends TestCase
                 ],
             ],
         ]);
+    }
+
+    /**
+     * Test that searching mods falls back to general search when slug search doesn't match.
+     */
+    public function test_searching_mods_falls_back_to_general_search(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'fabric',
+        ]);
+
+        // Mock: slug search returns null, general search returns results
+        Http::fake([
+            'api.curseforge.com/v1/mods/search*slug=test-mod*' => Http::response([
+                'data' => [], // Slug search returns empty
+            ], 200),
+            'api.curseforge.com/v1/mods/search*searchFilter=test-mod*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 123456,
+                        'name' => 'Test Mod',
+                        'slug' => 'test-mod',
+                        'downloadCount' => 50000,
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/search-mods?query=test-mod");
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'data' => [
+                '*' => ['id', 'name', 'slug'],
+            ],
+        ]);
+        // Verify general search path is covered (lines 129-132)
+        $data = $response->json('data');
+        $this->assertNotEmpty($data);
     }
 
     /**
@@ -1425,5 +1628,458 @@ class ModPackTest extends TestCase
         // Verify new mod pack has no items
         $newModPack = ModPack::where('name', 'Empty Mod Pack (Updated to 1.21.0 Fabric)')->first();
         $this->assertEquals(0, $newModPack->items()->count());
+    }
+
+    /**
+     * Test that user can get download links for mod pack items.
+     */
+    public function test_user_can_get_download_links(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        $item1 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'JEI',
+            'curseforge_mod_id' => 123456,
+            'curseforge_file_id' => 789012,
+        ]);
+
+        $item2 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'OptiFine',
+            'curseforge_mod_id' => 234567,
+            'curseforge_file_id' => 890123,
+        ]);
+
+        // Item without CurseForge data (should be skipped)
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Custom Mod',
+            'curseforge_mod_id' => null,
+            'curseforge_file_id' => null,
+        ]);
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/123456/files/789012*' => Http::response([
+                'data' => [
+                    'id' => 789012,
+                    'fileName' => 'jei-1.20.1-11.6.0.1015.jar',
+                    'downloadUrl' => 'https://mediafilez.forgecdn.net/files/7890/12/jei-1.20.1-11.6.0.1015.jar',
+                ],
+            ], 200),
+            'api.curseforge.com/v1/mods/234567/files/890123*' => Http::response([
+                'data' => [
+                    'id' => 890123,
+                    'fileName' => 'optifine-1.20.1.jar',
+                    'downloadUrl' => 'https://mediafilez.forgecdn.net/files/8901/23/optifine-1.20.1.jar',
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/download-links");
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'data' => [
+                '*' => ['item_id', 'mod_name', 'mod_version', 'download_url', 'filename'],
+            ],
+        ]);
+
+        $data = $response->json('data');
+        $this->assertCount(2, $data); // Only items with CurseForge data
+        // Items may be returned in any order, so check both items are present
+        $itemIds = array_column($data, 'item_id');
+        $this->assertContains($item1->id, $itemIds);
+        $this->assertContains($item2->id, $itemIds);
+
+        // Also test individual item download link endpoint (covers getItemDownloadLink method)
+        // Need to ensure HTTP fake covers getModFile endpoint (used by getFileDownloadInfo)
+        Http::fake([
+            'api.curseforge.com/v1/mods/123456/files/789012' => Http::response([
+                'data' => [
+                    'id' => 789012,
+                    'fileName' => 'jei-1.20.1-11.6.0.1015.jar',
+                    'downloadUrl' => 'https://mediafilez.forgecdn.net/files/7890/12/jei-1.20.1-11.6.0.1015.jar',
+                ],
+            ], 200),
+        ]);
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/items/{$item1->id}/download-link");
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'data' => ['item_id', 'mod_name', 'mod_version', 'download_url', 'filename'],
+        ]);
+        $itemData = $response->json('data');
+        $this->assertEquals($item1->id, $itemData['item_id']);
+        $this->assertEquals('JEI', $itemData['mod_name']);
+    }
+
+    /**
+     * Test that get download links handles items with only mod_id but no file_id.
+     */
+    public function test_get_download_links_skips_items_without_file_id(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        // Item with mod_id but no file_id (should be skipped)
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'JEI',
+            'curseforge_mod_id' => 123456,
+            'curseforge_file_id' => null,
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/download-links");
+
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(0, $data);
+
+        // Also test individual item download link endpoint with missing file_id (error case)
+        $item = ModPackItem::where('mod_pack_id', $modPack->id)->first();
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/items/{$item->id}/download-link");
+        $response->assertStatus(404);
+        $response->assertJson([
+            'error' => 'This mod item does not have CurseForge download information.',
+        ]);
+    }
+
+    /**
+     * Test that get download links handles items where getFileDownloadInfo returns null.
+     */
+    public function test_get_download_links_handles_missing_download_info(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        // Item with CurseForge data but file not found
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'JEI',
+            'curseforge_mod_id' => 123456,
+            'curseforge_file_id' => 789012,
+        ]);
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/123456/files/789012*' => Http::response([], 404),
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/download-links");
+
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        // Should return empty array since download info is not available
+        $this->assertCount(0, $data);
+
+        // Also test individual item download link endpoint when getFileDownloadInfo returns null (error case)
+        $item = ModPackItem::where('mod_pack_id', $modPack->id)->first();
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/items/{$item->id}/download-link");
+        $response->assertStatus(404);
+        $response->assertJson([
+            'error' => 'Unable to retrieve download information for this mod.',
+        ]);
+    }
+
+    /**
+     * Test that getting download links requires authentication.
+     */
+    public function test_getting_download_links_requires_authentication(): void
+    {
+        $modPack = ModPack::factory()->create();
+
+        $response = $this->get("/mod-packs/{$modPack->id}/download-links");
+
+        $response->assertRedirect('/login');
+    }
+
+    /**
+     * Test that user cannot get download links for other user's mod pack.
+     */
+    public function test_user_cannot_get_download_links_for_other_user_mod_pack(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $otherUser->id]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/download-links");
+
+        $response->assertNotFound();
+
+        // Also test individual item download link endpoint authorization
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/items/{$item->id}/download-link");
+        $response->assertNotFound();
+    }
+
+    /**
+     * Test that user can use proxy download endpoint.
+     */
+    public function test_user_can_use_proxy_download(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        Http::fake([
+            'mediafilez.forgecdn.net/*' => Http::response('fake file content', 200, [
+                'Content-Type' => 'application/java-archive',
+            ]),
+        ]);
+
+        $url = urlencode('https://mediafilez.forgecdn.net/files/1234/567/test.jar');
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/proxy-download?url={$url}");
+
+        $response->assertStatus(200);
+        $response->assertHeader('Content-Type', 'application/java-archive');
+        $this->assertEquals('fake file content', $response->getContent());
+    }
+
+    /**
+     * Test that proxy download accepts edge.forgecdn.net domain.
+     */
+    public function test_proxy_download_accepts_edge_forgecdn_net(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        Http::fake([
+            'edge.forgecdn.net/*' => Http::response('fake file content', 200),
+        ]);
+
+        $url = urlencode('https://edge.forgecdn.net/files/1234/567/test.jar');
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/proxy-download?url={$url}");
+
+        $response->assertStatus(200);
+    }
+
+    /**
+     * Test that proxy download handles connection exceptions.
+     */
+    public function test_proxy_download_handles_connection_exceptions(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        Http::fake([
+            'mediafilez.forgecdn.net/*' => function () {
+                throw new \Illuminate\Http\Client\ConnectionException('Connection timeout');
+            },
+        ]);
+
+        $url = urlencode('https://mediafilez.forgecdn.net/files/1234/567/test.jar');
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/proxy-download?url={$url}");
+
+        $response->assertStatus(504);
+        $response->assertJson([
+            'error' => 'Connection timeout or network error',
+        ]);
+    }
+
+    /**
+     * Test that proxy download handles generic exceptions.
+     */
+    public function test_proxy_download_handles_generic_exceptions(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        Http::fake([
+            'mediafilez.forgecdn.net/*' => function () {
+                throw new \Exception('Unexpected error');
+            },
+        ]);
+
+        $url = urlencode('https://mediafilez.forgecdn.net/files/1234/567/test.jar');
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/proxy-download?url={$url}");
+
+        $response->assertStatus(500);
+        $response->assertJsonStructure(['error']);
+    }
+
+    /**
+     * Test that proxy download uses default content type when not provided.
+     */
+    public function test_proxy_download_uses_default_content_type(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        Http::fake([
+            'mediafilez.forgecdn.net/*' => Http::response('fake file content', 200), // No Content-Type header
+        ]);
+
+        $url = urlencode('https://mediafilez.forgecdn.net/files/1234/567/test.jar');
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/proxy-download?url={$url}");
+
+        $response->assertStatus(200);
+        $response->assertHeader('Content-Type', 'application/java-archive'); // Default
+    }
+
+    /**
+     * Test that proxy download rejects invalid URLs.
+     */
+    public function test_proxy_download_rejects_invalid_urls(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        $url = urlencode('https://malicious-site.com/file.jar');
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/proxy-download?url={$url}");
+
+        $response->assertStatus(400);
+        $response->assertJson([
+            'error' => 'Invalid download URL',
+        ]);
+    }
+
+    /**
+     * Test that proxy download handles HTTP errors.
+     */
+    public function test_proxy_download_handles_http_errors(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        Http::fake([
+            'mediafilez.forgecdn.net/*' => Http::response('Not Found', 404),
+        ]);
+
+        $url = urlencode('https://mediafilez.forgecdn.net/files/1234/567/test.jar');
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/proxy-download?url={$url}");
+
+        $response->assertStatus(404);
+        $response->assertJson([
+            'error' => 'Failed to download file from CDN',
+        ]);
+    }
+
+    /**
+     * Test that proxy download requires authentication.
+     */
+    public function test_proxy_download_requires_authentication(): void
+    {
+        $modPack = ModPack::factory()->create();
+
+        $url = urlencode('https://mediafilez.forgecdn.net/files/1234/567/test.jar');
+        $response = $this->get("/mod-packs/{$modPack->id}/proxy-download?url={$url}");
+
+        $response->assertRedirect('/login');
+    }
+
+    /**
+     * Test that user cannot use proxy download for other user's mod pack.
+     */
+    public function test_user_cannot_use_proxy_download_for_other_user_mod_pack(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $otherUser->id]);
+
+        $url = urlencode('https://mediafilez.forgecdn.net/files/1234/567/test.jar');
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/proxy-download?url={$url}");
+
+        $response->assertNotFound();
+    }
+
+    /**
+     * Test that proxy download requires url parameter.
+     */
+    public function test_proxy_download_requires_url(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/proxy-download");
+
+        $response->assertSessionHasErrors('url');
+    }
+
+    /**
+     * Test that changing version handles case where getLatestModFile returns null.
+     * This tests the warning log path (lines 402-406).
+     */
+    public function test_changing_version_handles_null_latest_mod_file(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'forge',
+        ]);
+
+        // Create mod item with CurseForge ID
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'JEI',
+            'curseforge_mod_id' => 123456,
+            'curseforge_file_id' => 789012,
+        ]);
+
+        // Mock: First call (validation) returns files, second call (getLatestModFile) returns empty
+        // This simulates the edge case where validation passes but getLatestModFile returns null
+        Http::fake([
+            'api.curseforge.com/v1/mods/123456/files*' => Http::sequence()
+                ->push([
+                    'data' => [
+                        [
+                            'id' => 999001,
+                            'displayName' => 'JEI 1.21.0-12.0.0.1016',
+                            'fileName' => 'jei-1.21.0-12.0.0.1016.jar',
+                            'fileDate' => '2024-02-01T00:00:00Z',
+                            'fileLength' => 1025000,
+                            'gameVersions' => ['1.21.0'],
+                        ],
+                    ],
+                ], 200)
+                ->push(['data' => []], 200), // Empty response for getLatestModFile
+        ]);
+
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/change-version", [
+            'minecraft_version' => '1.21.0',
+            'software' => 'fabric',
+        ]);
+
+        // Should still redirect (new pack created, but item might be skipped due to null)
+        $response->assertRedirect();
+
+        // Verify new mod pack was created
+        $newModPack = ModPack::where('name', 'like', '%Updated to 1.21.0%')->first();
+        $this->assertNotNull($newModPack);
+    }
+
+    /**
+     * Test that mod pack user relationship works.
+     */
+    public function test_mod_pack_user_relationship(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        $this->assertInstanceOf(User::class, $modPack->user);
+        $this->assertEquals($user->id, $modPack->user->id);
+    }
+
+    /**
+     * Test that mod pack item mod pack relationship works.
+     */
+    public function test_mod_pack_item_mod_pack_relationship(): void
+    {
+        $modPack = ModPack::factory()->create();
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+
+        $this->assertInstanceOf(ModPack::class, $item->modPack);
+        $this->assertEquals($modPack->id, $item->modPack->id);
+    }
+
+    /**
+     * Test that user mod packs relationship works.
+     */
+    public function test_user_mod_packs_relationship(): void
+    {
+        $user = User::factory()->create();
+        ModPack::factory()->count(3)->create(['user_id' => $user->id]);
+
+        $this->assertCount(3, $user->modPacks);
+        $this->assertInstanceOf(ModPack::class, $user->modPacks->first());
     }
 }

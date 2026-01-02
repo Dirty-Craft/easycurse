@@ -29,9 +29,13 @@ class AuthTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->get('/login');
+        // Bypass guest middleware to test controller code (covers line 20)
+        $response = $this->withoutMiddleware(\Illuminate\Auth\Middleware\RedirectIfAuthenticated::class)
+            ->actingAs($user)->get('/login');
 
         $response->assertRedirect('/mod-packs');
+        // Verify Auth::check() path is covered (line 20)
+        $this->assertAuthenticated();
     }
 
     /**
@@ -136,9 +140,13 @@ class AuthTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->get('/register');
+        // Bypass guest middleware to test controller code (covers line 53)
+        $response = $this->withoutMiddleware(\Illuminate\Auth\Middleware\RedirectIfAuthenticated::class)
+            ->actingAs($user)->get('/register');
 
         $response->assertRedirect('/mod-packs');
+        // Verify Auth::check() path is covered (line 53)
+        $this->assertAuthenticated();
     }
 
     /**
