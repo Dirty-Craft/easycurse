@@ -1,7 +1,12 @@
 @import url("./variables.css");
+@import url("./components/button.css");
+@import url("./components/input.css");
+@import url("./components/form-group.css");
+@import url("./components/checkbox.css");
+@import url("./components/modal.css");
 @import url("./landing.css");
 @import url("./auth.css");
-@import url("./dashboard.css");
+@import url("./modpacks.css");
 
 /* Base Styles */
 * {
@@ -39,38 +44,3 @@ body {
     background-clip: text;
 }
 
-.btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--spacing-md) var(--spacing-xl);
-    font-size: 1rem;
-    font-weight: 600;
-    border-radius: var(--radius-lg);
-    border: none;
-    cursor: pointer;
-    transition: all var(--transition-base);
-    text-decoration: none;
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-    color: var(--color-text-primary);
-    box-shadow: var(--shadow-md);
-}
-
-.btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg), var(--shadow-glow);
-}
-
-.btn-secondary {
-    background: transparent;
-    color: var(--color-text-primary);
-    border: 2px solid var(--color-border-light);
-}
-
-.btn-secondary:hover {
-    background: var(--color-surface-light);
-    border-color: var(--color-primary);
-}

@@ -8,4 +8,3 @@ We use CSS custom properties (variables) defined in `variables.css` for consiste
 - Do not use inline styles in Vue components - use CSS classes instead
 
 Styles are located in `src/resources/css/` and imported in `app.css`.
-

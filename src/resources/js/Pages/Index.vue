@@ -21,25 +21,29 @@
                             Simple as that.
                         </p>
                         <div class="hero-actions">
-                            <Link
+                            <Button
                                 v-if="!$page.props.auth.user"
+                                tag="Link"
                                 href="/register"
-                                class="btn btn-primary"
+                                show-arrow
                             >
-                                <span>Get Started Free</span>
-                                <span class="btn-arrow">→</span>
-                            </Link>
-                            <Link
+                                Get Started Free
+                            </Button>
+                            <Button
                                 v-else
+                                tag="Link"
                                 href="/mod-packs"
-                                class="btn btn-primary"
+                                show-arrow
                             >
-                                <span>My Mods</span>
-                                <span class="btn-arrow">→</span>
-                            </Link>
-                            <a href="#how-it-works" class="btn btn-secondary"
-                                >Learn More</a
+                                My Mods
+                            </Button>
+                            <Button
+                                tag="a"
+                                href="#how-it-works"
+                                variant="secondary"
                             >
+                                Learn More
+                            </Button>
                         </div>
                         <div class="hero-stats">
                             <div class="stat-item">
@@ -305,22 +309,24 @@
                             way.
                         </p>
                         <div class="cta-actions">
-                            <Link
+                            <Button
                                 v-if="!$page.props.auth.user"
+                                tag="Link"
                                 href="/register"
-                                class="btn btn-primary btn-large"
+                                size="large"
+                                show-arrow
                             >
-                                <span>Get Started Free</span>
-                                <span class="btn-arrow">→</span>
-                            </Link>
-                            <Link
+                                Get Started Free
+                            </Button>
+                            <Button
                                 v-else
+                                tag="Link"
                                 href="/mod-packs"
-                                class="btn btn-primary btn-large"
+                                size="large"
+                                show-arrow
                             >
-                                <span>My Mods</span>
-                                <span class="btn-arrow">→</span>
-                            </Link>
+                                My Mods
+                            </Button>
                         </div>
                         <div class="cta-features">
                             <div class="cta-feature">✓ Free to start</div>
@@ -340,6 +346,7 @@
 </template>
 
 <script setup>
-import { Head, Link } from "@inertiajs/vue3";
+import { Head } from "@inertiajs/vue3";
 import AppLayout from "../Layouts/AppLayout.vue";
+import Button from "../Components/Button.vue";
 </script>

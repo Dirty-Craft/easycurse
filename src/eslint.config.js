@@ -30,6 +30,8 @@ export default [
                 sessionStorage: 'readonly',
                 URLSearchParams: 'readonly',
                 URL: 'readonly',
+                fetch: 'readonly',
+                Blob: 'readonly',
                 alert: 'readonly',
                 confirm: 'readonly',
                 // Node globals

@@ -12,56 +12,44 @@
                     </div>
 
                     <form class="auth-form" @submit.prevent="submit">
-                        <div class="form-group">
-                            <label for="email" class="form-label">Email</label>
-                            <input
+                        <FormGroup
+                            label="Email"
+                            input-id="email"
+                            :error="form.errors.email"
+                        >
+                            <Input
                                 id="email"
                                 v-model="form.email"
                                 type="email"
-                                class="form-input"
                                 required
                                 autofocus
                                 autocomplete="email"
                             />
-                            <div v-if="form.errors.email" class="form-error">
-                                {{ form.errors.email }}
-                            </div>
-                        </div>
+                        </FormGroup>
 
-                        <div class="form-group">
-                            <label for="password" class="form-label"
-                                >Password</label
-                            >
-                            <input
+                        <FormGroup
+                            label="Password"
+                            input-id="password"
+                            :error="form.errors.password"
+                        >
+                            <Input
                                 id="password"
                                 v-model="form.password"
                                 type="password"
-                                class="form-input"
                                 required
                                 autocomplete="current-password"
                             />
-                            <div v-if="form.errors.password" class="form-error">
-                                {{ form.errors.password }}
-                            </div>
-                        </div>
+                        </FormGroup>
 
                         <div class="form-group">
-                            <label class="form-checkbox">
-                                <input
-                                    v-model="form.remember"
-                                    type="checkbox"
-                                />
-                                <span>Remember me</span>
-                            </label>
+                            <Checkbox v-model="form.remember">
+                                Remember me
+                            </Checkbox>
                         </div>
 
-                        <button
-                            type="submit"
-                            class="btn btn-primary btn-full"
-                            :disabled="form.processing"
-                        >
+                        <Button type="submit" full :disabled="form.processing">
                             {{ form.processing ? "Signing in..." : "Sign In" }}
-                        </button>
+                        </Button>
                     </form>
 
                     <div class="auth-footer">
@@ -81,6 +69,10 @@
 <script setup>
 import { Head, Link, useForm } from "@inertiajs/vue3";
 import AppLayout from "../../Layouts/AppLayout.vue";
+import Button from "../../Components/Button.vue";
+import Input from "../../Components/Input.vue";
+import FormGroup from "../../Components/FormGroup.vue";
+import Checkbox from "../../Components/Checkbox.vue";
 
 const form = useForm({
     email: "",

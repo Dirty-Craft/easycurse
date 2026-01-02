@@ -1,0 +1,24 @@
+/* Checkbox Component */
+.form-checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-base);
+}
+
+.form-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--color-primary);
+    flex-shrink: 0;
+}
+
+.form-checkbox:has(input:disabled) {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+

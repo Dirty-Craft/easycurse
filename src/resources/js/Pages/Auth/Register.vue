@@ -12,81 +12,69 @@
                     </div>
 
                     <form class="auth-form" @submit.prevent="submit">
-                        <div class="form-group">
-                            <label for="name" class="form-label">Name</label>
-                            <input
+                        <FormGroup
+                            label="Name"
+                            input-id="name"
+                            :error="form.errors.name"
+                        >
+                            <Input
                                 id="name"
                                 v-model="form.name"
                                 type="text"
-                                class="form-input"
                                 required
                                 autofocus
                                 autocomplete="name"
                             />
-                            <div v-if="form.errors.name" class="form-error">
-                                {{ form.errors.name }}
-                            </div>
-                        </div>
+                        </FormGroup>
 
-                        <div class="form-group">
-                            <label for="email" class="form-label">Email</label>
-                            <input
+                        <FormGroup
+                            label="Email"
+                            input-id="email"
+                            :error="form.errors.email"
+                        >
+                            <Input
                                 id="email"
                                 v-model="form.email"
                                 type="email"
-                                class="form-input"
                                 required
                                 autocomplete="email"
                             />
-                            <div v-if="form.errors.email" class="form-error">
-                                {{ form.errors.email }}
-                            </div>
-                        </div>
+                        </FormGroup>
 
-                        <div class="form-group">
-                            <label for="password" class="form-label"
-                                >Password</label
-                            >
-                            <input
+                        <FormGroup
+                            label="Password"
+                            input-id="password"
+                            :error="form.errors.password"
+                        >
+                            <Input
                                 id="password"
                                 v-model="form.password"
                                 type="password"
-                                class="form-input"
                                 required
                                 autocomplete="new-password"
                             />
-                            <div v-if="form.errors.password" class="form-error">
-                                {{ form.errors.password }}
-                            </div>
-                        </div>
+                        </FormGroup>
 
-                        <div class="form-group">
-                            <label
-                                for="password_confirmation"
-                                class="form-label"
-                                >Confirm Password</label
-                            >
-                            <input
+                        <FormGroup
+                            label="Confirm Password"
+                            input-id="password_confirmation"
+                        >
+                            <Input
                                 id="password_confirmation"
                                 v-model="form.password_confirmation"
                                 type="password"
-                                class="form-input"
                                 required
                                 autocomplete="new-password"
                             />
-                        </div>
+                        </FormGroup>
 
-                        <button
-                            type="submit"
-                            class="btn btn-primary btn-full"
-                            :disabled="form.processing"
-                        >
+                        <Button type="submit" full :disabled="form.processing">
                             {{
                                 form.processing
                                     ? "Creating account..."
                                     : "Create Account"
                             }}
-                        </button>
+                        </Button>
                     </form>
 
                     <div class="auth-footer">
@@ -104,6 +92,9 @@
 <script setup>
 import { Head, Link, useForm } from "@inertiajs/vue3";
 import AppLayout from "../../Layouts/AppLayout.vue";
+import Button from "../../Components/Button.vue";
+import Input from "../../Components/Input.vue";
+import FormGroup from "../../Components/FormGroup.vue";
 
 const form = useForm({
     name: "",

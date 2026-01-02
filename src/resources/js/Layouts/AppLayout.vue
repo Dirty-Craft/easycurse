@@ -8,23 +8,28 @@
                         <span class="logo-text">EasyCurse</span>
                     </Link>
                     <div class="nav-actions">
-                        <Link
+                        <Button
                             v-if="$page.props.auth.user"
+                            tag="Link"
                             href="/mod-packs"
-                            class="btn btn-primary"
                         >
                             My Mods
-                        </Link>
+                        </Button>
                         <template v-if="$page.props.auth.user">
                             <form class="logout-form" @submit.prevent="logout">
-                                <button type="submit" class="btn btn-secondary">
+                                <Button type="submit" variant="secondary">
                                     Logout
-                                </button>
+                                </Button>
                             </form>
                         </template>
-                        <Link v-else href="/login" class="btn btn-secondary">
+                        <Button
+                            v-else
+                            tag="Link"
+                            href="/login"
+                            variant="secondary"
+                        >
                             Login
-                        </Link>
+                        </Button>
                     </div>
                 </div>
             </div>
@@ -54,6 +59,7 @@
 
 <script setup>
 import { Link, router } from "@inertiajs/vue3";
+import Button from "../Components/Button.vue";
 
 const logout = () => {
     router.post("/logout");
