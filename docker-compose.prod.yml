@@ -1,0 +1,107 @@
+version: '3.8'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: cursecool
+    container_name: cursecool
+    restart: unless-stopped
+    environment:
+      SERVICE_NAME: app
+      SERVICE_TAGS: dev
+      IS_PROD: true
+    working_dir: /var/www
+    volumes:
+      - ./src/:/var/www/
+      - ./docs/:/var/www/docs
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    networks:
+      - cursecool-network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "php", "-r", "echo 'OK';"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  queue:
+    image: cursecool
+    container_name: cursecool-queue
+    restart: unless-stopped
+    volumes:
+      - ./src:/var/www
+    command: php artisan queue:work --sleep=3 --tries=3
+    networks:
+      - cursecool-network
+    depends_on:
+      - app
+  scheduler:
+    image: cursecool
+    container_name: cursecool-scheduler
+    restart: unless-stopped
+    volumes:
+      - ./src:/var/www
+    command: >
+      sh -c "while [ true ]; do php artisan schedule:run --no-ansi & sleep 60; done"
+    networks:
+      - cursecool-network
+    depends_on:
+      - app
+  webserver:
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+    container_name: cursecool-webserver
+    restart: unless-stopped
+    ports:
+      - "${APP_HTTP_PORT:-9090}:80"
+      - "${APP_HTTPS_PORT:-9093}:443"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - ./src:/var/www
+      - ./docker/nginx/:/etc/nginx/conf.d/
+      - ./docker/ssl:/etc/letsencrypt
+    networks:
+      - cursecool-network
+    depends_on:
+      - app
+  db:
+    image: mariadb:10.6.12
+    container_name: cursecool-db
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${DB_NAME:-cursecool_db}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-toor}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - cursecool-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  redis:
+    image: redis:alpine
+    container_name: cursecool-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      - cursecool-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+volumes:
+  db_data:
+  redis_data:
+networks:
+  cursecool-network:
+    driver: bridge

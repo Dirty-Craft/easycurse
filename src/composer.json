@@ -7,6 +7,9 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "beyondcode/laravel-er-diagram-generator": "^5.0",
+        "brianium/paratest": "^7.8",
+        "inertiajs/inertia-laravel": "^2.0",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1"
     },
@@ -45,8 +48,14 @@
             "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
         ],
         "test": [
-            "@php artisan config:clear --ansi",
-            "@php artisan test"
+            "echo 'Preparing the test environment...'",
+            "bash setup.sh > /dev/null 2>&1",
+            "@php artisan test --parallel --coverage | grep -v '100.0%'"
+        ],
+        "lint": [
+            "@php vendor/bin/pint && php artisan generate:erd",
+            "npm run lint:fix",
+            "npm run lint:css:fix"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
