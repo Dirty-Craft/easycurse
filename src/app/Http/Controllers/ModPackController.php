@@ -301,4 +301,115 @@ class ModPackController extends Controller
             ],
         ]);
     }
+
+    /**
+     * Change version of a mod pack by creating a new mod pack with updated versions.
+     */
+    public function changeVersion(Request $request, string $id)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())
+            ->with('items')
+            ->findOrFail($id);
+
+        $validated = $request->validate([
+            'minecraft_version' => ['required', 'string', 'max:255'],
+            'software' => ['required', 'string', 'in:forge,fabric,quilt,neoforge'],
+        ]);
+
+        $newMinecraftVersion = $validated['minecraft_version'];
+        $newSoftware = $validated['software'];
+
+        // If the version and software are the same, just redirect back
+        if ($modPack->minecraft_version === $newMinecraftVersion && $modPack->software === $newSoftware) {
+            return redirect()->route('mod-packs.show', $modPack->id);
+        }
+
+        $curseForgeService = new CurseForgeService;
+        $modsWithoutMatchingVersion = [];
+
+        // Check each mod item to see if it has a matching version for the new MC version
+        foreach ($modPack->items as $item) {
+            if (! $item->curseforge_mod_id) {
+                // Skip items without CurseForge mod ID (they can't be validated)
+                continue;
+            }
+
+            // Get available files for the new version
+            $files = $curseForgeService->getModFiles(
+                $item->curseforge_mod_id,
+                $newMinecraftVersion,
+                $newSoftware
+            );
+
+            // If no files found for this mod with the new version, add to error list
+            if (empty($files)) {
+                $modsWithoutMatchingVersion[] = $item->mod_name;
+            }
+        }
+
+        // If any mods don't have matching versions, return error
+        if (! empty($modsWithoutMatchingVersion)) {
+            return back()->withErrors([
+                'version_change' => 'The following mods do not have a version available for '.$newMinecraftVersion.' ('.$newSoftware.'): '.implode(', ', $modsWithoutMatchingVersion),
+                'mods_without_version' => $modsWithoutMatchingVersion,
+            ]);
+        }
+
+        // Create new mod pack with updated name
+        $newModPackName = $modPack->name.' (Updated to '.$newMinecraftVersion.' '.ucfirst($newSoftware).')';
+        $newModPack = ModPack::create([
+            'user_id' => Auth::id(),
+            'name' => $newModPackName,
+            'minecraft_version' => $newMinecraftVersion,
+            'software' => $newSoftware,
+            'description' => $modPack->description,
+        ]);
+
+        // Copy all mod items with new versions
+        $sortOrder = 1;
+        foreach ($modPack->items as $item) {
+            if (! $item->curseforge_mod_id) {
+                // For items without CurseForge mod ID, copy as-is
+                ModPackItem::create([
+                    'mod_pack_id' => $newModPack->id,
+                    'mod_name' => $item->mod_name,
+                    'mod_version' => $item->mod_version,
+                    'curseforge_mod_id' => $item->curseforge_mod_id,
+                    'curseforge_file_id' => $item->curseforge_file_id,
+                    'curseforge_slug' => $item->curseforge_slug,
+                    'sort_order' => $sortOrder++,
+                ]);
+            } else {
+                // Get the latest file for the new version
+                // We already validated that files exist, so this should always return a file
+                $latestFile = $curseForgeService->getLatestModFile(
+                    $item->curseforge_mod_id,
+                    $newMinecraftVersion,
+                    $newSoftware
+                );
+
+                if ($latestFile) {
+                    ModPackItem::create([
+                        'mod_pack_id' => $newModPack->id,
+                        'mod_name' => $item->mod_name,
+                        'mod_version' => $latestFile['displayName'] ?? $latestFile['fileName'] ?? $item->mod_version,
+                        'curseforge_mod_id' => $item->curseforge_mod_id,
+                        'curseforge_file_id' => $latestFile['id'],
+                        'curseforge_slug' => $item->curseforge_slug,
+                        'sort_order' => $sortOrder++,
+                    ]);
+                } else {
+                    // This shouldn't happen since we validated files exist, but log it just in case
+                    \Log::warning('getLatestModFile returned null for mod', [
+                        'mod_id' => $item->curseforge_mod_id,
+                        'mod_name' => $item->mod_name,
+                        'minecraft_version' => $newMinecraftVersion,
+                        'software' => $newSoftware,
+                    ]);
+                }
+            }
+        }
+
+        return redirect()->route('mod-packs.show', $newModPack->id);
+    }
 }

@@ -26,4 +26,5 @@ Route::middleware('auth')->group(function () {
     Route::delete('/mod-packs/{id}/items/{itemId}', [\App\Http\Controllers\ModPackController::class, 'destroyItem'])->name('mod-packs.items.destroy');
     Route::get('/mod-packs/{id}/download-links', [\App\Http\Controllers\ModPackController::class, 'getDownloadLinks'])->name('mod-packs.download-links');
     Route::get('/mod-packs/{id}/items/{itemId}/download-link', [\App\Http\Controllers\ModPackController::class, 'getItemDownloadLink'])->name('mod-packs.items.download-link');
+    Route::post('/mod-packs/{id}/change-version', [\App\Http\Controllers\ModPackController::class, 'changeVersion'])->name('mod-packs.change-version');
 });

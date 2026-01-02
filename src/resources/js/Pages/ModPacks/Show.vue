@@ -195,6 +195,17 @@
                     </button>
                 </div>
                 <form class="modal-body" @submit.prevent="updateModPackVersion">
+                    <div class="version-change-notice">
+                        <p>
+                            <strong>Note:</strong> Changing the version will create a
+                            <strong>new mod pack</strong> with the same name plus
+                            "(Updated to X Y)". All mods will be updated to versions
+                            compatible with the selected Minecraft version and mod loader.
+                        </p>
+                    </div>
+                    <div v-if="versionForm.errors.version_change" class="error-message">
+                        <p>{{ versionForm.errors.version_change }}</p>
+                    </div>
                     <div class="form-group">
                         <label for="change-minecraft_version"
                             >Minecraft Version</label
@@ -253,8 +264,8 @@
                         >
                             Cancel
                         </button>
-                        <button type="submit" class="btn btn-primary">
-                            Update
+                        <button type="submit" class="btn btn-primary" :disabled="versionForm.processing">
+                            {{ versionForm.processing ? 'Creating...' : 'Create New Mod Pack' }}
                         </button>
                     </div>
                 </form>
@@ -512,6 +523,8 @@ watch(showChangeVersionModal, (isOpen) => {
         // Update form with current values when modal opens
         versionForm.minecraft_version = props.modPack.minecraft_version;
         versionForm.software = props.modPack.software;
+        // Clear any previous errors
+        versionForm.clearErrors();
     }
 });
 
@@ -672,9 +685,14 @@ const updateModPack = () => {
 };
 
 const updateModPackVersion = () => {
-    versionForm.put(`/mod-packs/${props.modPack.id}`, {
+    versionForm.post(`/mod-packs/${props.modPack.id}/change-version`, {
         onSuccess: () => {
             showChangeVersionModal.value = false;
+            // The backend will redirect to the new mod pack
+        },
+        onError: (errors) => {
+            // Errors are already displayed in the form
+            console.error('Error changing version:', errors);
         },
     });
 };
@@ -1545,5 +1563,24 @@ const downloadAllAsZip = async () => {
 
 .error-message p {
     margin: 0;
+}
+
+.version-change-notice {
+    margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-md);
+    background: rgb(0 217 255 / 10%);
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+    font-size: 0.875rem;
+    line-height: 1.6;
+}
+
+.version-change-notice p {
+    margin: 0;
+}
+
+.version-change-notice strong {
+    color: var(--color-primary);
 }
 </style>
