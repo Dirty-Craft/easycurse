@@ -538,6 +538,7 @@ class CurseForgeService
 
     /**
      * Get the download URL for a mod file.
+     * Uses mediafilez.forgecdn.net pattern (same as Python script) which works better for client-side downloads.
      *
      * @param  int  $fileId  The CurseForge file ID
      * @param  string|null  $fileName  Optional file name for constructing URL if not in API response
@@ -546,25 +547,31 @@ class CurseForgeService
     public function getFileDownloadUrl(int $fileId, ?string $fileName = null): ?string
     {
         try {
-            // CurseForge CDN URL format: https://edge.forgecdn.net/files/{first4}/{second4}/{filename}
-            // File ID is split: first 4 digits, then next 4 digits (padded if needed)
-            // Example: File ID 12345678 -> files/1234/5678/filename.jar
-            // Example: File ID 123 -> files/0123/0000/filename.jar
-            // Example: File ID 123456789 -> files/1234/5678/filename.jar (takes first 8 digits)
+            // CurseForge CDN URL format: https://mediafilez.forgecdn.net/files/{first4}/{rest}/{filename}
+            // File ID is split: first 4 characters as integer, rest as integer
+            // Example: File ID 5846846 -> files/5846/846/filename.jar
+            // This matches the Python script's approach
 
             $fileIdStr = (string) $fileId;
 
-            // Pad to at least 8 digits for splitting
-            $fileIdPadded = str_pad($fileIdStr, 8, '0', STR_PAD_LEFT);
+            // Split file ID: first 4 characters, then the rest
+            $firstPart = substr($fileIdStr, 0, 4);
+            $secondPart = substr($fileIdStr, 4);
 
-            // Split into two 4-digit parts
-            $firstPart = substr($fileIdPadded, 0, 4);
-            $secondPart = substr($fileIdPadded, 4, 4);
+            // Convert to integers (removes leading zeros from second part if any)
+            $id1 = (int) $firstPart;
+            $id2 = (int) $secondPart;
 
             // If we have a filename, use it; otherwise use a generic name
             $filename = $fileName ?? "file-{$fileId}.jar";
 
-            return "https://edge.forgecdn.net/files/{$firstPart}/{$secondPart}/{$filename}";
+            // Handle special characters in filename (like + which needs to be %2B)
+            // Match Python script behavior: only replace if %2B is not already present
+            if (strpos($filename, '+') !== false && strpos($filename, '%2B') === false) {
+                $filename = str_replace('+', '%2B', $filename);
+            }
+
+            return "https://mediafilez.forgecdn.net/files/{$id1}/{$id2}/{$filename}";
         } catch (\Exception $e) {
             Log::error('CurseForge error generating download URL', [
                 'file_id' => $fileId,
@@ -634,20 +641,18 @@ class CurseForgeService
 
             $fileName = $file['fileName'] ?? null;
 
-            // Try multiple methods to get download URL
-            $downloadUrl = null;
+            // Prioritize constructed mediafilez.forgecdn.net URL for better client-side compatibility
+            // This matches the Python script's approach and works better for browser downloads
+            $downloadUrl = $this->getFileDownloadUrl($fileId, $fileName);
 
-            // Method 1: Try to get download URL from files endpoint first (might have better CORS support)
-            $downloadUrl = $this->getFileDownloadUrlFromApi($fileId);
-
-            // Method 2: Check if downloadUrl is provided in the API response
+            // Fallback to API-provided URL if construction failed
             if (! $downloadUrl) {
-                $downloadUrl = $file['downloadUrl'] ?? null;
+                $downloadUrl = $this->getFileDownloadUrlFromApi($fileId);
             }
 
-            // Method 3: Construct CDN URL as fallback
+            // Final fallback: Check if downloadUrl is provided in the API response
             if (! $downloadUrl) {
-                $downloadUrl = $this->getFileDownloadUrl($fileId, $fileName);
+                $downloadUrl = $file['downloadUrl'] ?? null;
             }
 
             // Log the file structure for debugging

@@ -7,6 +7,7 @@ use App\Models\ModPackItem;
 use App\Services\CurseForgeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 
 class ModPackController extends Controller
@@ -409,5 +410,84 @@ class ModPackController extends Controller
         }
 
         return redirect()->route('mod-packs.show', $newModPack->id);
+    }
+
+    /**
+     * Proxy endpoint to download mod files (bypasses CORS).
+     * This is a simple pass-through proxy - no server-side zip generation.
+     * The client still creates the ZIP file.
+     */
+    public function proxyDownload(Request $request, string $id)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())->findOrFail($id);
+
+        $validated = $request->validate([
+            'url' => ['required', 'url'],
+        ]);
+
+        $url = $validated['url'];
+
+        // Verify the URL is from CurseForge CDN (security check)
+        $allowedDomains = [
+            'mediafilez.forgecdn.net',
+            'edge.forgecdn.net',
+            'cdn.modrinth.com', // In case we add Modrinth support later
+        ];
+
+        $parsedUrl = parse_url($url);
+        if (! isset($parsedUrl['host']) || ! in_array($parsedUrl['host'], $allowedDomains)) {
+            return response()->json([
+                'error' => 'Invalid download URL',
+            ], 400);
+        }
+
+        try {
+            // Download the file from CurseForge CDN
+            $response = Http::timeout(60) // Longer timeout for large files
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                ])
+                ->get($url);
+
+            if (! $response->successful()) {
+                \Log::warning('Proxy download failed', [
+                    'url' => $url,
+                    'status' => $response->status(),
+                ]);
+
+                return response()->json([
+                    'error' => 'Failed to download file from CDN',
+                ], $response->status());
+            }
+
+            // Get the content type from the response or default to binary
+            $contentType = $response->header('Content-Type') ?: 'application/java-archive';
+
+            // Return the file content with appropriate headers
+            return response($response->body(), 200, [
+                'Content-Type' => $contentType,
+                'Content-Disposition' => 'inline', // Don't force download, let client handle it
+                'Cache-Control' => 'no-cache', // Don't cache proxy responses
+            ]);
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            \Log::error('Proxy download connection error', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => 'Connection timeout or network error',
+            ], 504);
+        } catch (\Exception $e) {
+            \Log::error('Proxy download error', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to proxy download: '.$e->getMessage(),
+            ], 500);
+        }
     }
 }

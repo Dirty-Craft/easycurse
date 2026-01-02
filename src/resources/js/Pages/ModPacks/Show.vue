@@ -817,6 +817,32 @@ const downloadModItem = async (item) => {
     }
 };
 
+// Helper function to download a file via our proxy endpoint (bypasses CORS)
+const downloadFileViaProxy = async (url) => {
+    try {
+        // Use our server-side proxy to bypass CORS restrictions
+        const proxyUrl = `/mod-packs/${props.modPack.id}/proxy-download?url=${encodeURIComponent(url)}`;
+
+        const response = await fetch(proxyUrl, {
+            method: "GET",
+            credentials: "include", // Include cookies for auth
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(
+                errorData.error ||
+                    `HTTP ${response.status}: ${response.statusText}`,
+            );
+        }
+
+        const blob = await response.blob();
+        return blob;
+    } catch (error) {
+        throw error;
+    }
+};
+
 const downloadAllAsZip = async () => {
     try {
         if (
@@ -851,11 +877,8 @@ const downloadAllAsZip = async () => {
 
         console.log(`Downloading ${downloadLinks.length} mods...`);
 
-        // Check for CORS issues - CurseForge CDN doesn't allow CORS from browsers
-        // We need to inform the user about this limitation
-        let corsWarningShown = false;
-
-        // Fetch all files in parallel
+        // Download all files in parallel using XMLHttpRequest
+        // This works better with mediafilez.forgecdn.net than fetch()
         const files = await Promise.all(
             downloadLinks.map(async (link) => {
                 try {
@@ -864,57 +887,32 @@ const downloadAllAsZip = async () => {
                     }
 
                     console.log(
-                        `Fetching ${link.mod_name} from ${link.download_url}`,
+                        `Downloading ${link.mod_name} via proxy from ${link.download_url}`,
                     );
 
-                    // Try to fetch with CORS
-                    let fileResponse;
-                    try {
-                        fileResponse = await fetch(link.download_url, {
-                            method: "GET",
-                            mode: "cors",
-                            credentials: "omit",
-                        });
-                    } catch (fetchError) {
-                        // CORS error or network error
-                        if (
-                            fetchError.name === "TypeError" &&
-                            fetchError.message.includes("Failed to fetch")
-                        ) {
-                            if (!corsWarningShown) {
-                                corsWarningShown = true;
-                                console.warn(
-                                    "CORS error detected. CurseForge CDN blocks cross-origin requests.",
-                                );
-                            }
-                            throw new Error(
-                                `CORS blocked: Browser security prevents downloading this file directly. Use individual download buttons instead.`,
-                            );
-                        }
-                        throw fetchError;
-                    }
+                    // Use our proxy endpoint to bypass CORS restrictions
+                    const blob = await downloadFileViaProxy(link.download_url);
 
-                    if (!fileResponse.ok) {
-                        const errorText = await fileResponse
-                            .text()
-                            .catch(() => "Unable to read error");
-                        console.error(
-                            `Failed to fetch ${link.mod_name}:`,
-                            fileResponse.status,
-                            errorText,
-                        );
-                        throw new Error(
-                            `Failed to fetch ${link.mod_name}: ${fileResponse.status} ${fileResponse.statusText}`,
-                        );
-                    }
-
-                    const blob = await fileResponse.blob();
                     console.log(
-                        `Successfully fetched ${link.mod_name}, size: ${blob.size} bytes`,
+                        `Successfully downloaded ${link.mod_name}, size: ${blob.size} bytes`,
                     );
 
                     if (blob.size === 0) {
                         throw new Error(`Downloaded file is empty`);
+                    }
+
+                    // Check if the blob is actually an error page (HTML response)
+                    // Read a small portion to check content type without corrupting the file
+                    const slice = blob.slice(0, 1024); // First 1KB
+                    const sliceText = await slice.text();
+                    if (
+                        sliceText.trim().startsWith("<") ||
+                        sliceText.includes("<!DOCTYPE") ||
+                        sliceText.includes("<html")
+                    ) {
+                        throw new Error(
+                            `Received HTML instead of file (likely an error page)`,
+                        );
                     }
 
                     return {
@@ -922,13 +920,14 @@ const downloadAllAsZip = async () => {
                         input: blob,
                     };
                 } catch (error) {
-                    console.error(`Error fetching ${link.mod_name}:`, error);
-                    // Return a placeholder file with error message
+                    console.error(`Error downloading ${link.mod_name}:`, error);
+
+                    // Return error file
                     return {
                         name: `${link.mod_name}_ERROR.txt`,
                         input: new Blob(
                             [
-                                `Error: Failed to download ${link.mod_name}\n${error.message}\n\nURL: ${link.download_url || "N/A"}\n\nNote: CurseForge CDN blocks cross-origin requests. Individual downloads work, but ZIP creation requires server-side proxy.`,
+                                `Error: Failed to download ${link.mod_name}\n${error.message}\n\nURL: ${link.download_url || "N/A"}\n\nIf this persists, try using the individual download buttons instead.`,
                             ],
                             { type: "text/plain" },
                         ),
@@ -937,39 +936,52 @@ const downloadAllAsZip = async () => {
             }),
         );
 
-        // Check if all files failed due to CORS
+        // Check if all files failed
         const errorFiles = files.filter((f) => f.name.endsWith("_ERROR.txt"));
         if (errorFiles.length === files.length && errorFiles.length > 0) {
-            try {
-                const firstError = errorFiles[0];
-                const errorText = await new Response(firstError.input).text();
-                if (errorText.includes("CORS blocked")) {
-                    alert(
-                        "Unable to create ZIP file: CurseForge CDN blocks cross-origin requests from browsers.\n\n" +
-                            "This is a browser security restriction (CORS). To download all mods:\n" +
-                            "1. Use the individual download buttons (they work fine)\n" +
-                            "2. Or install a CORS browser extension\n\n" +
-                            "Note: Server-side ZIP creation would work but is not implemented per your requirements.",
-                    );
-                    isDownloadingAll.value = false;
-                    return;
-                }
-            } catch (e) {
-                console.error("Error reading error file:", e);
-            }
+            alert(
+                "Unable to download any mods. This may be due to:\n" +
+                    "1. Network connectivity issues\n" +
+                    "2. CurseForge CDN restrictions\n" +
+                    "3. Browser security settings\n\n" +
+                    "Please try using the individual download buttons instead.",
+            );
+            isDownloadingAll.value = false;
+            return;
         }
 
         // Warn if some files failed
-        if (errorFiles.length > 0 && errorFiles.length < files.length) {
+        if (errorFiles.length > 0) {
+            const successCount = files.length - errorFiles.length;
+            const failCount = errorFiles.length;
             console.warn(
-                `${errorFiles.length} out of ${files.length} files failed to download`,
+                `${failCount} out of ${files.length} files failed to download`,
             );
+            if (
+                !confirm(
+                    `${failCount} mod(s) failed to download. Continue creating ZIP with ${successCount} successfully downloaded mod(s)?`,
+                )
+            ) {
+                isDownloadingAll.value = false;
+                return;
+            }
         }
 
-        console.log("All files fetched, creating ZIP...");
+        // Filter out error files if user chose to continue
+        const successfulFiles = files.filter(
+            (f) => !f.name.endsWith("_ERROR.txt"),
+        );
+
+        if (successfulFiles.length === 0) {
+            alert("No mods were successfully downloaded.");
+            isDownloadingAll.value = false;
+            return;
+        }
+
+        console.log(`Creating ZIP with ${successfulFiles.length} files...`);
 
         // Create ZIP file
-        const zipBlob = await downloadZip(files).blob();
+        const zipBlob = await downloadZip(successfulFiles).blob();
         console.log("ZIP created, size:", zipBlob.size);
 
         if (!zipBlob || zipBlob.size === 0) {
