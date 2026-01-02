@@ -18,4 +18,10 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    Route::resource('mod-sets', \App\Http\Controllers\ModSetController::class)->parameters([
+        'mod-sets' => 'id',
+    ]);
+    Route::post('/mod-sets/{id}/items', [\App\Http\Controllers\ModSetController::class, 'storeItem'])->name('mod-sets.items.store');
+    Route::delete('/mod-sets/{id}/items/{itemId}', [\App\Http\Controllers\ModSetController::class, 'destroyItem'])->name('mod-sets.items.destroy');
 });

@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\Software;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -23,6 +24,7 @@ class ModSetFactory extends Factory
             'user_id' => User::factory(),
             'name' => fake()->words(3, true).' Mod Pack',
             'minecraft_version' => fake()->randomElement($minecraftVersions),
+            'software' => fake()->randomElement([Software::Forge, Software::Fabric]),
             'description' => fake()->optional()->sentence(),
         ];
     }

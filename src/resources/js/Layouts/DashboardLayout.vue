@@ -28,6 +28,15 @@
                     <span class="sidebar-icon">📊</span>
                     <span class="sidebar-label">Dashboard</span>
                 </Link>
+                <Link
+                    href="/mod-sets"
+                    class="sidebar-item"
+                    :class="{ active: $page.url.startsWith('/mod-sets') }"
+                    @click="closeMobileMenu"
+                >
+                    <span class="sidebar-icon">📦</span>
+                    <span class="sidebar-label">My Mods</span>
+                </Link>
             </nav>
 
             <div class="sidebar-footer">
