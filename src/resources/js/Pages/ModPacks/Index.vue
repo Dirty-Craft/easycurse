@@ -109,14 +109,27 @@
                     </div>
                     <div class="form-group">
                         <label for="minecraft_version">Minecraft Version</label>
-                        <input
+                        <select
                             id="minecraft_version"
                             v-model="form.minecraft_version"
-                            type="text"
                             required
                             class="form-input"
-                            placeholder="e.g., 1.20.1"
-                        />
+                        >
+                            <option value="" disabled>
+                                {{
+                                    gameVersions.length === 0
+                                        ? "No versions available"
+                                        : "Select a Minecraft version"
+                                }}
+                            </option>
+                            <option
+                                v-for="version in gameVersions"
+                                :key="version.id || version.name"
+                                :value="version.name"
+                            >
+                                {{ version.name }}
+                            </option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="software">Software</label>

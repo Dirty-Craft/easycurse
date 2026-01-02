@@ -310,8 +310,8 @@ class CurseForgeService
             }
 
             // CurseForge API v1 game versions endpoint
-            // According to API docs, this endpoint uses POST with a body containing gameIds
-            $url = $this->baseUrl.'games/versions';
+            // The correct endpoint is games/<game id>/versions
+            $url = $this->baseUrl.'games/'.$this->minecraftGameId.'/versions';
 
             Log::debug('Fetching game versions from CurseForge API', [
                 'url' => $url,
@@ -319,10 +319,8 @@ class CurseForgeService
                 'has_api_key' => ! empty($this->apiKey),
             ]);
 
-            // CurseForge API v1 game versions endpoint uses POST with JSON body
-            $response = $this->client()->asJson()->post($url, [
-                'gameIds' => [(int) $this->minecraftGameId],
-            ]);
+            // CurseForge API v1 game versions endpoint uses GET
+            $response = $this->client()->get($url);
 
             $statusCode = $response->status();
             $responseBody = $response->json();
@@ -357,35 +355,10 @@ class CurseForgeService
                 return [];
             }
 
-            // CurseForge API v1 wraps responses in 'data' key
-            // The response might be nested under the game ID key: { "data": { "432": [...] } }
-            // Or it might be a direct array: { "data": [...] }
-            $data = [];
-            if (isset($responseBody['data'])) {
-                if (is_array($responseBody['data'])) {
-                    // Check if data is nested under game ID
-                    $gameIdStr = (string) $this->minecraftGameId;
-                    if (isset($responseBody['data'][$gameIdStr]) && is_array($responseBody['data'][$gameIdStr])) {
-                        $data = $responseBody['data'][$gameIdStr];
-                    } elseif (! isset($responseBody['data'][0]) || is_numeric(array_key_first($responseBody['data']))) {
-                        // If it's not numeric keys, it might be an object with game IDs as keys
-                        // Try to get the first value
-                        $firstKey = array_key_first($responseBody['data']);
-                        if ($firstKey && isset($responseBody['data'][$firstKey]) && is_array($responseBody['data'][$firstKey])) {
-                            $data = $responseBody['data'][$firstKey];
-                        } else {
-                            // Direct array
-                            $data = $responseBody['data'];
-                        }
-                    } else {
-                        // Direct array
-                        $data = $responseBody['data'];
-                    }
-                }
-            } elseif (is_array($responseBody) && ! isset($responseBody['data'])) {
-                // Response might be directly an array
-                $data = $responseBody;
-            }
+            // CurseForge API v1 returns an array of version type objects
+            // Each object has a 'type' field and a 'versions' field
+            // Type 1 appears to be the main Minecraft game versions
+            $data = $responseBody['data'] ?? [];
 
             if (empty($data) || ! is_array($data)) {
                 Log::warning('CurseForge API returned empty game versions', [
@@ -401,39 +374,55 @@ class CurseForgeService
                 return [];
             }
 
-            // Log first version structure for debugging
+            // Log first item structure for debugging
             if (! empty($data[0])) {
                 Log::debug('CurseForge game version structure', [
-                    'first_version' => $data[0],
+                    'first_item' => $data[0],
                     'keys' => array_keys($data[0]),
                 ]);
             }
 
-            // Transform and normalize the data
-            // CurseForge API v1 returns versions with various possible field names
+            // Extract versions from version type objects
+            // Look for type 1 (main Minecraft versions) or collect all types
             $versions = [];
-            foreach ($data as $version) {
-                // Try multiple possible field names for version string
-                $name = $version['name']
-                    ?? $version['versionString']
-                    ?? $version['gameVersion']
-                    ?? '';
-
-                if (empty($name)) {
-                    Log::debug('Skipping version without name', [
-                        'version' => $version,
-                        'keys' => array_keys($version),
-                    ]);
-
+            foreach ($data as $versionType) {
+                if (! isset($versionType['type']) || ! isset($versionType['versions'])) {
                     continue;
                 }
 
-                $versions[] = [
-                    'id' => $version['id'] ?? $version['gameVersionId'] ?? null,
-                    'name' => $name,
-                    'slug' => $version['slug'] ?? str_replace('.', '-', $name),
-                    'type' => $version['gameVersionTypeID'] ?? $version['gameVersionTypeId'] ?? null,
-                ];
+                $typeId = $versionType['type'];
+                $versionList = $versionType['versions'];
+
+                // Handle both array and object formats for versions
+                $versionStrings = [];
+                if (is_array($versionList)) {
+                    // Check if it's an associative array (object with numeric keys) or a simple array
+                    if (isset($versionList[0]) || (is_array($versionList) && ! empty($versionList) && array_keys($versionList) === range(0, count($versionList) - 1))) {
+                        // Simple array
+                        $versionStrings = $versionList;
+                    } else {
+                        // Object with numeric keys - extract values
+                        $versionStrings = array_values($versionList);
+                    }
+                }
+
+                // Process each version string
+                foreach ($versionStrings as $versionString) {
+                    if (empty($versionString) || ! is_string($versionString)) {
+                        continue;
+                    }
+
+                    // Filter to only include standard Minecraft versions (type 1)
+                    // These are versions like "1.20.6", "1.21.2", etc.
+                    if ($typeId === 1) {
+                        $versions[] = [
+                            'id' => null, // API doesn't provide individual version IDs in this format
+                            'name' => $versionString,
+                            'slug' => str_replace('.', '-', $versionString),
+                            'type' => $typeId,
+                        ];
+                    }
+                }
             }
 
             if (empty($versions)) {
@@ -470,7 +459,7 @@ class CurseForgeService
             return $result;
         } catch (RequestException $e) {
             $errorDetails = [
-                'url' => $this->baseUrl.'games/versions',
+                'url' => $this->baseUrl.'games/'.$this->minecraftGameId.'/versions',
                 'status' => $e->response?->status(),
                 'error' => $e->getMessage(),
                 'response_body' => $e->response?->body(),
