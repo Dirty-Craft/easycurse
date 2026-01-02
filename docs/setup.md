@@ -10,6 +10,12 @@ $ docker compose exec app bash setup.sh
 # It simply contains standard Laravel setup commands + some additional stuff
 ```
 
+In `src/.env`, add CurseForge API key:
+
+```
+CURSEFORGE_API_KEY=...
+```
+
 Now, the portal will be accessible at http://localhost:9090.
 
 ## Port Configuration

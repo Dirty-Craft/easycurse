@@ -28,6 +28,7 @@ echo "Checking critical environment variables..."
 
 declare -A env_defaults=(
   [MAIL_MAILER]="log"
+  [CURSEFORGE_API_KEY]=""
 )
 
 for var in "${!env_defaults[@]}"; do

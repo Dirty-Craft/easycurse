@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ModSet;
 use App\Models\ModSetItem;
+use App\Services\CurseForgeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -91,6 +92,75 @@ class ModSetController extends Controller
     }
 
     /**
+     * Search for mods using CurseForge API.
+     */
+    public function searchMods(Request $request, string $id)
+    {
+        $modSet = ModSet::where('user_id', Auth::id())->findOrFail($id);
+
+        $validated = $request->validate([
+            'query' => ['required', 'string', 'min:2', 'max:255'],
+        ]);
+
+        $curseForgeService = new CurseForgeService;
+        $query = trim($validated['query']);
+
+        // Try searching by slug first (if query looks like a slug - lowercase, no spaces)
+        $results = [];
+        if (preg_match('/^[a-z0-9-]+$/', $query)) {
+            $mod = $curseForgeService->searchModBySlug($query);
+            if ($mod) {
+                $results[] = $mod;
+            }
+        }
+
+        // Also try general search if slug search didn't return results or query doesn't look like a slug
+        if (empty($results)) {
+            $searchResults = $curseForgeService->searchMods([
+                'searchFilter' => $query,
+            ]);
+            $results = array_merge($results, $searchResults);
+        }
+
+        // Remove duplicates by mod ID
+        $uniqueResults = [];
+        $seenIds = [];
+        foreach ($results as $result) {
+            if (! isset($seenIds[$result['id']])) {
+                $uniqueResults[] = $result;
+                $seenIds[$result['id']] = true;
+            }
+        }
+
+        return response()->json([
+            'data' => array_slice($uniqueResults, 0, 20), // Limit to 20 results
+        ]);
+    }
+
+    /**
+     * Get mod files for a specific mod.
+     */
+    public function getModFiles(Request $request, string $id)
+    {
+        $modSet = ModSet::where('user_id', Auth::id())->findOrFail($id);
+
+        $validated = $request->validate([
+            'mod_id' => ['required', 'integer'],
+        ]);
+
+        $curseForgeService = new CurseForgeService;
+        $files = $curseForgeService->getModFiles(
+            $validated['mod_id'],
+            $modSet->minecraft_version,
+            $modSet->software
+        );
+
+        return response()->json([
+            'data' => $files,
+        ]);
+    }
+
+    /**
      * Store a new mod item for a mod set.
      */
     public function storeItem(Request $request, string $id)
@@ -100,13 +170,20 @@ class ModSetController extends Controller
         $validated = $request->validate([
             'mod_name' => ['required', 'string', 'max:255'],
             'mod_version' => ['required', 'string', 'max:255'],
+            'curseforge_mod_id' => ['nullable', 'integer'],
+            'curseforge_file_id' => ['nullable', 'integer'],
+            'curseforge_slug' => ['nullable', 'string', 'max:255'],
         ]);
 
         $maxSortOrder = ModSetItem::where('mod_set_id', $modSet->id)->max('sort_order') ?? 0;
 
         ModSetItem::create([
-            ...$validated,
             'mod_set_id' => $modSet->id,
+            'mod_name' => $validated['mod_name'],
+            'mod_version' => $validated['mod_version'],
+            'curseforge_mod_id' => $validated['curseforge_mod_id'] ?? null,
+            'curseforge_file_id' => $validated['curseforge_file_id'] ?? null,
+            'curseforge_slug' => $validated['curseforge_slug'] ?? null,
             'sort_order' => $maxSortOrder + 1,
         ]);
 

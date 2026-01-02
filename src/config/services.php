@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'curseforge' => [
+        'api_key' => env('CURSEFORGE_API_KEY'),
+        'base_url' => env('CURSEFORGE_BASE_URL', 'https://api.curseforge.com/v1/'),
+        'minecraft_game_id' => env('CURSEFORGE_MINECRAFT_GAME_ID', '432'),
+        'minecraft_mods_class_id' => env('CURSEFORGE_MINECRAFT_MODS_CLASS_ID', '6'),
+    ],
+
 ];

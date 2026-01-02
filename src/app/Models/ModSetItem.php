@@ -20,6 +20,9 @@ class ModSetItem extends Model
         'mod_name',
         'mod_version',
         'sort_order',
+        'curseforge_mod_id',
+        'curseforge_file_id',
+        'curseforge_slug',
     ];
 
     /**

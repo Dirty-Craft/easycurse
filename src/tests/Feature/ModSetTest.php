@@ -7,6 +7,7 @@ use App\Models\ModSet;
 use App\Models\ModSetItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ModSetTest extends TestCase
@@ -603,5 +604,254 @@ class ModSetTest extends TestCase
             ->where('modSets.0.id', $newModSet->id)
             ->where('modSets.1.id', $oldModSet->id)
         );
+    }
+
+    /**
+     * Test that user can search for mods.
+     */
+    public function test_user_can_search_for_mods(): void
+    {
+        $user = User::factory()->create();
+        $modSet = ModSet::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => Software::Fabric,
+        ]);
+
+        Http::fake([
+            'api.curseforge.com/v1/*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 123456,
+                        'name' => 'JEI',
+                        'slug' => 'jei',
+                        'downloadCount' => 1000000,
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-sets/{$modSet->id}/search-mods?query=jei");
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'data' => [
+                '*' => ['id', 'name', 'slug'],
+            ],
+        ]);
+    }
+
+    /**
+     * Test that searching mods requires authentication.
+     */
+    public function test_searching_mods_requires_authentication(): void
+    {
+        $modSet = ModSet::factory()->create();
+
+        $response = $this->get("/mod-sets/{$modSet->id}/search-mods", [
+            'query' => 'jei',
+        ]);
+
+        $response->assertRedirect('/login');
+    }
+
+    /**
+     * Test that user cannot search mods for other user's mod set.
+     */
+    public function test_user_cannot_search_mods_for_other_user_mod_set(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $modSet = ModSet::factory()->create(['user_id' => $otherUser->id]);
+
+        $response = $this->actingAs($user)->get("/mod-sets/{$modSet->id}/search-mods", [
+            'query' => 'jei',
+        ]);
+
+        $response->assertNotFound();
+    }
+
+    /**
+     * Test that searching mods requires query parameter.
+     */
+    public function test_searching_mods_requires_query(): void
+    {
+        $user = User::factory()->create();
+        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
+
+        $response = $this->actingAs($user)->get("/mod-sets/{$modSet->id}/search-mods");
+
+        $response->assertStatus(302);
+        $response->assertSessionHasErrors('query');
+    }
+
+    /**
+     * Test that user can get mod files.
+     */
+    public function test_user_can_get_mod_files(): void
+    {
+        $user = User::factory()->create();
+        $modSet = ModSet::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => Software::Fabric,
+        ]);
+
+        Http::fake([
+            'api.curseforge.com/v1/*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 789012,
+                        'displayName' => 'JEI 1.20.1-11.6.0.1015',
+                        'fileName' => 'jei-1.20.1-11.6.0.1015.jar',
+                        'fileDate' => '2024-01-01T00:00:00Z',
+                        'fileLength' => 1024000,
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-sets/{$modSet->id}/mod-files?mod_id=123456");
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'data' => [
+                '*' => ['id', 'displayName', 'fileName'],
+            ],
+        ]);
+    }
+
+    /**
+     * Test that getting mod files requires authentication.
+     */
+    public function test_getting_mod_files_requires_authentication(): void
+    {
+        $modSet = ModSet::factory()->create();
+
+        $response = $this->get("/mod-sets/{$modSet->id}/mod-files", [
+            'mod_id' => 123456,
+        ]);
+
+        $response->assertRedirect('/login');
+    }
+
+    /**
+     * Test that user cannot get mod files for other user's mod set.
+     */
+    public function test_user_cannot_get_mod_files_for_other_user_mod_set(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $modSet = ModSet::factory()->create(['user_id' => $otherUser->id]);
+
+        $response = $this->actingAs($user)->get("/mod-sets/{$modSet->id}/mod-files", [
+            'mod_id' => 123456,
+        ]);
+
+        $response->assertNotFound();
+    }
+
+    /**
+     * Test that getting mod files requires mod_id parameter.
+     */
+    public function test_getting_mod_files_requires_mod_id(): void
+    {
+        $user = User::factory()->create();
+        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
+
+        $response = $this->actingAs($user)->get("/mod-sets/{$modSet->id}/mod-files");
+
+        $response->assertStatus(302);
+        $response->assertSessionHasErrors('mod_id');
+    }
+
+    /**
+     * Test that user can add mod item with CurseForge data.
+     */
+    public function test_user_can_add_mod_item_with_curseforge_data(): void
+    {
+        $user = User::factory()->create();
+        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
+
+        $response = $this->actingAs($user)->post("/mod-sets/{$modSet->id}/items", [
+            'mod_name' => 'JEI',
+            'mod_version' => '1.20.1-11.6.0.1015',
+            'curseforge_mod_id' => 123456,
+            'curseforge_file_id' => 789012,
+            'curseforge_slug' => 'jei',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('mod_set_items', [
+            'mod_set_id' => $modSet->id,
+            'mod_name' => 'JEI',
+            'mod_version' => '1.20.1-11.6.0.1015',
+            'curseforge_mod_id' => 123456,
+            'curseforge_file_id' => 789012,
+            'curseforge_slug' => 'jei',
+        ]);
+    }
+
+    /**
+     * Test that CurseForge fields are optional when adding mod item.
+     */
+    public function test_curseforge_fields_are_optional_when_adding_mod_item(): void
+    {
+        $user = User::factory()->create();
+        $modSet = ModSet::factory()->create(['user_id' => $user->id]);
+
+        $response = $this->actingAs($user)->post("/mod-sets/{$modSet->id}/items", [
+            'mod_name' => 'JEI',
+            'mod_version' => '1.20.1-11.6.0.1015',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('mod_set_items', [
+            'mod_set_id' => $modSet->id,
+            'mod_name' => 'JEI',
+            'mod_version' => '1.20.1-11.6.0.1015',
+            'curseforge_mod_id' => null,
+            'curseforge_file_id' => null,
+            'curseforge_slug' => null,
+        ]);
+    }
+
+    /**
+     * Test that searching mods by slug works.
+     */
+    public function test_searching_mods_by_slug_works(): void
+    {
+        $user = User::factory()->create();
+        $modSet = ModSet::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => Software::Fabric,
+        ]);
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/search*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 123456,
+                        'name' => 'JEI',
+                        'slug' => 'jei',
+                        'downloadCount' => 1000000,
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-sets/{$modSet->id}/search-mods?query=jei");
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'data' => [
+                [
+                    'id' => 123456,
+                    'name' => 'JEI',
+                    'slug' => 'jei',
+                ],
+            ],
+        ]);
     }
 }

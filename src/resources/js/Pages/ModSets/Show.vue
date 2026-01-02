@@ -166,52 +166,195 @@
             class="modal-overlay"
             @click="showAddModModal = false"
         >
-            <div class="modal-content" @click.stop>
+            <div class="modal-content modal-content-large" @click.stop>
                 <div class="modal-header">
-                    <h2>Add Mod</h2>
-                    <button
-                        class="modal-close"
-                        @click="showAddModModal = false"
-                    >
+                    <h2>Add Mod from CurseForge</h2>
+                    <button class="modal-close" @click="closeAddModModal">
                         ×
                     </button>
                 </div>
-                <form class="modal-body" @submit.prevent="addMod">
-                    <div class="form-group">
-                        <label for="mod-name">Mod Name</label>
-                        <input
-                            id="mod-name"
-                            v-model="modForm.mod_name"
-                            type="text"
-                            required
-                            class="form-input"
-                            placeholder="e.g., JEI"
-                        />
-                    </div>
-                    <div class="form-group">
-                        <label for="mod-version">Version</label>
-                        <input
-                            id="mod-version"
-                            v-model="modForm.mod_version"
-                            type="text"
-                            required
-                            class="form-input"
-                            placeholder="e.g., 1.20.1-11.6.0.1015"
-                        />
-                    </div>
-                    <div class="modal-footer">
-                        <button
-                            type="button"
-                            class="btn btn-secondary"
-                            @click="showAddModModal = false"
+                <div class="modal-body">
+                    <!-- Step 1: Search for Mod -->
+                    <div v-if="addModStep === 'search'" class="add-mod-step">
+                        <div class="form-group">
+                            <label for="mod-search">Search for Mod</label>
+                            <div class="search-input-wrapper">
+                                <input
+                                    id="mod-search"
+                                    v-model="modSearchQuery"
+                                    type="text"
+                                    class="form-input"
+                                    placeholder="Search by mod name or slug..."
+                                    @input="debouncedSearch"
+                                />
+                                <div v-if="isSearching" class="search-loading">
+                                    Searching...
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            v-if="modSearchResults.length > 0"
+                            class="search-results"
                         >
-                            Cancel
-                        </button>
-                        <button type="submit" class="btn btn-primary">
-                            Add Mod
-                        </button>
+                            <div class="search-results-header">
+                                <p class="search-results-count">
+                                    Found {{ modSearchResults.length }} mod(s)
+                                </p>
+                            </div>
+                            <div class="mod-results-list">
+                                <div
+                                    v-for="mod in modSearchResults"
+                                    :key="mod.id"
+                                    class="mod-result-item"
+                                    @click="selectMod(mod)"
+                                >
+                                    <div class="mod-result-content">
+                                        <div class="mod-result-name">
+                                            {{ mod.name }}
+                                        </div>
+                                        <div class="mod-result-meta">
+                                            <span class="mod-result-slug">
+                                                {{ mod.slug }}
+                                            </span>
+                                            <span
+                                                v-if="mod.downloadCount"
+                                                class="mod-result-downloads"
+                                            >
+                                                {{
+                                                    formatDownloads(
+                                                        mod.downloadCount,
+                                                    )
+                                                }}
+                                                downloads
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="mod-result-arrow">→</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            v-if="
+                                modSearchQuery &&
+                                !isSearching &&
+                                modSearchResults.length === 0 &&
+                                searchPerformed
+                            "
+                            class="search-no-results"
+                        >
+                            <p>No mods found. Try a different search term.</p>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button
+                                type="button"
+                                class="btn btn-secondary"
+                                @click="closeAddModModal"
+                            >
+                                Cancel
+                            </button>
+                        </div>
                     </div>
-                </form>
+
+                    <!-- Step 2: Select Version -->
+                    <div
+                        v-if="addModStep === 'selectVersion'"
+                        class="add-mod-step"
+                    >
+                        <div class="selected-mod-info">
+                            <h3>{{ selectedMod.name }}</h3>
+                            <p class="selected-mod-slug">
+                                {{ selectedMod.slug }}
+                            </p>
+                        </div>
+
+                        <div v-if="isLoadingFiles" class="loading-files">
+                            <p>Loading available versions...</p>
+                        </div>
+
+                        <div v-else-if="modFiles.length > 0" class="files-list">
+                            <div class="files-list-header">
+                                <p>
+                                    Select a version for
+                                    <strong>{{
+                                        modSet.minecraft_version
+                                    }}</strong>
+                                    ({{ modSet.software_label }})
+                                </p>
+                            </div>
+                            <div class="files-list-items">
+                                <div
+                                    v-for="file in modFiles"
+                                    :key="file.id"
+                                    class="file-item"
+                                    :class="{
+                                        'file-item-selected':
+                                            selectedFile?.id === file.id,
+                                    }"
+                                    @click="selectFile(file)"
+                                >
+                                    <div class="file-item-content">
+                                        <div class="file-item-name">
+                                            {{
+                                                file.displayName ||
+                                                file.fileName
+                                            }}
+                                        </div>
+                                        <div class="file-item-meta">
+                                            <span class="file-item-date">
+                                                {{ formatDate(file.fileDate) }}
+                                            </span>
+                                            <span
+                                                v-if="file.fileLength"
+                                                class="file-item-size"
+                                            >
+                                                {{
+                                                    formatFileSize(
+                                                        file.fileLength,
+                                                    )
+                                                }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div
+                                        v-if="selectedFile?.id === file.id"
+                                        class="file-item-check"
+                                    >
+                                        ✓
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-else class="no-files">
+                            <p>
+                                No compatible versions found for
+                                <strong>{{ modSet.minecraft_version }}</strong>
+                                ({{ modSet.software_label }}).
+                            </p>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button
+                                type="button"
+                                class="btn btn-secondary"
+                                @click="addModStep = 'search'"
+                            >
+                                ← Back
+                            </button>
+                            <button
+                                type="button"
+                                class="btn btn-primary"
+                                :disabled="!selectedFile"
+                                @click="addMod"
+                            >
+                                Add Mod
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </DashboardLayout>
@@ -221,6 +364,7 @@
 import { Head, Link, router, useForm } from "@inertiajs/vue3";
 import { ref, computed } from "vue";
 import DashboardLayout from "../../Layouts/DashboardLayout.vue";
+import axios from "axios";
 
 const props = defineProps({
     modSet: Object,
@@ -228,6 +372,7 @@ const props = defineProps({
 
 const showEditModal = ref(false);
 const showAddModModal = ref(false);
+const addModStep = ref("search"); // 'search' or 'selectVersion'
 
 const editForm = useForm({
     name: props.modSet.name,
@@ -236,24 +381,131 @@ const editForm = useForm({
     description: props.modSet.description || "",
 });
 
-const modForm = useForm({
-    mod_name: "",
-    mod_version: "",
-});
+const modSearchQuery = ref("");
+const modSearchResults = ref([]);
+const isSearching = ref(false);
+const searchPerformed = ref(false);
+const selectedMod = ref(null);
+const modFiles = ref([]);
+const isLoadingFiles = ref(false);
+const selectedFile = ref(null);
+
+let searchTimeout = null;
+
+const debouncedSearch = () => {
+    if (searchTimeout) {
+        clearTimeout(searchTimeout);
+    }
+
+    if (modSearchQuery.value.length < 2) {
+        modSearchResults.value = [];
+        searchPerformed.value = false;
+        return;
+    }
+
+    searchTimeout = setTimeout(() => {
+        searchMods();
+    }, 500);
+};
+
+const searchMods = async () => {
+    if (modSearchQuery.value.length < 2) {
+        return;
+    }
+
+    isSearching.value = true;
+    searchPerformed.value = true;
+
+    try {
+        const response = await axios.get(
+            `/mod-sets/${props.modSet.id}/search-mods`,
+            {
+                params: {
+                    query: modSearchQuery.value,
+                },
+            },
+        );
+
+        modSearchResults.value = response.data.data || [];
+    } catch (error) {
+        console.error("Error searching mods:", error);
+        modSearchResults.value = [];
+    } finally {
+        isSearching.value = false;
+    }
+};
+
+const selectMod = async (mod) => {
+    selectedMod.value = mod;
+    addModStep.value = "selectVersion";
+    isLoadingFiles.value = true;
+    modFiles.value = [];
+    selectedFile.value = null;
+
+    try {
+        const response = await axios.get(
+            `/mod-sets/${props.modSet.id}/mod-files`,
+            {
+                params: {
+                    mod_id: mod.id,
+                },
+            },
+        );
+
+        modFiles.value = response.data.data || [];
+
+        // Auto-select the latest file if available
+        if (modFiles.value.length > 0) {
+            selectedFile.value = modFiles.value[0];
+        }
+    } catch (error) {
+        console.error("Error loading mod files:", error);
+        modFiles.value = [];
+    } finally {
+        isLoadingFiles.value = false;
+    }
+};
+
+const selectFile = (file) => {
+    selectedFile.value = file;
+};
+
+const closeAddModModal = () => {
+    showAddModModal.value = false;
+    addModStep.value = "search";
+    modSearchQuery.value = "";
+    modSearchResults.value = [];
+    searchPerformed.value = false;
+    selectedMod.value = null;
+    modFiles.value = [];
+    selectedFile.value = null;
+};
+
+const addMod = () => {
+    if (!selectedMod.value || !selectedFile.value) {
+        return;
+    }
+
+    const form = useForm({
+        mod_name: selectedMod.value.name,
+        mod_version:
+            selectedFile.value.displayName || selectedFile.value.fileName,
+        curseforge_mod_id: selectedMod.value.id,
+        curseforge_file_id: selectedFile.value.id,
+        curseforge_slug: selectedMod.value.slug,
+    });
+
+    form.post(`/mod-sets/${props.modSet.id}/items`, {
+        onSuccess: () => {
+            closeAddModModal();
+        },
+    });
+};
 
 const updateModSet = () => {
     editForm.put(`/mod-sets/${props.modSet.id}`, {
         onSuccess: () => {
             showEditModal.value = false;
-        },
-    });
-};
-
-const addMod = () => {
-    modForm.post(`/mod-sets/${props.modSet.id}/items`, {
-        onSuccess: () => {
-            showAddModModal.value = false;
-            modForm.reset();
         },
     });
 };
@@ -268,6 +520,33 @@ const deleteModItem = (itemId) => {
     if (confirm("Are you sure you want to remove this mod?")) {
         router.delete(`/mod-sets/${props.modSet.id}/items/${itemId}`);
     }
+};
+
+const formatDownloads = (count) => {
+    if (count >= 1000000) {
+        return (count / 1000000).toFixed(1) + "M";
+    }
+    if (count >= 1000) {
+        return (count / 1000).toFixed(1) + "K";
+    }
+    return count.toString();
+};
+
+const formatDate = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleDateString();
+};
+
+const formatFileSize = (bytes) => {
+    if (!bytes) return "";
+    if (bytes >= 1048576) {
+        return (bytes / 1048576).toFixed(2) + " MB";
+    }
+    if (bytes >= 1024) {
+        return (bytes / 1024).toFixed(2) + " KB";
+    }
+    return bytes + " B";
 };
 </script>
 
@@ -554,5 +833,202 @@ const deleteModItem = (itemId) => {
 .btn-sm {
     padding: var(--spacing-xs) var(--spacing-md);
     font-size: 0.875rem;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.modal-content-large {
+    max-width: 700px;
+}
+
+.add-mod-step {
+    min-height: 300px;
+}
+
+.search-input-wrapper {
+    position: relative;
+}
+
+.search-loading {
+    position: absolute;
+    right: var(--spacing-md);
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+}
+
+.search-results {
+    margin-top: var(--spacing-lg);
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.search-results-header {
+    margin-bottom: var(--spacing-md);
+}
+
+.search-results-count {
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+.mod-results-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.mod-result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-md);
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-base);
+}
+
+.mod-result-item:hover {
+    border-color: var(--color-primary);
+    background: var(--color-background-light);
+    transform: translateX(4px);
+}
+
+.mod-result-content {
+    flex: 1;
+}
+
+.mod-result-name {
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.mod-result-meta {
+    display: flex;
+    gap: var(--spacing-md);
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+}
+
+.mod-result-slug {
+    font-family: monospace;
+}
+
+.mod-result-downloads {
+    color: var(--color-text-secondary);
+}
+
+.mod-result-arrow {
+    color: var(--color-text-secondary);
+    font-size: 1.25rem;
+    transition: transform var(--transition-base);
+}
+
+.mod-result-item:hover .mod-result-arrow {
+    transform: translateX(4px);
+    color: var(--color-primary);
+}
+
+.search-no-results {
+    text-align: center;
+    padding: var(--spacing-2xl) 0;
+    color: var(--color-text-secondary);
+}
+
+.selected-mod-info {
+    margin-bottom: var(--spacing-xl);
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.selected-mod-info h3 {
+    margin: 0 0 var(--spacing-xs) 0;
+    color: var(--color-text-primary);
+}
+
+.selected-mod-slug {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-family: monospace;
+    font-size: 0.875rem;
+}
+
+.loading-files,
+.no-files {
+    text-align: center;
+    padding: var(--spacing-2xl) 0;
+    color: var(--color-text-secondary);
+}
+
+.files-list-header {
+    margin-bottom: var(--spacing-md);
+}
+
+.files-list-header p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 0.9375rem;
+}
+
+.files-list-items {
+    max-height: 400px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.file-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-md);
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-base);
+}
+
+.file-item:hover {
+    border-color: var(--color-primary);
+    background: var(--color-background-light);
+}
+
+.file-item-selected {
+    border-color: var(--color-primary);
+    background: var(--color-background-light);
+    box-shadow: 0 0 0 2px rgb(0 217 255 / 20%);
+}
+
+.file-item-content {
+    flex: 1;
+}
+
+.file-item-name {
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.file-item-meta {
+    display: flex;
+    gap: var(--spacing-md);
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+}
+
+.file-item-check {
+    color: var(--color-primary);
+    font-size: 1.25rem;
+    font-weight: bold;
 }
 </style>
