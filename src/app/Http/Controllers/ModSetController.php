@@ -201,4 +201,80 @@ class ModSetController extends Controller
 
         return redirect()->route('mod-sets.show', $modSet->id);
     }
+
+    /**
+     * Get download links for all mod items in a mod set.
+     */
+    public function getDownloadLinks(string $id)
+    {
+        $modSet = ModSet::where('user_id', Auth::id())
+            ->with('items')
+            ->findOrFail($id);
+
+        $curseForgeService = new CurseForgeService;
+        $downloadLinks = [];
+
+        foreach ($modSet->items as $item) {
+            if (! $item->curseforge_mod_id || ! $item->curseforge_file_id) {
+                // Skip items without CurseForge metadata
+                continue;
+            }
+
+            $downloadInfo = $curseForgeService->getFileDownloadInfo(
+                $item->curseforge_mod_id,
+                $item->curseforge_file_id
+            );
+
+            if ($downloadInfo) {
+                $downloadLinks[] = [
+                    'item_id' => $item->id,
+                    'mod_name' => $item->mod_name,
+                    'mod_version' => $item->mod_version,
+                    'download_url' => $downloadInfo['url'],
+                    'filename' => $downloadInfo['filename'],
+                ];
+            }
+        }
+
+        return response()->json([
+            'data' => $downloadLinks,
+        ]);
+    }
+
+    /**
+     * Get download link for a specific mod item.
+     */
+    public function getItemDownloadLink(string $id, string $itemId)
+    {
+        $modSet = ModSet::where('user_id', Auth::id())->findOrFail($id);
+        $item = ModSetItem::where('mod_set_id', $modSet->id)->findOrFail($itemId);
+
+        if (! $item->curseforge_mod_id || ! $item->curseforge_file_id) {
+            return response()->json([
+                'error' => 'This mod item does not have CurseForge download information.',
+            ], 404);
+        }
+
+        $curseForgeService = new CurseForgeService;
+        $downloadInfo = $curseForgeService->getFileDownloadInfo(
+            $item->curseforge_mod_id,
+            $item->curseforge_file_id
+        );
+
+        if (! $downloadInfo) {
+            return response()->json([
+                'error' => 'Unable to retrieve download information for this mod.',
+            ], 404);
+        }
+
+        return response()->json([
+            'data' => [
+                'item_id' => $item->id,
+                'mod_name' => $item->mod_name,
+                'mod_version' => $item->mod_version,
+                'download_url' => $downloadInfo['url'],
+                'filename' => $downloadInfo['filename'],
+            ],
+        ]);
+    }
 }

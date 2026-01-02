@@ -26,4 +26,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/mod-sets/{id}/mod-files', [\App\Http\Controllers\ModSetController::class, 'getModFiles'])->name('mod-sets.mod-files');
     Route::post('/mod-sets/{id}/items', [\App\Http\Controllers\ModSetController::class, 'storeItem'])->name('mod-sets.items.store');
     Route::delete('/mod-sets/{id}/items/{itemId}', [\App\Http\Controllers\ModSetController::class, 'destroyItem'])->name('mod-sets.items.destroy');
+    Route::get('/mod-sets/{id}/download-links', [\App\Http\Controllers\ModSetController::class, 'getDownloadLinks'])->name('mod-sets.download-links');
+    Route::get('/mod-sets/{id}/items/{itemId}/download-link', [\App\Http\Controllers\ModSetController::class, 'getItemDownloadLink'])->name('mod-sets.items.download-link');
 });

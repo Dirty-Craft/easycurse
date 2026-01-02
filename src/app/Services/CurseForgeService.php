@@ -219,4 +219,152 @@ class CurseForgeService
 
         return $result;
     }
+
+    /**
+     * Get the download URL for a mod file.
+     *
+     * @param  int  $fileId  The CurseForge file ID
+     * @param  string|null  $fileName  Optional file name for constructing URL if not in API response
+     * @return string|null The direct download URL or null if unavailable
+     */
+    public function getFileDownloadUrl(int $fileId, ?string $fileName = null): ?string
+    {
+        try {
+            // CurseForge CDN URL format: https://edge.forgecdn.net/files/{first4}/{second4}/{filename}
+            // File ID is split: first 4 digits, then next 4 digits (padded if needed)
+            // Example: File ID 12345678 -> files/1234/5678/filename.jar
+            // Example: File ID 123 -> files/0123/0000/filename.jar
+            // Example: File ID 123456789 -> files/1234/5678/filename.jar (takes first 8 digits)
+
+            $fileIdStr = (string) $fileId;
+
+            // Pad to at least 8 digits for splitting
+            $fileIdPadded = str_pad($fileIdStr, 8, '0', STR_PAD_LEFT);
+
+            // Split into two 4-digit parts
+            $firstPart = substr($fileIdPadded, 0, 4);
+            $secondPart = substr($fileIdPadded, 4, 4);
+
+            // If we have a filename, use it; otherwise use a generic name
+            $filename = $fileName ?? "file-{$fileId}.jar";
+
+            return "https://edge.forgecdn.net/files/{$firstPart}/{$secondPart}/{$filename}";
+        } catch (\Exception $e) {
+            Log::error('CurseForge error generating download URL', [
+                'file_id' => $fileId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Get the download URL from CurseForge API.
+     *
+     * @param  int  $fileId  The CurseForge file ID
+     * @return string|null The download URL or null if unavailable
+     */
+    public function getFileDownloadUrlFromApi(int $fileId): ?string
+    {
+        try {
+            // Try to get download URL from CurseForge API files endpoint
+            // This endpoint might return a URL that works better with CORS
+            $response = $this->client()->get($this->baseUrl.'files/'.$fileId.'/download-url');
+
+            if ($response->successful()) {
+                $data = $response->json('data');
+                $url = $data['url'] ?? null;
+
+                if ($url) {
+                    Log::debug('Got download URL from API endpoint', [
+                        'file_id' => $fileId,
+                        'url' => $url,
+                    ]);
+
+                    return $url;
+                }
+            }
+        } catch (\Exception $e) {
+            Log::debug('CurseForge download URL endpoint not available or failed', [
+                'file_id' => $fileId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * Get download information for a mod file (including URL and filename).
+     *
+     * @param  int  $modId  The CurseForge mod ID
+     * @param  int  $fileId  The CurseForge file ID
+     * @return array|null Array with 'url' and 'filename' keys, or null if unavailable
+     */
+    public function getFileDownloadInfo(int $modId, int $fileId): ?array
+    {
+        try {
+            $file = $this->getModFile($modId, $fileId);
+
+            if (! $file) {
+                Log::warning('CurseForge file not found', [
+                    'mod_id' => $modId,
+                    'file_id' => $fileId,
+                ]);
+
+                return null;
+            }
+
+            $fileName = $file['fileName'] ?? null;
+
+            // Try multiple methods to get download URL
+            $downloadUrl = null;
+
+            // Method 1: Try to get download URL from files endpoint first (might have better CORS support)
+            $downloadUrl = $this->getFileDownloadUrlFromApi($fileId);
+
+            // Method 2: Check if downloadUrl is provided in the API response
+            if (! $downloadUrl) {
+                $downloadUrl = $file['downloadUrl'] ?? null;
+            }
+
+            // Method 3: Construct CDN URL as fallback
+            if (! $downloadUrl) {
+                $downloadUrl = $this->getFileDownloadUrl($fileId, $fileName);
+            }
+
+            // Log the file structure for debugging
+            Log::debug('CurseForge file data', [
+                'mod_id' => $modId,
+                'file_id' => $fileId,
+                'has_downloadUrl_in_file' => isset($file['downloadUrl']),
+                'downloadUrl' => $downloadUrl,
+                'fileName' => $fileName,
+            ]);
+
+            if (! $downloadUrl) {
+                Log::warning('CurseForge download URL not available', [
+                    'mod_id' => $modId,
+                    'file_id' => $fileId,
+                ]);
+
+                return null;
+            }
+
+            return [
+                'url' => $downloadUrl,
+                'filename' => $fileName ?? "file-{$fileId}.jar",
+            ];
+        } catch (\Exception $e) {
+            Log::error('CurseForge error getting file download info', [
+                'mod_id' => $modId,
+                'file_id' => $fileId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return null;
+        }
+    }
 }

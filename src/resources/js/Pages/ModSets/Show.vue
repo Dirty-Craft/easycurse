@@ -39,12 +39,28 @@
                 <div class="dashboard-card">
                     <div class="section-header">
                         <h3 class="section-title">Mods</h3>
-                        <button
-                            class="btn btn-primary"
-                            @click="showAddModModal = true"
-                        >
-                            + Add Mod
-                        </button>
+                        <div class="section-actions">
+                            <button
+                                v-if="modSet.items.length > 0"
+                                class="btn btn-success"
+                                :class="{ 'btn-loading': isDownloadingAll }"
+                                :disabled="isDownloadingAll"
+                                @click="downloadAllAsZip"
+                            >
+                                <span v-if="!isDownloadingAll"
+                                    >📦 Download All as ZIP</span
+                                >
+                                <span v-else class="loading-text"
+                                    >Downloading...</span
+                                >
+                            </button>
+                            <button
+                                class="btn btn-primary"
+                                @click="showAddModModal = true"
+                            >
+                                + Add Mod
+                            </button>
+                        </div>
                     </div>
 
                     <div v-if="modSet.items.length === 0" class="empty-state">
@@ -69,16 +85,33 @@
                                         {{ item.mod_name }}
                                     </div>
                                     <div class="mod-item-version">
-                                        v{{ item.mod_version }}
+                                        {{ item.mod_version }}
                                     </div>
                                 </div>
                             </div>
-                            <button
-                                class="btn btn-sm btn-danger"
-                                @click="deleteModItem(item.id)"
-                            >
-                                Remove
-                            </button>
+                            <div class="mod-item-actions">
+                                <button
+                                    v-if="
+                                        item.curseforge_mod_id &&
+                                        item.curseforge_file_id
+                                    "
+                                    class="btn btn-sm btn-success"
+                                    :disabled="downloadingItems.has(item.id)"
+                                    @click="downloadModItem(item)"
+                                >
+                                    {{
+                                        downloadingItems.has(item.id)
+                                            ? "..."
+                                            : "⬇️ Download"
+                                    }}
+                                </button>
+                                <button
+                                    class="btn btn-sm btn-danger"
+                                    @click="deleteModItem(item.id)"
+                                >
+                                    Remove
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -365,6 +398,7 @@ import { Head, Link, router, useForm } from "@inertiajs/vue3";
 import { ref, computed } from "vue";
 import DashboardLayout from "../../Layouts/DashboardLayout.vue";
 import axios from "axios";
+import { downloadZip } from "client-zip";
 
 const props = defineProps({
     modSet: Object,
@@ -389,6 +423,8 @@ const selectedMod = ref(null);
 const modFiles = ref([]);
 const isLoadingFiles = ref(false);
 const selectedFile = ref(null);
+const isDownloadingAll = ref(false);
+const downloadingItems = ref(new Set());
 
 let searchTimeout = null;
 
@@ -548,6 +584,237 @@ const formatFileSize = (bytes) => {
     }
     return bytes + " B";
 };
+
+const downloadModItem = async (item) => {
+    if (!item.curseforge_mod_id || !item.curseforge_file_id) {
+        alert("This mod does not have download information available.");
+        return;
+    }
+
+    downloadingItems.value.add(item.id);
+
+    try {
+        const response = await axios.get(
+            `/mod-sets/${props.modSet.id}/items/${item.id}/download-link`,
+        );
+
+        console.log("Download link response:", response.data);
+
+        const downloadInfo = response.data.data;
+        if (!downloadInfo || !downloadInfo.download_url) {
+            console.error("Download info missing:", response.data);
+            throw new Error("Download URL not available");
+        }
+
+        console.log("Downloading from URL:", downloadInfo.download_url);
+
+        // CurseForge CDN blocks CORS, so we can't fetch the file via JavaScript
+        // Use a simple anchor click - this will navigate to the file
+        // CurseForge CDN should send Content-Disposition header to trigger download
+        // If not, the file will open in a new tab and user can save it manually
+        const a = document.createElement("a");
+        a.href = downloadInfo.download_url;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        // Small delay before removing to ensure click is processed
+        setTimeout(() => {
+            document.body.removeChild(a);
+        }, 100);
+
+        console.log("Download link opened for", item.mod_name);
+    } catch (error) {
+        console.error("Error downloading mod:", error);
+        alert(
+            `Failed to download ${item.mod_name}: ${error.message || "Unknown error"}. Please check the console for details.`,
+        );
+    } finally {
+        downloadingItems.value.delete(item.id);
+    }
+};
+
+const downloadAllAsZip = async () => {
+    try {
+        if (
+            !props.modSet ||
+            !props.modSet.items ||
+            props.modSet.items.length === 0
+        ) {
+            return;
+        }
+
+        isDownloadingAll.value = true;
+
+        console.log("Fetching download links for mod set:", props.modSet.id);
+
+        // Get all download links
+        const response = await axios.get(
+            `/mod-sets/${props.modSet.id}/download-links`,
+        );
+
+        console.log("Download links response:", response.data);
+
+        if (!response.data || !response.data.data) {
+            throw new Error("Invalid response from server");
+        }
+
+        const downloadLinks = response.data.data;
+        if (downloadLinks.length === 0) {
+            alert("No mods with download information available.");
+            isDownloadingAll.value = false;
+            return;
+        }
+
+        console.log(`Downloading ${downloadLinks.length} mods...`);
+
+        // Check for CORS issues - CurseForge CDN doesn't allow CORS from browsers
+        // We need to inform the user about this limitation
+        let corsWarningShown = false;
+
+        // Fetch all files in parallel
+        const files = await Promise.all(
+            downloadLinks.map(async (link) => {
+                try {
+                    if (!link.download_url || !link.mod_name) {
+                        throw new Error("Missing download URL or mod name");
+                    }
+
+                    console.log(
+                        `Fetching ${link.mod_name} from ${link.download_url}`,
+                    );
+
+                    // Try to fetch with CORS
+                    let fileResponse;
+                    try {
+                        fileResponse = await fetch(link.download_url, {
+                            method: "GET",
+                            mode: "cors",
+                            credentials: "omit",
+                        });
+                    } catch (fetchError) {
+                        // CORS error or network error
+                        if (
+                            fetchError.name === "TypeError" &&
+                            fetchError.message.includes("Failed to fetch")
+                        ) {
+                            if (!corsWarningShown) {
+                                corsWarningShown = true;
+                                console.warn(
+                                    "CORS error detected. CurseForge CDN blocks cross-origin requests.",
+                                );
+                            }
+                            throw new Error(
+                                `CORS blocked: Browser security prevents downloading this file directly. Use individual download buttons instead.`,
+                            );
+                        }
+                        throw fetchError;
+                    }
+
+                    if (!fileResponse.ok) {
+                        const errorText = await fileResponse
+                            .text()
+                            .catch(() => "Unable to read error");
+                        console.error(
+                            `Failed to fetch ${link.mod_name}:`,
+                            fileResponse.status,
+                            errorText,
+                        );
+                        throw new Error(
+                            `Failed to fetch ${link.mod_name}: ${fileResponse.status} ${fileResponse.statusText}`,
+                        );
+                    }
+
+                    const blob = await fileResponse.blob();
+                    console.log(
+                        `Successfully fetched ${link.mod_name}, size: ${blob.size} bytes`,
+                    );
+
+                    if (blob.size === 0) {
+                        throw new Error(`Downloaded file is empty`);
+                    }
+
+                    return {
+                        name: link.filename || `${link.mod_name}.jar`,
+                        input: blob,
+                    };
+                } catch (error) {
+                    console.error(`Error fetching ${link.mod_name}:`, error);
+                    // Return a placeholder file with error message
+                    return {
+                        name: `${link.mod_name}_ERROR.txt`,
+                        input: new Blob(
+                            [
+                                `Error: Failed to download ${link.mod_name}\n${error.message}\n\nURL: ${link.download_url || "N/A"}\n\nNote: CurseForge CDN blocks cross-origin requests. Individual downloads work, but ZIP creation requires server-side proxy.`,
+                            ],
+                            { type: "text/plain" },
+                        ),
+                    };
+                }
+            }),
+        );
+
+        // Check if all files failed due to CORS
+        const errorFiles = files.filter((f) => f.name.endsWith("_ERROR.txt"));
+        if (errorFiles.length === files.length && errorFiles.length > 0) {
+            try {
+                const firstError = errorFiles[0];
+                const errorText = await new Response(firstError.input).text();
+                if (errorText.includes("CORS blocked")) {
+                    alert(
+                        "Unable to create ZIP file: CurseForge CDN blocks cross-origin requests from browsers.\n\n" +
+                            "This is a browser security restriction (CORS). To download all mods:\n" +
+                            "1. Use the individual download buttons (they work fine)\n" +
+                            "2. Or install a CORS browser extension\n\n" +
+                            "Note: Server-side ZIP creation would work but is not implemented per your requirements.",
+                    );
+                    isDownloadingAll.value = false;
+                    return;
+                }
+            } catch (e) {
+                console.error("Error reading error file:", e);
+            }
+        }
+
+        // Warn if some files failed
+        if (errorFiles.length > 0 && errorFiles.length < files.length) {
+            console.warn(
+                `${errorFiles.length} out of ${files.length} files failed to download`,
+            );
+        }
+
+        console.log("All files fetched, creating ZIP...");
+
+        // Create ZIP file
+        const zipBlob = await downloadZip(files).blob();
+        console.log("ZIP created, size:", zipBlob.size);
+
+        if (!zipBlob || zipBlob.size === 0) {
+            throw new Error("Failed to create ZIP file");
+        }
+
+        // Trigger download
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${props.modSet.name.replace(/[^a-z0-9]/gi, "_")}_mods.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        console.log("ZIP download triggered");
+    } catch (error) {
+        console.error("Error downloading mod set:", error);
+        const errorMessage =
+            error?.message || error?.toString() || "Unknown error";
+        alert(
+            `Failed to download mod set: ${errorMessage}. Please check the console for details.`,
+        );
+    } finally {
+        isDownloadingAll.value = false;
+    }
+};
 </script>
 
 <style scoped>
@@ -591,6 +858,14 @@ const formatFileSize = (bytes) => {
     justify-content: space-between;
     align-items: center;
     margin-bottom: var(--spacing-lg);
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.section-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: center;
 }
 
 .section-title {
@@ -627,6 +902,7 @@ const formatFileSize = (bytes) => {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     transition: all var(--transition-base);
+    gap: var(--spacing-md);
 }
 
 .mod-item:hover {
@@ -673,6 +949,57 @@ const formatFileSize = (bytes) => {
 .mod-item-version {
     font-size: 0.875rem;
     color: var(--color-text-secondary);
+}
+
+.mod-item-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgb(16 185 129 / 30%);
+}
+
+.btn-success:disabled,
+.btn-success.btn-loading {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+    position: relative;
+}
+
+.btn-success.btn-loading {
+    min-width: 180px;
+}
+
+.btn-success.btn-loading .loading-text {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.btn-success.btn-loading .loading-text::before {
+    content: "";
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Modal Styles */
