@@ -28,10 +28,10 @@ jobs:
 
       - name: Run tests
         run: |
-          docker compose exec app composer test
+          docker compose exec app php artisan test --parallel --coverage
 
       - name: Test production setup
         run: |
           docker compose -f docker-compose.prod.yml up -d
           docker compose -f docker-compose.prod.yml exec app bash setup.sh
-          docker compose -f docker-compose.prod.yml exec app composer test
+          docker compose -f docker-compose.prod.yml exec app php artisan test --parallel --coverage
