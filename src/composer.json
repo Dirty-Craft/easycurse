@@ -50,7 +50,7 @@
         "test": [
             "echo 'Preparing the test environment...'",
             "bash setup.sh > /dev/null 2>&1",
-            "@php artisan test --parallel --coverage | grep -v '100.0%'"
+            "@php artisan test --parallel --coverage"
         ],
         "lint": [
             "@php vendor/bin/pint && php artisan generate:erd",
