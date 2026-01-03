@@ -229,50 +229,40 @@
             <!-- Benefits Section -->
             <section class="section benefits">
                 <div class="container">
-                    <div class="benefits-content">
-                        <div class="benefits-text">
-                            <div class="section-badge">
-                                {{ t("landing.benefits.badge") }}
-                            </div>
-                            <h2 class="section-title">
-                                {{ t("landing.benefits.title") }}
-                            </h2>
-                            <p class="section-subtitle">
-                                {{ t("landing.benefits.subtitle") }}
-                            </p>
-                            <ul class="benefits-list">
-                                <li class="benefit-item">
-                                    <span class="benefit-icon">✓</span>
-                                    <span>{{
-                                        t("landing.benefits.item1")
-                                    }}</span>
-                                </li>
-                                <li class="benefit-item">
-                                    <span class="benefit-icon">✓</span>
-                                    <span>{{
-                                        t("landing.benefits.item2")
-                                    }}</span>
-                                </li>
-                                <li class="benefit-item">
-                                    <span class="benefit-icon">✓</span>
-                                    <span>{{
-                                        t("landing.benefits.item3")
-                                    }}</span>
-                                </li>
-                                <li class="benefit-item">
-                                    <span class="benefit-icon">✓</span>
-                                    <span>{{
-                                        t("landing.benefits.item4")
-                                    }}</span>
-                                </li>
-                                <li class="benefit-item">
-                                    <span class="benefit-icon">✓</span>
-                                    <span>{{
-                                        t("landing.benefits.item5")
-                                    }}</span>
-                                </li>
-                            </ul>
+                    <div class="section-header">
+                        <div class="section-badge">
+                            {{ t("landing.benefits.badge") }}
                         </div>
+                        <h2 class="section-title">
+                            {{ t("landing.benefits.title") }}
+                        </h2>
+                        <p class="section-subtitle">
+                            {{ t("landing.benefits.subtitle") }}
+                        </p>
+                    </div>
+                    <div class="benefits-content">
+                        <ul class="benefits-list">
+                            <li class="benefit-item">
+                                <span class="benefit-icon">✓</span>
+                                <span>{{ t("landing.benefits.item1") }}</span>
+                            </li>
+                            <li class="benefit-item">
+                                <span class="benefit-icon">✓</span>
+                                <span>{{ t("landing.benefits.item2") }}</span>
+                            </li>
+                            <li class="benefit-item">
+                                <span class="benefit-icon">✓</span>
+                                <span>{{ t("landing.benefits.item3") }}</span>
+                            </li>
+                            <li class="benefit-item">
+                                <span class="benefit-icon">✓</span>
+                                <span>{{ t("landing.benefits.item4") }}</span>
+                            </li>
+                            <li class="benefit-item">
+                                <span class="benefit-icon">✓</span>
+                                <span>{{ t("landing.benefits.item5") }}</span>
+                            </li>
+                        </ul>
                         <div class="benefits-visual">
                             <div class="visual-card">
                                 <div class="visual-header">

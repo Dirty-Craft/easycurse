@@ -139,8 +139,8 @@
         padding: var(--spacing-md) 0 0 0;
     }
 
-    .modal-footer :deep(button),
-    .modal-footer :deep(.btn) {
+    .modal-footer button,
+    .modal-footer .btn {
         font-size: 0.875rem;
         padding: var(--spacing-sm) var(--spacing-md);
     }

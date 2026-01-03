@@ -99,23 +99,3 @@ const submit = () => {
     });
 };
 </script>
-
-<style scoped>
-.alert {
-    padding: 0.75rem 1rem;
-    margin-bottom: 1rem;
-    border-radius: 0.375rem;
-}
-
-.alert-success {
-    background-color: #d1fae5;
-    color: #065f46;
-    border: 1px solid #6ee7b7;
-}
-
-.field-hint {
-    margin-top: 0.5rem;
-    font-size: 0.875rem;
-    color: var(--color-text-secondary);
-}
-</style>

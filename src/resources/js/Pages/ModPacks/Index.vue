@@ -23,9 +23,10 @@
                 </div>
 
                 <div v-else class="mod-packs-grid">
-                    <div
+                    <Link
                         v-for="modPack in modPacks"
                         :key="modPack.id"
+                        :href="`/mod-packs/${modPack.id}`"
                         class="mod-pack-card"
                     >
                         <div class="mod-pack-header">
@@ -63,84 +64,10 @@
                         >
                             {{ modPack.description }}
                         </p>
-                        <div class="mod-pack-actions">
-                            <Button
-                                size="sm"
-                                variant="primary"
-                                @click="openShareModal(modPack)"
-                            >
-                                {{ t("modpacks.index.share") }}
-                            </Button>
-                            <Button
-                                tag="Link"
-                                :href="`/mod-packs/${modPack.id}`"
-                                size="sm"
-                                variant="secondary"
-                            >
-                                {{ t("modpacks.index.view") }}
-                            </Button>
-                            <Button
-                                size="sm"
-                                variant="danger"
-                                @click="deleteModPack(modPack.id)"
-                            >
-                                {{ t("modpacks.index.delete") }}
-                            </Button>
-                        </div>
-                    </div>
+                    </Link>
                 </div>
             </div>
         </div>
-
-        <!-- Share Modal -->
-        <Modal
-            v-model:show="showShareModal"
-            :title="t('modpacks.index.share_modal.title')"
-            @close="closeShareModal"
-        >
-            <div class="share-modal-content">
-                <p class="share-description">
-                    {{ t("modpacks.index.share_modal.description") }}
-                </p>
-                <div class="share-link-container">
-                    <Input
-                        id="share-link"
-                        :model-value="shareUrl"
-                        type="text"
-                        readonly
-                        class="share-link-input"
-                    />
-                    <Button
-                        variant="secondary"
-                        :disabled="isCopying"
-                        @click="copyShareLink"
-                    >
-                        {{
-                            isCopying
-                                ? t("modpacks.index.share_modal.copied")
-                                : t("modpacks.index.share_modal.copy")
-                        }}
-                    </Button>
-                </div>
-                <div class="share-actions">
-                    <Button
-                        variant="danger"
-                        size="sm"
-                        :disabled="isRegenerating"
-                        @click="regenerateShareToken"
-                    >
-                        {{
-                            isRegenerating
-                                ? t("modpacks.index.share_modal.regenerating")
-                                : t("modpacks.index.share_modal.regenerate")
-                        }}
-                    </Button>
-                    <p class="regenerate-warning">
-                        {{ t("modpacks.index.share_modal.warning") }}
-                    </p>
-                </div>
-            </div>
-        </Modal>
 
         <!-- Create Modal -->
         <Modal
@@ -239,14 +166,13 @@
 </template>
 
 <script setup>
-import { Head, router } from "@inertiajs/vue3";
+import { Head, Link, router } from "@inertiajs/vue3";
 import { ref, watch } from "vue";
 import AppLayout from "../../Layouts/AppLayout.vue";
 import Button from "../../Components/Button.vue";
 import Input from "../../Components/Input.vue";
 import FormGroup from "../../Components/FormGroup.vue";
 import Modal from "../../Components/Modal.vue";
-import axios from "axios";
 import { useTranslations } from "../../composables/useTranslations";
 
 const { t } = useTranslations();
@@ -264,11 +190,6 @@ defineProps({
 });
 
 const showCreateModal = ref(false);
-const showShareModal = ref(false);
-const selectedModPack = ref(null);
-const shareUrl = ref("");
-const isCopying = ref(false);
-const isRegenerating = ref(false);
 const form = ref({
     name: "",
     minecraft_version: "",
@@ -301,137 +222,4 @@ const createModPack = () => {
         },
     });
 };
-
-const deleteModPack = (id) => {
-    if (confirm(t("modpacks.show.delete_confirm"))) {
-        router.delete(`/mod-packs/${id}`);
-    }
-};
-
-const openShareModal = async (modPack) => {
-    selectedModPack.value = modPack;
-    showShareModal.value = true;
-    shareUrl.value = "";
-    // Generate or get share token
-    await generateShareToken();
-};
-
-const closeShareModal = () => {
-    showShareModal.value = false;
-    selectedModPack.value = null;
-    shareUrl.value = "";
-};
-
-const generateShareToken = async () => {
-    if (!selectedModPack.value) return;
-
-    try {
-        const response = await axios.post(
-            `/mod-packs/${selectedModPack.value.id}/share`,
-        );
-        shareUrl.value = response.data.share_url;
-    } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error("Error generating share token:", error);
-        alert(t("modpacks.show.generate_failed"));
-    }
-};
-
-const regenerateShareToken = async () => {
-    if (!selectedModPack.value) return;
-
-    if (!confirm(t("modpacks.show.regenerate_confirm"))) {
-        return;
-    }
-
-    isRegenerating.value = true;
-    try {
-        const response = await axios.post(
-            `/mod-packs/${selectedModPack.value.id}/share`,
-            { regenerate: true },
-        );
-        shareUrl.value = response.data.share_url;
-    } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error("Error regenerating share token:", error);
-        alert(t("modpacks.show.regenerate_failed"));
-    } finally {
-        isRegenerating.value = false;
-    }
-};
-
-const copyShareLink = async () => {
-    if (!shareUrl.value) {
-        await generateShareToken();
-    }
-
-    try {
-        if (navigator?.clipboard?.writeText) {
-            await navigator.clipboard.writeText(shareUrl.value);
-        } else {
-            throw new Error("Clipboard API not available");
-        }
-        isCopying.value = true;
-        setTimeout(() => {
-            isCopying.value = false;
-        }, 2000);
-    } catch {
-        // Fallback for older browsers
-        const input = document.getElementById("share-link");
-        if (input) {
-            input.select();
-            document.execCommand("copy");
-            isCopying.value = true;
-            setTimeout(() => {
-                isCopying.value = false;
-            }, 2000);
-        } else {
-            alert(t("modpacks.show.copy_failed"));
-        }
-    }
-};
 </script>
-
-<style scoped>
-/* Styles moved to modpacks.css */
-
-.share-modal-content {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-lg);
-}
-
-.share-description {
-    color: var(--color-text-secondary);
-    font-size: 0.9375rem;
-    margin: 0;
-}
-
-.share-link-container {
-    display: flex;
-    gap: var(--spacing-md);
-    align-items: stretch;
-}
-
-.share-link-input {
-    flex: 1;
-}
-
-.share-link-input :deep(input) {
-    font-family: monospace;
-    font-size: 0.875rem;
-}
-
-.share-actions {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    margin-top: var(--spacing-md);
-}
-
-.regenerate-warning {
-    color: var(--color-text-secondary);
-    font-size: 0.8125rem;
-    margin: 0;
-}
-</style>

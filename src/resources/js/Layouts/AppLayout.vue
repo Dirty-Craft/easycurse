@@ -97,7 +97,6 @@
                         >
                             {{ t("layout.footer.mit") }}
                         </a>
-                        .
                     </p>
                 </div>
             </div>
@@ -135,23 +134,3 @@ onMounted(() => {
     initTheme();
 });
 </script>
-
-<style scoped>
-.app-layout {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    background-color: var(--color-background);
-    color: var(--color-text-primary);
-}
-
-.main-content {
-    flex: 1;
-    padding-top: 80px; /* Account for fixed navbar */
-}
-
-.logout-form {
-    display: inline-block;
-    margin: 0;
-}
-</style>
