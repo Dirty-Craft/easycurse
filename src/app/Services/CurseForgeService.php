@@ -18,6 +18,28 @@ class CurseForgeService
 
     private string $minecraftModsClassId;
 
+    /**
+     * Cache TTL constants (in seconds).
+     */
+    private const CACHE_TTL_GAME_VERSIONS = 24 * 60 * 60; // 24 hours
+
+    private const CACHE_TTL_MOD_DETAILS = 12 * 60 * 60; // 12 hours
+
+    private const CACHE_TTL_MOD_FILES_LIST = 60 * 60; // 1 hour
+
+    private const CACHE_TTL_MOD_FILE = 2 * 60 * 60; // 2 hours
+
+    private const CACHE_TTL_SEARCH_RESULTS = 30 * 60; // 30 minutes
+
+    private const CACHE_TTL_DOWNLOAD_URL = 6 * 60 * 60; // 6 hours
+
+    private const CACHE_TTL_SLUG_SEARCH = 6 * 60 * 60; // 6 hours
+
+    /**
+     * Cache key prefix.
+     */
+    private const CACHE_PREFIX = 'curseforge:';
+
     public function __construct()
     {
         $this->baseUrl = config('services.curseforge.base_url');
@@ -35,6 +57,44 @@ class CurseForgeService
             'x-api-key' => $this->apiKey,
             'Accept' => 'application/json',
         ]);
+    }
+
+    /**
+     * Generate a cache key with the service prefix.
+     */
+    private function cacheKey(string $key): string
+    {
+        return self::CACHE_PREFIX.$key;
+    }
+
+    /**
+     * Invalidate cache for a specific mod (useful when mod data might have changed).
+     */
+    public function invalidateModCache(int $modId): void
+    {
+        $keys = [
+            $this->cacheKey("mod:{$modId}"),
+            $this->cacheKey("mod:{$modId}:files"),
+            $this->cacheKey("mod:{$modId}:files:*"), // Pattern for versioned file lists
+        ];
+
+        foreach ($keys as $key) {
+            Cache::forget($key);
+        }
+
+        // Also clear pattern-based keys (for file lists with versions)
+        // Note: Laravel doesn't support wildcard deletion natively, so we clear common patterns
+        Cache::forget($this->cacheKey("mod:{$modId}:files:all"));
+    }
+
+    /**
+     * Invalidate cache for a specific mod file.
+     */
+    public function invalidateModFileCache(int $modId, int $fileId): void
+    {
+        Cache::forget($this->cacheKey("mod:{$modId}:file:{$fileId}"));
+        Cache::forget($this->cacheKey("mod:{$modId}:file:{$fileId}:download"));
+        Cache::forget($this->cacheKey("file:{$fileId}:download"));
     }
 
     /**
@@ -96,104 +156,130 @@ class CurseForgeService
 
     /**
      * Search for mods by slug.
+     * Results are cached for 6 hours since slug-to-mod mappings are stable.
      */
     public function searchModBySlug(string $slug): ?array
     {
-        try {
-            $response = $this->client()->get($this->baseUrl.'mods/search', [
-                'gameId' => $this->minecraftGameId,
-                'classId' => $this->minecraftModsClassId,
-                'slug' => $slug,
-            ]);
+        $cacheKey = $this->cacheKey("search:slug:{$slug}");
 
-            $response->throw();
+        return Cache::remember($cacheKey, self::CACHE_TTL_SLUG_SEARCH, function () use ($slug) {
+            try {
+                $response = $this->client()->get($this->baseUrl.'mods/search', [
+                    'gameId' => $this->minecraftGameId,
+                    'classId' => $this->minecraftModsClassId,
+                    'slug' => $slug,
+                ]);
 
-            $data = $response->json('data');
+                $response->throw();
 
-            return ! empty($data) ? $data[0] : null;
-        } catch (RequestException $e) {
-            Log::error('CurseForge API error searching mod by slug', [
-                'slug' => $slug,
-                'error' => $e->getMessage(),
-            ]);
+                $data = $response->json('data');
 
-            return null;
-        }
+                return ! empty($data) ? $data[0] : null;
+            } catch (RequestException $e) {
+                Log::error('CurseForge API error searching mod by slug', [
+                    'slug' => $slug,
+                    'error' => $e->getMessage(),
+                ]);
+
+                // Don't cache errors - return null and let it retry next time
+                return null;
+            }
+        });
     }
 
     /**
      * Get mod details by ID.
+     * Results are cached for 12 hours since mod details don't change frequently.
      */
     public function getMod(int $modId): ?array
     {
-        try {
-            $response = $this->client()->get($this->baseUrl.'mods/'.$modId);
+        $cacheKey = $this->cacheKey("mod:{$modId}");
 
-            $response->throw();
+        return Cache::remember($cacheKey, self::CACHE_TTL_MOD_DETAILS, function () use ($modId) {
+            try {
+                $response = $this->client()->get($this->baseUrl.'mods/'.$modId);
 
-            return $response->json('data');
-        } catch (RequestException $e) {
-            Log::error('CurseForge API error getting mod', [
-                'mod_id' => $modId,
-                'error' => $e->getMessage(),
-            ]);
+                $response->throw();
 
-            return null;
-        }
+                return $response->json('data');
+            } catch (RequestException $e) {
+                Log::error('CurseForge API error getting mod', [
+                    'mod_id' => $modId,
+                    'error' => $e->getMessage(),
+                ]);
+
+                // Don't cache errors - return null and let it retry next time
+                return null;
+            }
+        });
     }
 
     /**
      * Get files for a mod.
+     * Results are cached for 1 hour since file lists can change more frequently.
      */
     public function getModFiles(int $modId, ?string $gameVersion = null, ?string $software = null): array
     {
-        try {
-            $queryParams = [];
-
-            if ($gameVersion) {
-                $queryParams['gameVersion'] = $gameVersion;
-            }
-
-            if ($software) {
-                // Map software string to CurseForge mod loader type
-                // 1 = Forge, 4 = Fabric, 2 = Quilt, 6 = NeoForge
-                $modLoaderType = match (strtolower($software)) {
-                    'forge' => 1,
-                    'fabric' => 4,
-                    'quilt' => 2,
-                    'neoforge' => 6,
-                    default => null,
-                };
-
-                if ($modLoaderType) {
-                    $queryParams['modLoaderType'] = $modLoaderType;
-                }
-            }
-
-            $response = $this->client()->get($this->baseUrl.'mods/'.$modId.'/files', $queryParams);
-
-            $response->throw();
-
-            $files = $response->json('data', []);
-
-            // If a specific game version was requested, filter results to ensure strict matching
-            // CurseForge API may return files for "1.20.1" when requesting "1.20"
-            // We need to check each file's gameVersions array for an exact match
-            if ($gameVersion && ! empty($files)) {
-                $files = $this->filterFilesByExactVersion($files, $gameVersion);
-            }
-
-            return $files;
-        } catch (RequestException $e) {
-            Log::error('CurseForge API error getting mod files', [
-                'mod_id' => $modId,
-                'game_version' => $gameVersion,
-                'software' => $software,
-                'error' => $e->getMessage(),
-            ]);
-
-            return [];
+        // Build cache key based on parameters
+        $cacheKeyParts = ["mod:{$modId}:files"];
+        if ($gameVersion) {
+            $cacheKeyParts[] = 'v:'.md5($gameVersion);
         }
+        if ($software) {
+            $cacheKeyParts[] = 's:'.strtolower($software);
+        }
+        $cacheKey = $this->cacheKey(implode(':', $cacheKeyParts));
+
+        return Cache::remember($cacheKey, self::CACHE_TTL_MOD_FILES_LIST, function () use ($modId, $gameVersion, $software) {
+            try {
+                $queryParams = [];
+
+                if ($gameVersion) {
+                    $queryParams['gameVersion'] = $gameVersion;
+                }
+
+                if ($software) {
+                    // Map software string to CurseForge mod loader type
+                    // 1 = Forge, 4 = Fabric, 2 = Quilt, 6 = NeoForge
+                    $modLoaderType = match (strtolower($software)) {
+                        'forge' => 1,
+                        'fabric' => 4,
+                        'quilt' => 2,
+                        'neoforge' => 6,
+                        default => null,
+                    };
+
+                    if ($modLoaderType) {
+                        $queryParams['modLoaderType'] = $modLoaderType;
+                    }
+                }
+
+                $response = $this->client()->get($this->baseUrl.'mods/'.$modId.'/files', $queryParams);
+
+                $response->throw();
+
+                $files = $response->json('data', []);
+
+                // If a specific game version was requested, filter results to ensure strict matching
+                // CurseForge API may return files for "1.20.1" when requesting "1.20"
+                // We need to check each file's gameVersions array for an exact match
+                if ($gameVersion && ! empty($files)) {
+                    $files = $this->filterFilesByExactVersion($files, $gameVersion);
+                }
+
+                return $files;
+            } catch (RequestException $e) {
+                Log::error('CurseForge API error getting mod files', [
+                    'mod_id' => $modId,
+                    'game_version' => $gameVersion,
+                    'software' => $software,
+                    'error' => $e->getMessage(),
+                ]);
+
+                // Don't cache errors - return empty array and let it retry next time
+                return [];
+            }
+        });
     }
 
     /**
@@ -284,50 +370,64 @@ class CurseForgeService
 
     /**
      * Get a specific mod file by ID.
+     * Results are cached for 2 hours since individual file data is relatively stable.
      */
     public function getModFile(int $modId, int $fileId): ?array
     {
-        try {
-            $response = $this->client()->get($this->baseUrl.'mods/'.$modId.'/files/'.$fileId);
+        $cacheKey = $this->cacheKey("mod:{$modId}:file:{$fileId}");
 
-            $response->throw();
+        return Cache::remember($cacheKey, self::CACHE_TTL_MOD_FILE, function () use ($modId, $fileId) {
+            try {
+                $response = $this->client()->get($this->baseUrl.'mods/'.$modId.'/files/'.$fileId);
 
-            return $response->json('data');
-        } catch (RequestException $e) {
-            Log::error('CurseForge API error getting mod file', [
-                'mod_id' => $modId,
-                'file_id' => $fileId,
-                'error' => $e->getMessage(),
-            ]);
+                $response->throw();
 
-            return null;
-        }
+                return $response->json('data');
+            } catch (RequestException $e) {
+                Log::error('CurseForge API error getting mod file', [
+                    'mod_id' => $modId,
+                    'file_id' => $fileId,
+                    'error' => $e->getMessage(),
+                ]);
+
+                // Don't cache errors - return null and let it retry next time
+                return null;
+            }
+        });
     }
 
     /**
      * Search for mods with various filters.
+     * Results are cached for 30 minutes since search results can change.
      */
     public function searchMods(array $filters = []): array
     {
-        try {
-            $queryParams = array_merge([
-                'gameId' => $this->minecraftGameId,
-                'classId' => $this->minecraftModsClassId,
-            ], $filters);
+        // Build cache key from filters - sort to ensure consistent keys
+        $filtersKey = md5(json_encode($filters, JSON_THROW_ON_ERROR));
+        $cacheKey = $this->cacheKey("search:mods:{$filtersKey}");
 
-            $response = $this->client()->get($this->baseUrl.'mods/search', $queryParams);
+        return Cache::remember($cacheKey, self::CACHE_TTL_SEARCH_RESULTS, function () use ($filters) {
+            try {
+                $queryParams = array_merge([
+                    'gameId' => $this->minecraftGameId,
+                    'classId' => $this->minecraftModsClassId,
+                ], $filters);
 
-            $response->throw();
+                $response = $this->client()->get($this->baseUrl.'mods/search', $queryParams);
 
-            return $response->json('data', []);
-        } catch (RequestException $e) {
-            Log::error('CurseForge API error searching mods', [
-                'filters' => $filters,
-                'error' => $e->getMessage(),
-            ]);
+                $response->throw();
 
-            return [];
-        }
+                return $response->json('data', []);
+            } catch (RequestException $e) {
+                Log::error('CurseForge API error searching mods', [
+                    'filters' => $filters,
+                    'error' => $e->getMessage(),
+                ]);
+
+                // Don't cache errors - return empty array and let it retry next time
+                return [];
+            }
+        });
     }
 
     /**
@@ -352,8 +452,10 @@ class CurseForgeService
      */
     public function getGameVersions(): array
     {
-        // Check cache first - cache for 24 hours since game versions don't change frequently
-        $cached = Cache::get('curseforge_game_versions');
+        $cacheKey = $this->cacheKey('game_versions');
+
+        // Check cache first
+        $cached = Cache::get($cacheKey);
         if ($cached !== null && is_array($cached) && ! empty($cached)) {
             return $cached;
         }
@@ -511,7 +613,7 @@ class CurseForgeService
 
             // Only cache if we have valid data
             if (! empty($result)) {
-                Cache::put('curseforge_game_versions', $result, 24 * 60 * 60);
+                Cache::put($cacheKey, $result, self::CACHE_TTL_GAME_VERSIONS);
             }
 
             return $result;
@@ -526,7 +628,7 @@ class CurseForgeService
 
             Log::error('CurseForge API error getting game versions', $errorDetails);
 
-            // Don't cache errors
+            // Don't cache errors - return empty array and let it retry next time
             return [];
         } catch (\Exception $e) {
             Log::error('Unexpected error getting game versions', [
@@ -534,7 +636,7 @@ class CurseForgeService
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            // Don't cache errors
+            // Don't cache errors - return empty array and let it retry next time
             return [];
         }
     }
@@ -642,42 +744,49 @@ class CurseForgeService
 
     /**
      * Get the download URL from CurseForge API.
+     * Results are cached for 6 hours since download URLs are stable.
      *
      * @param  int  $fileId  The CurseForge file ID
      * @return string|null The download URL or null if unavailable
      */
     public function getFileDownloadUrlFromApi(int $fileId): ?string
     {
-        try {
-            // Try to get download URL from CurseForge API files endpoint
-            // This endpoint might return a URL that works better with CORS
-            $response = $this->client()->get($this->baseUrl.'files/'.$fileId.'/download-url');
+        $cacheKey = $this->cacheKey("file:{$fileId}:download:api");
 
-            if ($response->successful()) {
-                $data = $response->json('data');
-                $url = $data['url'] ?? null;
+        return Cache::remember($cacheKey, self::CACHE_TTL_DOWNLOAD_URL, function () use ($fileId) {
+            try {
+                // Try to get download URL from CurseForge API files endpoint
+                // This endpoint might return a URL that works better with CORS
+                $response = $this->client()->get($this->baseUrl.'files/'.$fileId.'/download-url');
 
-                if ($url) {
-                    Log::debug('Got download URL from API endpoint', [
-                        'file_id' => $fileId,
-                        'url' => $url,
-                    ]);
+                if ($response->successful()) {
+                    $data = $response->json('data');
+                    $url = $data['url'] ?? null;
 
-                    return $url;
+                    if ($url) {
+                        Log::debug('Got download URL from API endpoint', [
+                            'file_id' => $fileId,
+                            'url' => $url,
+                        ]);
+
+                        return $url;
+                    }
                 }
+            } catch (\Exception $e) {
+                Log::debug('CurseForge download URL endpoint not available or failed', [
+                    'file_id' => $fileId,
+                    'error' => $e->getMessage(),
+                ]);
             }
-        } catch (\Exception $e) {
-            Log::debug('CurseForge download URL endpoint not available or failed', [
-                'file_id' => $fileId,
-                'error' => $e->getMessage(),
-            ]);
-        }
 
-        return null;
+            // Don't cache null results - return null and let it retry next time
+            return null;
+        });
     }
 
     /**
      * Get download information for a mod file (including URL and filename).
+     * Results are cached for 6 hours since download URLs are stable.
      *
      * @param  int  $modId  The CurseForge mod ID
      * @param  int  $fileId  The CurseForge file ID
@@ -685,65 +794,72 @@ class CurseForgeService
      */
     public function getFileDownloadInfo(int $modId, int $fileId): ?array
     {
-        try {
-            $file = $this->getModFile($modId, $fileId);
+        $cacheKey = $this->cacheKey("mod:{$modId}:file:{$fileId}:download");
 
-            if (! $file) {
-                Log::warning('CurseForge file not found', [
+        return Cache::remember($cacheKey, self::CACHE_TTL_DOWNLOAD_URL, function () use ($modId, $fileId) {
+            try {
+                $file = $this->getModFile($modId, $fileId);
+
+                if (! $file) {
+                    Log::warning('CurseForge file not found', [
+                        'mod_id' => $modId,
+                        'file_id' => $fileId,
+                    ]);
+
+                    // Don't cache null results - return null and let it retry next time
+                    return null;
+                }
+
+                $fileName = $file['fileName'] ?? null;
+
+                // Prioritize constructed mediafilez.forgecdn.net URL for better client-side compatibility
+                // This matches the Python script's approach and works better for browser downloads
+                $downloadUrl = $this->getFileDownloadUrl($fileId, $fileName);
+
+                // Fallback to API-provided URL if construction failed
+                if (! $downloadUrl) {
+                    $downloadUrl = $this->getFileDownloadUrlFromApi($fileId);
+                }
+
+                // Final fallback: Check if downloadUrl is provided in the API response
+                if (! $downloadUrl) {
+                    $downloadUrl = $file['downloadUrl'] ?? null;
+                }
+
+                // Log the file structure for debugging
+                Log::debug('CurseForge file data', [
                     'mod_id' => $modId,
                     'file_id' => $fileId,
+                    'has_downloadUrl_in_file' => isset($file['downloadUrl']),
+                    'downloadUrl' => $downloadUrl,
+                    'fileName' => $fileName,
                 ]);
 
-                return null;
-            }
+                if (! $downloadUrl) {
+                    Log::warning('CurseForge download URL not available', [
+                        'mod_id' => $modId,
+                        'file_id' => $fileId,
+                    ]);
 
-            $fileName = $file['fileName'] ?? null;
+                    // Don't cache null results - return null and let it retry next time
+                    return null;
+                }
 
-            // Prioritize constructed mediafilez.forgecdn.net URL for better client-side compatibility
-            // This matches the Python script's approach and works better for browser downloads
-            $downloadUrl = $this->getFileDownloadUrl($fileId, $fileName);
-
-            // Fallback to API-provided URL if construction failed
-            if (! $downloadUrl) {
-                $downloadUrl = $this->getFileDownloadUrlFromApi($fileId);
-            }
-
-            // Final fallback: Check if downloadUrl is provided in the API response
-            if (! $downloadUrl) {
-                $downloadUrl = $file['downloadUrl'] ?? null;
-            }
-
-            // Log the file structure for debugging
-            Log::debug('CurseForge file data', [
-                'mod_id' => $modId,
-                'file_id' => $fileId,
-                'has_downloadUrl_in_file' => isset($file['downloadUrl']),
-                'downloadUrl' => $downloadUrl,
-                'fileName' => $fileName,
-            ]);
-
-            if (! $downloadUrl) {
-                Log::warning('CurseForge download URL not available', [
+                return [
+                    'url' => $downloadUrl,
+                    'filename' => $fileName ?? "file-{$fileId}.jar",
+                ];
+            } catch (\Exception $e) {
+                Log::error('CurseForge error getting file download info', [
                     'mod_id' => $modId,
                     'file_id' => $fileId,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
                 ]);
 
+                // Don't cache errors - return null and let it retry next time
                 return null;
             }
-
-            return [
-                'url' => $downloadUrl,
-                'filename' => $fileName ?? "file-{$fileId}.jar",
-            ];
-        } catch (\Exception $e) {
-            Log::error('CurseForge error getting file download info', [
-                'mod_id' => $modId,
-                'file_id' => $fileId,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return null;
-        }
+        });
     }
 }

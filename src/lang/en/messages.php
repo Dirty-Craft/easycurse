@@ -96,8 +96,7 @@ return [
     'landing.stats.downloads' => 'Downloads',
     'landing.cta.title' => 'Ready to Simplify Your Mod Life?',
     'landing.cta.subtitle' => 'Join EasyCurse today and never manually update mods again. Start managing your mod collection the smart way.',
-    'landing.cta.feature1' => 'Free to start',
-    'landing.cta.feature2' => 'No credit card required',
+    'landing.cta.feature1' => 'Completely free',
     'landing.cta.feature3' => 'Setup in minutes',
 
     // About page

@@ -96,8 +96,7 @@ return [
     'landing.stats.downloads' => 'دانلود',
     'landing.cta.title' => 'آماده‌ای کارت با مادها ساده بشه؟',
     'landing.cta.subtitle' => 'به EasyCurse بپیوند و دیگه هیچ‌وقت مادها رو دستی آپدیت نکن.',
-    'landing.cta.feature1' => 'شروع رایگان',
-    'landing.cta.feature2' => 'بدون نیاز به کارت بانکی',
+    'landing.cta.feature1' => 'کاملا رایگان',
     'landing.cta.feature3' => 'راه‌اندازی در چند دقیقه',
 
     // About page

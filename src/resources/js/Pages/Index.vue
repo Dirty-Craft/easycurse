@@ -509,9 +509,6 @@
                                 ✓ {{ t("landing.cta.feature1") }}
                             </div>
                             <div class="cta-feature">
-                                ✓ {{ t("landing.cta.feature2") }}
-                            </div>
-                            <div class="cta-feature">
                                 ✓ {{ t("landing.cta.feature3") }}
                             </div>
                         </div>
