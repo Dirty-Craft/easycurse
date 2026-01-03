@@ -28,6 +28,7 @@ jobs:
 
       - name: Run tests
         run: |
+          npm run build
           docker compose exec app php artisan test --parallel --coverage
 
       - name: Test production setup
