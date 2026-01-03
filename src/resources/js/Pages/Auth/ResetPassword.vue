@@ -1,17 +1,20 @@
 <template>
-    <Head title="Login" />
+    <Head title="Reset Password" />
     <AppLayout>
         <div class="auth-page">
             <div class="auth-container">
                 <div class="auth-card">
                     <div class="auth-header">
-                        <h1 class="auth-title">Welcome Back</h1>
+                        <h1 class="auth-title">Reset Password</h1>
                         <p class="auth-subtitle">
-                            Sign in to your account to continue
+                            Enter your new password below
                         </p>
                     </div>
 
                     <form class="auth-form" @submit.prevent="submit">
+                        <input v-model="form.token" type="hidden" />
+                        <input v-model="form.email" type="hidden" />
+
                         <FormGroup
                             label="Email"
                             input-id="email"
@@ -24,6 +27,7 @@
                                 required
                                 autofocus
                                 autocomplete="email"
+                                :disabled="true"
                             />
                         </FormGroup>
 
@@ -37,33 +41,37 @@
                                 v-model="form.password"
                                 type="password"
                                 required
-                                autocomplete="current-password"
+                                autocomplete="new-password"
                             />
                         </FormGroup>
 
-                        <div class="form-group">
-                            <Checkbox v-model="form.remember">
-                                Remember me
-                            </Checkbox>
-                        </div>
-
-                        <div class="form-group">
-                            <Link href="/forgot-password" class="auth-link"
-                                >Forgot your password?</Link
-                            >
-                        </div>
+                        <FormGroup
+                            label="Confirm Password"
+                            input-id="password_confirmation"
+                            :error="form.errors.password_confirmation"
+                        >
+                            <Input
+                                id="password_confirmation"
+                                v-model="form.password_confirmation"
+                                type="password"
+                                required
+                                autocomplete="new-password"
+                            />
+                        </FormGroup>
 
                         <Button type="submit" full :disabled="form.processing">
-                            {{ form.processing ? "Signing in..." : "Sign In" }}
+                            {{
+                                form.processing
+                                    ? "Resetting..."
+                                    : "Reset Password"
+                            }}
                         </Button>
                     </form>
 
                     <div class="auth-footer">
                         <p>
-                            Don't have an account?
-                            <Link href="/register" class="auth-link"
-                                >Sign up</Link
-                            >
+                            Remember your password?
+                            <Link href="/login" class="auth-link">Sign in</Link>
                         </p>
                     </div>
                 </div>
@@ -78,17 +86,28 @@ import AppLayout from "../../Layouts/AppLayout.vue";
 import Button from "../../Components/Button.vue";
 import Input from "../../Components/Input.vue";
 import FormGroup from "../../Components/FormGroup.vue";
-import Checkbox from "../../Components/Checkbox.vue";
+
+const props = defineProps({
+    token: {
+        type: String,
+        required: true,
+    },
+    email: {
+        type: String,
+        required: true,
+    },
+});
 
 const form = useForm({
-    email: "",
+    token: props.token,
+    email: props.email,
     password: "",
-    remember: false,
+    password_confirmation: "",
 });
 
 const submit = () => {
-    form.post("/login", {
-        onFinish: () => form.reset("password"),
+    form.post("/reset-password", {
+        onFinish: () => form.reset("password", "password_confirmation"),
     });
 };
 </script>

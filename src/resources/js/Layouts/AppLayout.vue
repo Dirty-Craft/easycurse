@@ -51,6 +51,17 @@
                             mods again.
                         </p>
                     </div>
+                    <div v-if="$page.props.auth.user" class="footer-links">
+                        <div class="footer-column">
+                            <h3 class="footer-heading">My Account</h3>
+                            <Link href="/profile" class="footer-link">
+                                My Profile
+                            </Link>
+                            <Link href="/change-password" class="footer-link">
+                                Change Password
+                            </Link>
+                        </div>
+                    </div>
                 </div>
             </div>
         </footer>

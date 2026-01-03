@@ -41,7 +41,7 @@ class ModPackController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'minecraft_version' => ['required', 'string', 'max:255'],
-            'software' => ['required', 'string', 'in:forge,fabric'],
+            'software' => ['required', 'string', 'in:forge,fabric,quilt,neoforge'],
             'description' => ['nullable', 'string'],
         ]);
 

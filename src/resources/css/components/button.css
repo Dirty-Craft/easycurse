@@ -24,7 +24,7 @@
 /* Button Variants */
 .btn-primary {
     background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-    color: var(--color-text-primary);
+    color: var(--color-text-dark);
     box-shadow: var(--shadow-md);
 }
 

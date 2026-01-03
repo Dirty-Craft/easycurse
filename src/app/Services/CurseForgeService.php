@@ -99,11 +99,12 @@ class CurseForgeService
 
             if ($software) {
                 // Map software string to CurseForge mod loader type
-                // 1 = Forge, 4 = Fabric, 2 = Quilt
+                // 1 = Forge, 4 = Fabric, 2 = Quilt, 6 = NeoForge
                 $modLoaderType = match (strtolower($software)) {
                     'forge' => 1,
                     'fabric' => 4,
                     'quilt' => 2,
+                    'neoforge' => 6,
                     default => null,
                 };
 

@@ -12,7 +12,7 @@
     left: 0;
     right: 0;
     z-index: 1000;
-    background: rgb(15 23 42 / 85%);
+    background: rgb(15 15 15 / 85%);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--color-border);
     padding: var(--spacing-md) 0;
@@ -20,7 +20,7 @@
 }
 
 .navbar:hover {
-    background: rgb(15 23 42 / 95%);
+    background: rgb(15 15 15 / 95%);
     border-bottom-color: var(--color-primary);
 }
 
