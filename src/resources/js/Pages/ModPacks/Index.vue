@@ -31,6 +31,13 @@
                             <h3 class="mod-pack-name">{{ modPack.name }}</h3>
                             <div class="mod-pack-actions">
                                 <Button
+                                    size="sm"
+                                    variant="primary"
+                                    @click="openShareModal(modPack)"
+                                >
+                                    Share
+                                </Button>
+                                <Button
                                     tag="Link"
                                     :href="`/mod-packs/${modPack.id}`"
                                     size="sm"
@@ -79,6 +86,53 @@
                 </div>
             </div>
         </div>
+
+        <!-- Share Modal -->
+        <Modal
+            v-model:show="showShareModal"
+            title="Share Mod Pack"
+            @close="closeShareModal"
+        >
+            <div class="share-modal-content">
+                <p class="share-description">
+                    Share this mod pack with others by sending them the link
+                    below.
+                </p>
+                <div class="share-link-container">
+                    <Input
+                        id="share-link"
+                        :model-value="shareUrl"
+                        type="text"
+                        readonly
+                        class="share-link-input"
+                    />
+                    <Button
+                        variant="secondary"
+                        :disabled="isCopying"
+                        @click="copyShareLink"
+                    >
+                        {{ isCopying ? "Copied!" : "Copy" }}
+                    </Button>
+                </div>
+                <div class="share-actions">
+                    <Button
+                        variant="danger"
+                        size="sm"
+                        :disabled="isRegenerating"
+                        @click="regenerateShareToken"
+                    >
+                        {{
+                            isRegenerating
+                                ? "Regenerating..."
+                                : "Regenerate Link"
+                        }}
+                    </Button>
+                    <p class="regenerate-warning">
+                        Regenerating will expire the previous link.
+                    </p>
+                </div>
+            </div>
+        </Modal>
 
         <!-- Create Modal -->
         <Modal v-model:show="showCreateModal" title="Create Mod Pack">
@@ -165,6 +219,7 @@ import Button from "../../Components/Button.vue";
 import Input from "../../Components/Input.vue";
 import FormGroup from "../../Components/FormGroup.vue";
 import Modal from "../../Components/Modal.vue";
+import axios from "axios";
 
 defineProps({
     modPacks: Array,
@@ -179,6 +234,11 @@ defineProps({
 });
 
 const showCreateModal = ref(false);
+const showShareModal = ref(false);
+const selectedModPack = ref(null);
+const shareUrl = ref("");
+const isCopying = ref(false);
+const isRegenerating = ref(false);
 const form = ref({
     name: "",
     minecraft_version: "",
@@ -217,8 +277,131 @@ const deleteModPack = (id) => {
         router.delete(`/mod-packs/${id}`);
     }
 };
+
+const openShareModal = async (modPack) => {
+    selectedModPack.value = modPack;
+    showShareModal.value = true;
+    shareUrl.value = "";
+    // Generate or get share token
+    await generateShareToken();
+};
+
+const closeShareModal = () => {
+    showShareModal.value = false;
+    selectedModPack.value = null;
+    shareUrl.value = "";
+};
+
+const generateShareToken = async () => {
+    if (!selectedModPack.value) return;
+
+    try {
+        const response = await axios.post(
+            `/mod-packs/${selectedModPack.value.id}/share`,
+        );
+        shareUrl.value = response.data.share_url;
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error generating share token:", error);
+        alert("Failed to generate share link. Please try again.");
+    }
+};
+
+const regenerateShareToken = async () => {
+    if (!selectedModPack.value) return;
+
+    if (
+        !confirm(
+            "Are you sure you want to regenerate the share link? The previous link will no longer work.",
+        )
+    ) {
+        return;
+    }
+
+    isRegenerating.value = true;
+    try {
+        const response = await axios.post(
+            `/mod-packs/${selectedModPack.value.id}/share`,
+            { regenerate: true },
+        );
+        shareUrl.value = response.data.share_url;
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error regenerating share token:", error);
+        alert("Failed to regenerate share link. Please try again.");
+    } finally {
+        isRegenerating.value = false;
+    }
+};
+
+const copyShareLink = async () => {
+    if (!shareUrl.value) {
+        await generateShareToken();
+    }
+
+    try {
+        await navigator.clipboard.writeText(shareUrl.value);
+        isCopying.value = true;
+        setTimeout(() => {
+            isCopying.value = false;
+        }, 2000);
+    } catch (error) {
+        // Fallback for older browsers
+        const input = document.getElementById("share-link");
+        if (input) {
+            input.select();
+            document.execCommand("copy");
+            isCopying.value = true;
+            setTimeout(() => {
+                isCopying.value = false;
+            }, 2000);
+        } else {
+            alert("Failed to copy link. Please copy it manually.");
+        }
+    }
+};
 </script>
 
 <style scoped>
 /* Styles moved to modpacks.css */
+
+.share-modal-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.share-description {
+    color: var(--color-text-secondary);
+    font-size: 0.9375rem;
+    margin: 0;
+}
+
+.share-link-container {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: stretch;
+}
+
+.share-link-input {
+    flex: 1;
+}
+
+.share-link-input :deep(input) {
+    font-family: monospace;
+    font-size: 0.875rem;
+}
+
+.share-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-md);
+}
+
+.regenerate-warning {
+    color: var(--color-text-secondary);
+    font-size: 0.8125rem;
+    margin: 0;
+}
 </style>

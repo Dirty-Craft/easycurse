@@ -175,6 +175,13 @@
                                         zip</span
                                     >
                                 </li>
+                                <li class="benefit-item">
+                                    <span class="benefit-icon">✓</span>
+                                    <span
+                                        >Share mod packs with friends and the
+                                        community</span
+                                    >
+                                </li>
                             </ul>
                         </div>
                         <div class="benefits-visual">
@@ -277,19 +284,20 @@
                             </p>
                         </div>
                         <div class="feature-card">
-                            <div class="feature-icon">⚡</div>
-                            <h3 class="feature-title">Lightning Fast</h3>
-                            <p class="feature-description">
-                                Update entire mod packs in seconds, not hours of
-                                manual work. Get back to playing faster.
-                            </p>
-                        </div>
-                        <div class="feature-card">
                             <div class="feature-icon">🛡️</div>
                             <h3 class="feature-title">Always Up-to-Date</h3>
                             <p class="feature-description">
                                 Get the latest compatible versions automatically
                                 from CurseForge. Stay current with every update.
+                            </p>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">🔗</div>
+                            <h3 class="feature-title">Share Your Mod Packs</h3>
+                            <p class="feature-description">
+                                Share your mod packs with friends and the
+                                community. Generate unique links and let others
+                                add your packs to their collection.
                             </p>
                         </div>
                     </div>

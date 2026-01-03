@@ -490,4 +490,246 @@ class ModPackController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Generate or regenerate a share token for a mod pack.
+     */
+    public function generateShareToken(Request $request, string $id)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())->findOrFail($id);
+
+        $regenerate = $request->boolean('regenerate', false);
+
+        if ($regenerate || ! $modPack->share_token) {
+            $token = $modPack->regenerateShareToken();
+        } else {
+            $token = $modPack->share_token;
+        }
+
+        return response()->json([
+            'share_token' => $token,
+            'share_url' => $modPack->getShareUrl(),
+        ]);
+    }
+
+    /**
+     * Display a shared mod pack (public view, no authentication required).
+     */
+    public function showShared(string $token)
+    {
+        $modPack = ModPack::where('share_token', $token)
+            ->with(['items', 'user'])
+            ->firstOrFail();
+
+        $curseForgeService = new CurseForgeService;
+        $gameVersions = $curseForgeService->getGameVersions();
+        $modLoaders = $curseForgeService->getModLoaders();
+
+        // Check if the current user owns this mod pack
+        $isOwner = Auth::check() && $modPack->user_id === Auth::id();
+
+        // Get sharer name
+        $sharerName = $modPack->user->name ?? 'Unknown';
+
+        return Inertia::render('ModPacks/Shared', [
+            'modPack' => $modPack,
+            'gameVersions' => $gameVersions,
+            'modLoaders' => $modLoaders,
+            'isOwner' => $isOwner,
+            'sharerName' => $sharerName,
+        ]);
+    }
+
+    /**
+     * Add a shared mod pack to the authenticated user's collection.
+     */
+    public function addToCollection(string $token)
+    {
+        $sharedModPack = ModPack::where('share_token', $token)
+            ->with(['items', 'user'])
+            ->firstOrFail();
+
+        // Get the sharer's name
+        $sharerName = $sharedModPack->user->name ?? 'Unknown';
+
+        // Create a copy of the mod pack for the current user with sharer name appended
+        $newModPack = ModPack::create([
+            'user_id' => Auth::id(),
+            'name' => $sharedModPack->name.' (Shared by '.$sharerName.')',
+            'minecraft_version' => $sharedModPack->minecraft_version,
+            'software' => $sharedModPack->software,
+            'description' => $sharedModPack->description,
+        ]);
+
+        // Copy all mod items
+        foreach ($sharedModPack->items as $item) {
+            ModPackItem::create([
+                'mod_pack_id' => $newModPack->id,
+                'mod_name' => $item->mod_name,
+                'mod_version' => $item->mod_version,
+                'curseforge_mod_id' => $item->curseforge_mod_id,
+                'curseforge_file_id' => $item->curseforge_file_id,
+                'curseforge_slug' => $item->curseforge_slug,
+                'sort_order' => $item->sort_order,
+            ]);
+        }
+
+        return redirect()->route('mod-packs.show', $newModPack->id)->with('success', 'Mod pack added to your collection!');
+    }
+
+    /**
+     * Get download links for all mod items in a shared mod pack.
+     */
+    public function getSharedDownloadLinks(string $token)
+    {
+        $modPack = ModPack::where('share_token', $token)
+            ->with('items')
+            ->firstOrFail();
+
+        $curseForgeService = new CurseForgeService;
+        $downloadLinks = [];
+
+        foreach ($modPack->items as $item) {
+            if (! $item->curseforge_mod_id || ! $item->curseforge_file_id) {
+                // Skip items without CurseForge metadata
+                continue;
+            }
+
+            $downloadInfo = $curseForgeService->getFileDownloadInfo(
+                $item->curseforge_mod_id,
+                $item->curseforge_file_id
+            );
+
+            if ($downloadInfo) {
+                $downloadLinks[] = [
+                    'item_id' => $item->id,
+                    'mod_name' => $item->mod_name,
+                    'mod_version' => $item->mod_version,
+                    'download_url' => $downloadInfo['url'],
+                    'filename' => $downloadInfo['filename'],
+                ];
+            }
+        }
+
+        return response()->json([
+            'data' => $downloadLinks,
+        ]);
+    }
+
+    /**
+     * Get download link for a specific mod item in a shared mod pack.
+     */
+    public function getSharedItemDownloadLink(string $token, string $itemId)
+    {
+        $modPack = ModPack::where('share_token', $token)
+            ->with('items')
+            ->firstOrFail();
+
+        $item = ModPackItem::where('mod_pack_id', $modPack->id)->findOrFail($itemId);
+
+        if (! $item->curseforge_mod_id || ! $item->curseforge_file_id) {
+            return response()->json([
+                'error' => 'This mod item does not have CurseForge download information.',
+            ], 404);
+        }
+
+        $curseForgeService = new CurseForgeService;
+        $downloadInfo = $curseForgeService->getFileDownloadInfo(
+            $item->curseforge_mod_id,
+            $item->curseforge_file_id
+        );
+
+        if (! $downloadInfo) {
+            return response()->json([
+                'error' => 'Unable to retrieve download information for this mod.',
+            ], 404);
+        }
+
+        return response()->json([
+            'data' => [
+                'item_id' => $item->id,
+                'mod_name' => $item->mod_name,
+                'mod_version' => $item->mod_version,
+                'download_url' => $downloadInfo['url'],
+                'filename' => $downloadInfo['filename'],
+            ],
+        ]);
+    }
+
+    /**
+     * Proxy endpoint to download mod files for shared modpacks (bypasses CORS).
+     */
+    public function sharedProxyDownload(Request $request, string $token)
+    {
+        $modPack = ModPack::where('share_token', $token)->firstOrFail();
+
+        $validated = $request->validate([
+            'url' => ['required', 'url'],
+        ]);
+
+        $url = $validated['url'];
+
+        // Verify the URL is from CurseForge CDN (security check)
+        $allowedDomains = [
+            'mediafilez.forgecdn.net',
+            'edge.forgecdn.net',
+            'cdn.modrinth.com', // In case we add Modrinth support later
+        ];
+
+        $parsedUrl = parse_url($url);
+        if (! isset($parsedUrl['host']) || ! in_array($parsedUrl['host'], $allowedDomains)) {
+            return response()->json([
+                'error' => 'Invalid download URL',
+            ], 400);
+        }
+
+        try {
+            // Download the file from CurseForge CDN
+            $response = Http::timeout(60) // Longer timeout for large files
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                ])
+                ->get($url);
+
+            if (! $response->successful()) {
+                \Log::warning('Proxy download failed', [
+                    'url' => $url,
+                    'status' => $response->status(),
+                ]);
+
+                return response()->json([
+                    'error' => 'Failed to download file from CDN',
+                ], $response->status());
+            }
+
+            // Get the content type from the response or default to binary
+            $contentType = $response->header('Content-Type') ?: 'application/java-archive';
+
+            // Return the file content with appropriate headers
+            return response($response->body(), 200, [
+                'Content-Type' => $contentType,
+                'Content-Disposition' => 'inline', // Don't force download, let client handle it
+                'Cache-Control' => 'no-cache', // Don't cache proxy responses
+            ]);
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            \Log::error('Proxy download connection error', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => 'Connection timeout or network error',
+            ], 504);
+        } catch (\Exception $e) {
+            \Log::error('Proxy download error', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to proxy download: '.$e->getMessage(),
+            ], 500);
+        }
+    }
 }

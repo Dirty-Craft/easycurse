@@ -31,6 +31,9 @@
                         </div>
                     </div>
                     <div class="header-actions">
+                        <Button variant="primary" @click="openShareModal">
+                            Share
+                        </Button>
                         <Button variant="secondary" @click="openEditModal">
                             Edit
                         </Button>
@@ -263,6 +266,53 @@
             </template>
         </Modal>
 
+        <!-- Share Modal -->
+        <Modal
+            v-model:show="showShareModal"
+            title="Share Mod Pack"
+            @close="closeShareModal"
+        >
+            <div class="share-modal-content">
+                <p class="share-description">
+                    Share this mod pack with others by sending them the link
+                    below.
+                </p>
+                <div class="share-link-container">
+                    <Input
+                        id="share-link"
+                        :model-value="shareUrl"
+                        type="text"
+                        readonly
+                        class="share-link-input"
+                    />
+                    <Button
+                        variant="secondary"
+                        :disabled="isCopying"
+                        @click="copyShareLink"
+                    >
+                        {{ isCopying ? "Copied!" : "Copy" }}
+                    </Button>
+                </div>
+                <div class="share-actions">
+                    <Button
+                        variant="danger"
+                        size="sm"
+                        :disabled="isRegenerating"
+                        @click="regenerateShareToken"
+                    >
+                        {{
+                            isRegenerating
+                                ? "Regenerating..."
+                                : "Regenerate Link"
+                        }}
+                    </Button>
+                    <p class="regenerate-warning">
+                        Regenerating will expire the previous link.
+                    </p>
+                </div>
+            </div>
+        </Modal>
+
         <!-- Add Mod Modal -->
         <Modal
             v-model:show="showAddModModal"
@@ -450,7 +500,11 @@ const props = defineProps({
 const showEditModal = ref(false);
 const showAddModModal = ref(false);
 const showChangeVersionModal = ref(false);
+const showShareModal = ref(false);
 const addModStep = ref("search"); // 'search' or 'selectVersion'
+const shareUrl = ref("");
+const isCopying = ref(false);
+const isRegenerating = ref(false);
 
 const editForm = useForm({
     name: props.modPack.name,
@@ -467,6 +521,83 @@ const openEditModal = () => {
     editForm.description = props.modPack.description || "";
     editForm.clearErrors();
     showEditModal.value = true;
+};
+
+const openShareModal = async () => {
+    showShareModal.value = true;
+    // Generate or get share token
+    if (!shareUrl.value) {
+        await generateShareToken();
+    }
+};
+
+const closeShareModal = () => {
+    showShareModal.value = false;
+};
+
+const generateShareToken = async () => {
+    try {
+        const response = await axios.post(
+            `/mod-packs/${props.modPack.id}/share`,
+        );
+        shareUrl.value = response.data.share_url;
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error generating share token:", error);
+        alert("Failed to generate share link. Please try again.");
+    }
+};
+
+const regenerateShareToken = async () => {
+    if (
+        !confirm(
+            "Are you sure you want to regenerate the share link? The previous link will no longer work.",
+        )
+    ) {
+        return;
+    }
+
+    isRegenerating.value = true;
+    try {
+        const response = await axios.post(
+            `/mod-packs/${props.modPack.id}/share`,
+            { regenerate: true },
+        );
+        shareUrl.value = response.data.share_url;
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error regenerating share token:", error);
+        alert("Failed to regenerate share link. Please try again.");
+    } finally {
+        isRegenerating.value = false;
+    }
+};
+
+const copyShareLink = async () => {
+    if (!shareUrl.value) {
+        await generateShareToken();
+    }
+
+    try {
+        await navigator.clipboard.writeText(shareUrl.value);
+        isCopying.value = true;
+        setTimeout(() => {
+            isCopying.value = false;
+        }, 2000);
+    } catch (error) {
+        // Fallback for older browsers
+        const input = document.getElementById("share-link");
+        if (input) {
+            input.select();
+            document.execCommand("copy");
+            isCopying.value = true;
+            setTimeout(() => {
+                isCopying.value = false;
+            }, 2000);
+        } else {
+            alert("Failed to copy link. Please copy it manually.");
+        }
+    }
 };
 
 const closeEditModal = () => {
@@ -1378,5 +1509,45 @@ const downloadAllAsZip = async () => {
 
 .version-change-notice strong {
     color: var(--color-primary);
+}
+
+.share-modal-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.share-description {
+    color: var(--color-text-secondary);
+    font-size: 0.9375rem;
+    margin: 0;
+}
+
+.share-link-container {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: stretch;
+}
+
+.share-link-input {
+    flex: 1;
+}
+
+.share-link-input :deep(input) {
+    font-family: monospace;
+    font-size: 0.875rem;
+}
+
+.share-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-md);
+}
+
+.regenerate-warning {
+    color: var(--color-text-secondary);
+    font-size: 0.8125rem;
+    margin: 0;
 }
 </style>

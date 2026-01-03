@@ -44,14 +44,16 @@
                             EasyCurse helps Minecraft players and server
                             administrators manage their mod collections
                             effortlessly. Create unlimited mod packs, track
-                            updates, and download everything as a ready-to-use
-                            zip file.
+                            updates, download everything as a ready-to-use zip
+                            file, and share your creations with friends and the
+                            community.
                         </p>
                         <p>
                             Whether you're running a private server, creating
-                            content for your community, or just want to keep
-                            your personal mod collection up to date, EasyCurse
-                            makes it all possible with just a few clicks.
+                            content for your community, sharing mod packs with
+                            others, or just want to keep your personal mod
+                            collection up to date, EasyCurse makes it all
+                            possible with just a few clicks.
                         </p>
                     </div>
                 </div>
