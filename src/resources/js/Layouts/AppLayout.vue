@@ -123,6 +123,9 @@ useFont();
 useDirection();
 
 const logout = () => {
+    if (!confirm("Are you sure you want to logout?")) {
+        return;
+    }
     router.post("/logout");
 };
 

@@ -41,6 +41,7 @@
                                 tag="a"
                                 href="#how-it-works"
                                 variant="secondary"
+                                @click.prevent="scrollToSection"
                             >
                                 {{ t("landing.hero.learn_more") }}
                             </Button>
@@ -538,5 +539,18 @@ const formatNumber = (num) => {
         return (num / 1000).toFixed(1) + "K";
     }
     return num.toString();
+};
+
+const scrollToSection = (event) => {
+    const targetId = event.currentTarget.getAttribute("href");
+    if (targetId) {
+        const targetElement = document.querySelector(targetId);
+        if (targetElement) {
+            targetElement.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+            });
+        }
+    }
 };
 </script>

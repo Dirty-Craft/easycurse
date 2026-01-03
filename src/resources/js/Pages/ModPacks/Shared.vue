@@ -4,13 +4,15 @@
         <div class="modpacks-content">
             <div class="modpacks-header">
                 <div class="header-top">
-                    <Link href="/" class="back-link"> ← Back to Home </Link>
+                    <Link href="/" class="back-link">
+                        {{ t("modpacks.shared.back") }}
+                    </Link>
                 </div>
                 <div class="header-main">
                     <div class="header-left">
                         <h1 class="modpacks-title">{{ modPack.name }}</h1>
                         <p v-if="sharerName" class="sharer-name">
-                            by {{ sharerName }}
+                            {{ t("modpacks.shared.by", { name: sharerName }) }}
                         </p>
                         <div class="version-info">
                             <p class="modpacks-subtitle">
@@ -32,7 +34,7 @@
                             :href="`/mod-packs/${modPack.id}`"
                             variant="secondary"
                         >
-                            View in My Collection
+                            {{ t("modpacks.shared.view_collection") }}
                         </Button>
                         <Button
                             v-else-if="isAuthenticated"
@@ -42,8 +44,8 @@
                         >
                             {{
                                 isAddingToCollection
-                                    ? "Adding..."
-                                    : "Add to my Collection"
+                                    ? t("modpacks.shared.adding")
+                                    : t("modpacks.shared.add_collection")
                             }}
                         </Button>
                         <Button
@@ -52,7 +54,7 @@
                             href="/login"
                             variant="primary"
                         >
-                            Login to Add to Collection
+                            {{ t("modpacks.shared.login_to_add") }}
                         </Button>
                     </div>
                 </div>
@@ -61,7 +63,9 @@
             <div class="modpacks-main">
                 <div class="modpacks-card">
                     <div class="section-header">
-                        <h3 class="section-title">Mods</h3>
+                        <h3 class="section-title">
+                            {{ t("modpacks.show.mods") }}
+                        </h3>
                         <div class="section-actions">
                             <Button
                                 v-if="modPack.items.length > 0"
@@ -70,18 +74,18 @@
                                 :disabled="isDownloadingAll"
                                 @click="downloadAllAsZip"
                             >
-                                <span v-if="!isDownloadingAll"
-                                    >📦 Download All as ZIP</span
-                                >
-                                <span v-else class="loading-text"
-                                    >Downloading...</span
-                                >
+                                <span v-if="!isDownloadingAll">{{
+                                    t("modpacks.show.download_all")
+                                }}</span>
+                                <span v-else class="loading-text">{{
+                                    t("modpacks.show.downloading")
+                                }}</span>
                             </Button>
                         </div>
                     </div>
 
                     <div v-if="modPack.items.length === 0" class="empty-state">
-                        <p>This mod pack has no mods yet.</p>
+                        <p>{{ t("modpacks.shared.empty") }}</p>
                     </div>
 
                     <div v-else class="mods-list">
@@ -155,7 +159,7 @@
                                     {{
                                         downloadingItems.has(item.id)
                                             ? "..."
-                                            : "⬇️ Download"
+                                            : t("modpacks.show.download")
                                     }}
                                 </Button>
                             </div>
@@ -174,6 +178,9 @@ import AppLayout from "../../Layouts/AppLayout.vue";
 import Button from "../../Components/Button.vue";
 import axios from "axios";
 import { downloadZip } from "client-zip";
+import { useTranslations } from "../../composables/useTranslations";
+
+const { t } = useTranslations();
 
 const props = defineProps({
     modPack: Object,
@@ -210,7 +217,7 @@ const addToCollection = () => {
         return;
     }
 
-    if (!confirm("Add this mod pack to your collection?")) {
+    if (!confirm(t("modpacks.shared.add_confirm"))) {
         return;
     }
 
@@ -225,9 +232,7 @@ const addToCollection = () => {
             onError: (errors) => {
                 // eslint-disable-next-line no-console
                 console.error("Error adding to collection:", errors);
-                alert(
-                    "Failed to add mod pack to collection. Please try again.",
-                );
+                alert(t("modpacks.shared.add_failed"));
             },
             onFinish: () => {
                 isAddingToCollection.value = false;
@@ -238,7 +243,7 @@ const addToCollection = () => {
 
 const downloadModItem = async (item) => {
     if (!item.curseforge_mod_id || !item.curseforge_file_id) {
-        alert("This mod does not have download information available.");
+        alert(t("modpacks.show.download_info_missing"));
         return;
     }
 
@@ -270,7 +275,10 @@ const downloadModItem = async (item) => {
         // eslint-disable-next-line no-console
         console.error("Error downloading mod:", error);
         alert(
-            `Failed to download ${item.mod_name}: ${error.message || "Unknown error"}.`,
+            t("modpacks.show.download_failed", {
+                name: item.mod_name,
+                error: error.message || "Unknown error",
+            }),
         );
     } finally {
         downloadingItems.value.delete(item.id);
@@ -321,7 +329,7 @@ const downloadAllAsZip = async () => {
 
         const downloadLinks = response.data.data;
         if (downloadLinks.length === 0) {
-            alert("No mods with download information available.");
+            alert(t("modpacks.show.no_download_info"));
             isDownloadingAll.value = false;
             return;
         }
@@ -381,9 +389,7 @@ const downloadAllAsZip = async () => {
         // Check if all files failed
         const errorFiles = files.filter((f) => f.name.endsWith("_ERROR.txt"));
         if (errorFiles.length === files.length && errorFiles.length > 0) {
-            alert(
-                "Unable to download any mods. Please try using the individual download buttons instead.",
-            );
+            alert(t("modpacks.show.download_error"));
             isDownloadingAll.value = false;
             return;
         }
@@ -394,7 +400,10 @@ const downloadAllAsZip = async () => {
             const failCount = errorFiles.length;
             if (
                 !confirm(
-                    `${failCount} mod(s) failed to download. Continue creating ZIP with ${successCount} successfully downloaded mod(s)?`,
+                    t("modpacks.show.download_partial_confirm", {
+                        failCount,
+                        successCount,
+                    }),
                 )
             ) {
                 isDownloadingAll.value = false;
@@ -408,7 +417,7 @@ const downloadAllAsZip = async () => {
         );
 
         if (successfulFiles.length === 0) {
-            alert("No mods were successfully downloaded.");
+            alert(t("modpacks.show.no_successful_downloads"));
             isDownloadingAll.value = false;
             return;
         }
@@ -417,7 +426,7 @@ const downloadAllAsZip = async () => {
         const zipBlob = await downloadZip(successfulFiles).blob();
 
         if (!zipBlob || zipBlob.size === 0) {
-            throw new Error("Failed to create ZIP file");
+            throw new Error(t("modpacks.show.zip_failed"));
         }
 
         // Trigger download
@@ -435,7 +444,7 @@ const downloadAllAsZip = async () => {
         const errorMessage =
             error?.message || error?.toString() || "Unknown error";
         alert(
-            `Failed to download mod pack: ${errorMessage}. Please check the console for details.`,
+            t("modpacks.show.download_pack_failed", { error: errorMessage }),
         );
     } finally {
         isDownloadingAll.value = false;

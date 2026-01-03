@@ -15,12 +15,12 @@
                             <p class="modpacks-subtitle">
                                 {{ modPack.minecraft_version }} •
                                 {{ modPack.software }}
-                                <button
-                                    class="btn-change-version"
+                                <Button
+                                    variant="primary"
                                     @click="showChangeVersionModal = true"
                                 >
                                     {{ t("modpacks.show.change") }}
-                                </button>
+                                </Button>
                             </p>
                             <p
                                 v-if="modPack.description"
@@ -1774,12 +1774,14 @@ const downloadAllAsZip = async () => {
     }
 
     .section-actions {
-        flex-wrap: wrap;
+        display: flex;
+        flex-direction: row;
         width: 100%;
+        gap: var(--spacing-sm);
     }
 
     .section-actions :deep(button) {
-        flex: 1;
+        flex: 1 1 50%;
         min-width: 0;
     }
 
@@ -1811,12 +1813,14 @@ const downloadAllAsZip = async () => {
     }
 
     .mod-item-actions {
+        display: flex;
+        flex-direction: row;
         width: 100%;
-        justify-content: stretch;
+        gap: var(--spacing-sm);
     }
 
     .mod-item-actions :deep(button) {
-        flex: 1;
+        flex: 1 1 50%;
         min-width: 0;
     }
 
@@ -1853,11 +1857,11 @@ const downloadAllAsZip = async () => {
     }
 
     .section-actions {
-        flex-direction: column;
+        flex-direction: row;
     }
 
     .mod-item-actions {
-        flex-direction: column;
+        flex-direction: row;
     }
 }
 </style>
