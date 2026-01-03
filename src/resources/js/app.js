@@ -60,7 +60,7 @@ const initDirection = (translations = {}) => {
 };
 
 createInertiaApp({
-    title: (title) => (title ? `${title} | ${appName}` : appName),
+    title: (title) => (title ? `${appName} | ${title}` : appName),
     resolve: (name) =>
         resolvePageComponent(
             `./Pages/${name}.vue`,
