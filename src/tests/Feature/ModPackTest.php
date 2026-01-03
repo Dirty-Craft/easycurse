@@ -692,6 +692,49 @@ class ModPackTest extends TestCase
     }
 
     /**
+     * Test that getMod handles API errors gracefully and success cases.
+     * Covers CurseForgeService lines 73-84, including line 77 (success return).
+     */
+    public function test_get_mod_handles_api_errors(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'fabric',
+        ]);
+
+        // Test error in getMod (covers lines 73-84)
+        Http::fake([
+            'api.curseforge.com/v1/mods/999999*' => Http::response(['error' => 'Not found'], 404),
+        ]);
+
+        // This would be called indirectly through the controller
+        // We'll test it by making a request that would use getMod
+        // Since getMod is used internally, we test it through an endpoint that uses it
+        // For now, we'll just ensure the error path exists
+        $service = app(\App\Services\CurseForgeService::class);
+        $result = $service->getMod(999999);
+        $this->assertNull($result);
+
+        // Test success case for getMod (covers line 77)
+        Http::fake([
+            'api.curseforge.com/v1/mods/123456*' => Http::response([
+                'data' => [
+                    'id' => 123456,
+                    'name' => 'Test Mod',
+                    'slug' => 'test-mod',
+                ],
+            ], 200),
+        ]);
+
+        $result = $service->getMod(123456);
+        $this->assertIsArray($result);
+        $this->assertEquals(123456, $result['id']);
+        $this->assertEquals('Test Mod', $result['name']);
+    }
+
+    /**
      * Test that searching mods requires authentication.
      */
     public function test_searching_mods_requires_authentication(): void
@@ -831,15 +874,8 @@ class ModPackTest extends TestCase
         $this->assertCount(1, $quiltData);
 
         // Test with unknown software type to cover default case (line 107)
-        $unknownModPack = ModPack::factory()->create([
-            'user_id' => $user->id,
-            'minecraft_version' => '1.20.1',
-            'software' => 'forge', // We'll modify this after creation to test unknown type
-        ]);
-        // Directly update to unknown software in database
-        $unknownModPack->software = 'unknown';
-        $unknownModPack->save();
-
+        // Test by directly calling the service with unknown software
+        $service = app(\App\Services\CurseForgeService::class);
         Http::fake([
             'api.curseforge.com/v1/mods/123456/files*' => Http::response([
                 'data' => [
@@ -854,11 +890,10 @@ class ModPackTest extends TestCase
                 ],
             ], 200),
         ]);
-
-        $response = $this->actingAs($user)->get("/mod-packs/{$unknownModPack->id}/mod-files?mod_id=123456");
-        $response->assertStatus(200);
-        $unknownData = $response->json('data');
-        $this->assertCount(1, $unknownData);
+        // Call getModFiles directly with unknown software to cover default case (line 107)
+        $result = $service->getModFiles(123456, '1.20.1', 'unknown-software');
+        $this->assertIsArray($result);
+        $this->assertCount(1, $result);
     }
 
     /**
@@ -2616,6 +2651,25 @@ class ModPackTest extends TestCase
         // We test it by ensuring the download link works
         $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/items/{$item->id}/download-link");
         $response->assertStatus(200);
+
+        // Also test getFileDependencies directly to ensure all paths are covered (covers lines 511-537)
+        $service = app(\App\Services\CurseForgeService::class);
+        $fileData = [
+            'dependencies' => [
+                ['modId' => 111, 'relationType' => 1], // Embedded
+                ['modId' => 222, 'relationType' => 2], // Optional
+                ['modId' => 333, 'relationType' => 3], // Required
+                ['modId' => 444], // No relationType (covers default case line 533)
+                ['relationType' => 3], // No modId (covers line 524)
+            ],
+        ];
+        $deps = $service->getFileDependencies($fileData);
+        $this->assertArrayHasKey('required', $deps);
+        $this->assertArrayHasKey('optional', $deps);
+        $this->assertArrayHasKey('embedded', $deps);
+        $this->assertContains(333, $deps['required']);
+        $this->assertContains(222, $deps['optional']);
+        $this->assertContains(111, $deps['embedded']);
     }
 
     /**
@@ -2671,6 +2725,50 @@ class ModPackTest extends TestCase
 
         // Should still work with constructed URL
         $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/items/{$item2->id}/download-link");
+        $response->assertStatus(200);
+
+        // Test getFileDownloadUrlFromApi when response is not successful (covers lines 599-611)
+        Http::fake([
+            'api.curseforge.com/v1/mods/123456/files/789014' => Http::response([
+                'data' => [
+                    'id' => 789014,
+                    'fileName' => 'test3.jar',
+                ],
+            ], 200),
+            'api.curseforge.com/v1/files/789014/download-url' => Http::response([], 500), // Not successful
+        ]);
+
+        $item3 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'curseforge_mod_id' => 123456,
+            'curseforge_file_id' => 789014,
+        ]);
+
+        // Should still work with constructed URL
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/items/{$item3->id}/download-link");
+        $response->assertStatus(200);
+
+        // Test getFileDownloadUrlFromApi when response has no URL (covers line 601-610)
+        Http::fake([
+            'api.curseforge.com/v1/mods/123456/files/789015' => Http::response([
+                'data' => [
+                    'id' => 789015,
+                    'fileName' => 'test4.jar',
+                ],
+            ], 200),
+            'api.curseforge.com/v1/files/789015/download-url' => Http::response([
+                'data' => [], // No URL
+            ], 200),
+        ]);
+
+        $item4 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'curseforge_mod_id' => 123456,
+            'curseforge_file_id' => 789015,
+        ]);
+
+        // Should still work with constructed URL
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/items/{$item4->id}/download-link");
         $response->assertStatus(200);
     }
 }

@@ -349,6 +349,20 @@ class AuthTest extends TestCase
         $response->assertRedirect('/forgot-password');
         $response->assertSessionHas('status');
         Notification::assertSentTo($user, \App\Notifications\ResetPasswordNotification::class);
+
+        // Test that toMail method is called and renders correctly (covers ResetPasswordNotification lines 44-65)
+        Notification::assertSentTo($user, \App\Notifications\ResetPasswordNotification::class, function ($notification, $channels, $notifiable) {
+            $mail = $notification->toMail($notifiable);
+            $this->assertInstanceOf(\Illuminate\Notifications\Messages\MailMessage::class, $mail);
+            $this->assertEquals('Reset Password Notification', $mail->subject);
+
+            // Test toArray method (covers ResetPasswordNotification lines 64-65)
+            $array = $notification->toArray($notifiable);
+            $this->assertIsArray($array);
+            $this->assertEmpty($array);
+
+            return true;
+        });
     }
 
     /**
@@ -370,6 +384,24 @@ class AuthTest extends TestCase
             'email' => 'invalid-email',
         ]);
 
+        $response->assertSessionHasErrors('email');
+    }
+
+    /**
+     * Test forgot password handles error when user doesn't exist.
+     * Covers AuthController lines 124-126.
+     */
+    public function test_forgot_password_handles_nonexistent_user(): void
+    {
+        // Visit the page first so back() knows where to redirect
+        $this->get('/forgot-password');
+
+        // Try to request password reset for non-existent user
+        $response = $this->post('/forgot-password', [
+            'email' => 'nonexistent@example.com',
+        ]);
+
+        // Should redirect back with validation error
         $response->assertSessionHasErrors('email');
     }
 
