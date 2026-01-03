@@ -16,4 +16,15 @@ class LandingTest extends TestCase
 
         $response->assertStatus(200);
     }
+
+    /**
+     * Test that about page is accessible.
+     */
+    public function test_about_page_is_accessible(): void
+    {
+        $response = $this->get('/about');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->component('About'));
+    }
 }

@@ -51,8 +51,22 @@
                             mods again.
                         </p>
                     </div>
-                    <div v-if="$page.props.auth.user" class="footer-links">
+                    <div class="footer-links">
                         <div class="footer-column">
+                            <h3 class="footer-heading">Info</h3>
+                            <Link href="/about" class="footer-link">
+                                About Us
+                            </Link>
+                            <a
+                                href="https://github.com/Dirty-Craft/easycurse"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="footer-link"
+                            >
+                                GitHub
+                            </a>
+                        </div>
+                        <div v-if="$page.props.auth.user" class="footer-column">
                             <h3 class="footer-heading">My Account</h3>
                             <Link href="/profile" class="footer-link">
                                 My Profile
@@ -62,6 +76,21 @@
                             </Link>
                         </div>
                     </div>
+                </div>
+                <div class="footer-bottom">
+                    <p>
+                        © {{ new Date().getFullYear() }} EasyCurse. Licensed
+                        under
+                        <a
+                            href="https://opensource.org/licenses/MIT"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="footer-link"
+                        >
+                            MIT License
+                        </a>
+                        .
+                    </p>
                 </div>
             </div>
         </footer>

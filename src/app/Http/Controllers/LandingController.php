@@ -10,4 +10,9 @@ class LandingController extends Controller
     {
         return Inertia::render('Index');
     }
+
+    public function about()
+    {
+        return Inertia::render('About');
+    }
 }

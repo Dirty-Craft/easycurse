@@ -5,6 +5,7 @@ use App\Http\Controllers\LandingController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [LandingController::class, 'index']);
+Route::get('/about', [LandingController::class, 'about'])->name('about');
 
 // Authentication routes
 Route::middleware('guest')->group(function () {
