@@ -1267,6 +1267,193 @@ class ModPackTest extends TestCase
     }
 
     /**
+     * Test searching mods with CurseForge URL containing slug (success case).
+     * Covers ModPackController lines 127-149.
+     */
+    public function test_searching_mods_with_curseforge_url_by_slug_success(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'fabric',
+        ]);
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/search*slug=jei*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 123456,
+                        'name' => 'JEI',
+                        'slug' => 'jei',
+                        'downloadCount' => 1000000,
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $url = 'https://www.curseforge.com/minecraft/mc-mods/jei';
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/search-mods?query=".urlencode($url));
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'data' => [
+                [
+                    'id' => 123456,
+                    'name' => 'JEI',
+                    'slug' => 'jei',
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Test searching mods with CurseForge URL containing slug (mod not found).
+     * Covers ModPackController lines 127-149.
+     */
+    public function test_searching_mods_with_curseforge_url_by_slug_not_found(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'fabric',
+        ]);
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/search*slug=nonexistent-slug*' => Http::response([
+                'data' => [], // Mod not found
+            ], 200),
+            'api.curseforge.com/v1/mods/search*searchFilter=*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 789,
+                        'name' => 'Some Other Mod',
+                        'slug' => 'some-other-mod',
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $url = 'https://www.curseforge.com/minecraft/mc-mods/nonexistent-slug';
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/search-mods?query=".urlencode($url));
+
+        $response->assertStatus(200);
+        // Should fall back to general search
+        $data = $response->json('data');
+        $this->assertNotEmpty($data);
+    }
+
+    /**
+     * Test searching mods with CurseForge URL containing mod_id (success case).
+     * Covers ModPackController lines 150-166.
+     */
+    public function test_searching_mods_with_curseforge_url_by_mod_id_success(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'fabric',
+        ]);
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/123456*' => Http::response([
+                'data' => [
+                    'id' => 123456,
+                    'name' => 'JEI',
+                    'slug' => 'jei',
+                    'downloadCount' => 1000000,
+                ],
+            ], 200),
+        ]);
+
+        $url = 'https://www.curseforge.com/projects/123456';
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/search-mods?query=".urlencode($url));
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'data' => [
+                [
+                    'id' => 123456,
+                    'name' => 'JEI',
+                    'slug' => 'jei',
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Test searching mods with CurseForge URL containing mod_id (mod not found).
+     * Covers ModPackController lines 150-166.
+     */
+    public function test_searching_mods_with_curseforge_url_by_mod_id_not_found(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'fabric',
+        ]);
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/999999*' => Http::response(['error' => 'Not found'], 404),
+            'api.curseforge.com/v1/mods/search*searchFilter=*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 789,
+                        'name' => 'Some Other Mod',
+                        'slug' => 'some-other-mod',
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $url = 'https://www.curseforge.com/projects/999999';
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/search-mods?query=".urlencode($url));
+
+        $response->assertStatus(200);
+        // Should fall back to general search
+        $data = $response->json('data');
+        $this->assertNotEmpty($data);
+    }
+
+    /**
+     * Test searching mods with CurseForge URL that cannot be parsed.
+     * Covers ModPackController lines 168-171.
+     */
+    public function test_searching_mods_with_unparseable_curseforge_url(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'fabric',
+        ]);
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/search*searchFilter=*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 789,
+                        'name' => 'Some Mod',
+                        'slug' => 'some-mod',
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        // URL that contains curseforge.com but doesn't match the expected pattern
+        $url = 'https://www.curseforge.com/minecraft/invalid/path/123';
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/search-mods?query=".urlencode($url));
+
+        $response->assertStatus(200);
+        // Should fall back to general search since URL couldn't be parsed
+        $data = $response->json('data');
+        $this->assertNotEmpty($data);
+    }
+
+    /**
      * Test that mod files are filtered to strictly match the exact Minecraft version.
      * Files for "1.20.1" should NOT be returned when requesting "1.20".
      */

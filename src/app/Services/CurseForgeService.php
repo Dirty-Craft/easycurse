@@ -38,6 +38,63 @@ class CurseForgeService
     }
 
     /**
+     * Extract slug or mod ID from a CurseForge URL.
+     *
+     * @param  string  $url  The CurseForge URL
+     * @return array|null Array with 'slug' or 'mod_id' key, or null if URL is invalid
+     */
+    public function extractModInfoFromUrl(string $url): ?array
+    {
+        // Common CurseForge URL patterns:
+        // https://www.curseforge.com/minecraft/mc-mods/{slug}
+        // https://www.curseforge.com/minecraft/mc-mods/{slug}/
+        // https://www.curseforge.com/minecraft/mc-mods/{slug}/files
+        // https://curseforge.com/minecraft/mc-mods/{slug}
+        // https://legacy.curseforge.com/minecraft/mc-mods/{slug}
+        // URLs may have query params (?anything) or fragments (#anything)
+
+        // Pattern to match: curseforge.com/minecraft/mc-mods/{slug}
+        // The slug capture group should stop at: end of string, /, ?, or #
+        // Slugs typically contain lowercase letters, numbers, and hyphens
+        $pattern = '/curseforge\.com\/minecraft\/mc-mods\/([a-z0-9\-_]+)/i';
+        if (preg_match($pattern, $url, $matches)) {
+            $slug = trim($matches[1], '/');
+            // Remove any trailing path segments, query params, or fragments
+            $slug = preg_replace('/[\/?#].*$/', '', $slug);
+            $slug = trim($slug);
+
+            if (! empty($slug)) {
+                Log::debug('Extracted slug from CurseForge URL', [
+                    'url' => $url,
+                    'slug' => $slug,
+                    'raw_match' => $matches[1] ?? null,
+                ]);
+
+                return ['slug' => $slug];
+            }
+        }
+
+        // Try to extract mod ID if URL contains it (less common, but possible)
+        // Pattern: /projects/{id} or similar
+        $idPattern = '/\/projects\/(\d+)/i';
+        if (preg_match($idPattern, $url, $matches)) {
+            $modId = (int) $matches[1];
+            Log::debug('Extracted mod ID from CurseForge URL', [
+                'url' => $url,
+                'mod_id' => $modId,
+            ]);
+
+            return ['mod_id' => $modId];
+        }
+
+        Log::debug('Failed to extract mod info from CurseForge URL', [
+            'url' => $url,
+        ]);
+
+        return null;
+    }
+
+    /**
      * Search for mods by slug.
      */
     public function searchModBySlug(string $slug): ?array

@@ -97,6 +97,44 @@
                                 <div class="mod-item-info">
                                     <div class="mod-item-name">
                                         {{ item.mod_name }}
+                                        <a
+                                            v-if="item.curseforge_slug"
+                                            :href="
+                                                getCurseForgeUrl(
+                                                    item.curseforge_slug,
+                                                )
+                                            "
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="curseforge-link"
+                                            @click.stop
+                                        >
+                                            <svg
+                                                class="curseforge-icon"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width="16"
+                                                height="16"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                            >
+                                                <path
+                                                    d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                                                ></path>
+                                                <polyline
+                                                    points="15 3 21 3 21 9"
+                                                ></polyline>
+                                                <line
+                                                    x1="10"
+                                                    y1="14"
+                                                    x2="21"
+                                                    y2="3"
+                                                ></line>
+                                            </svg>
+                                        </a>
                                     </div>
                                     <div class="mod-item-version">
                                         {{ item.mod_version }}
@@ -403,6 +441,10 @@ const downloadAllAsZip = async () => {
         isDownloadingAll.value = false;
     }
 };
+
+const getCurseForgeUrl = (slug) => {
+    return `https://www.curseforge.com/minecraft/mc-mods/${slug}`;
+};
 </script>
 
 <style scoped>
@@ -555,6 +597,9 @@ const downloadAllAsZip = async () => {
     font-weight: 500;
     color: var(--color-text-primary);
     margin: 0 0 var(--spacing-xs) 0;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
 }
 
 .mod-item-version {
@@ -593,5 +638,28 @@ const downloadAllAsZip = async () => {
     to {
         transform: rotate(360deg);
     }
+}
+
+.curseforge-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    transition: all var(--transition-base);
+    opacity: 0.6;
+    flex-shrink: 0;
+}
+
+.curseforge-link:hover {
+    color: var(--color-primary);
+    opacity: 1;
+    transform: translateY(-1px);
+}
+
+.curseforge-icon {
+    width: 16px;
+    height: 16px;
+    display: block;
 }
 </style>

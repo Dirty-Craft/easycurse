@@ -8,6 +8,7 @@ use App\Services\CurseForgeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class ModPackController extends Controller
@@ -115,16 +116,71 @@ class ModPackController extends Controller
         $curseForgeService = new CurseForgeService;
         $query = trim($validated['query']);
 
-        // Try searching by slug first (if query looks like a slug - lowercase, no spaces)
         $results = [];
-        if (preg_match('/^[a-z0-9-]+$/', $query)) {
+
+        // Check if the query looks like a CurseForge URL
+        // More lenient check: just see if it contains curseforge.com and looks like a URL
+        $isUrl = (str_starts_with($query, 'http://') || str_starts_with($query, 'https://'))
+                && str_contains(strtolower($query), 'curseforge.com');
+
+        if ($isUrl) {
+            Log::debug('Detected CurseForge URL in search query', [
+                'query' => $query,
+            ]);
+
+            $modInfo = $curseForgeService->extractModInfoFromUrl($query);
+            if ($modInfo) {
+                if (isset($modInfo['slug'])) {
+                    // Extract slug from URL and search by slug
+                    Log::debug('Searching mod by slug from URL', [
+                        'slug' => $modInfo['slug'],
+                    ]);
+                    $mod = $curseForgeService->searchModBySlug($modInfo['slug']);
+                    if ($mod) {
+                        Log::debug('Found mod by slug', [
+                            'mod_id' => $mod['id'] ?? null,
+                            'mod_name' => $mod['name'] ?? null,
+                        ]);
+                        $results[] = $mod;
+                    } else {
+                        Log::debug('Mod not found by slug', [
+                            'slug' => $modInfo['slug'],
+                        ]);
+                    }
+                } elseif (isset($modInfo['mod_id'])) {
+                    // Extract mod ID from URL and get mod directly
+                    Log::debug('Getting mod by ID from URL', [
+                        'mod_id' => $modInfo['mod_id'],
+                    ]);
+                    $mod = $curseForgeService->getMod($modInfo['mod_id']);
+                    if ($mod) {
+                        Log::debug('Found mod by ID', [
+                            'mod_id' => $mod['id'] ?? null,
+                            'mod_name' => $mod['name'] ?? null,
+                        ]);
+                        $results[] = $mod;
+                    } else {
+                        Log::debug('Mod not found by ID', [
+                            'mod_id' => $modInfo['mod_id'],
+                        ]);
+                    }
+                }
+            } else {
+                Log::debug('Failed to extract mod info from URL', [
+                    'query' => $query,
+                ]);
+            }
+        }
+
+        // If URL search didn't return results, try slug search (if query looks like a slug - lowercase, no spaces)
+        if (empty($results) && preg_match('/^[a-z0-9-]+$/', $query)) {
             $mod = $curseForgeService->searchModBySlug($query);
             if ($mod) {
                 $results[] = $mod;
             }
         }
 
-        // Also try general search if slug search didn't return results or query doesn't look like a slug
+        // Also try general search if slug/URL search didn't return results or query doesn't look like a slug
         if (empty($results)) {
             $searchResults = $curseForgeService->searchMods([
                 'searchFilter' => $query,

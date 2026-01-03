@@ -90,6 +90,44 @@
                                 <div class="mod-item-info">
                                     <div class="mod-item-name">
                                         {{ item.mod_name }}
+                                        <a
+                                            v-if="item.curseforge_slug"
+                                            :href="
+                                                getCurseForgeUrl(
+                                                    item.curseforge_slug,
+                                                )
+                                            "
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="curseforge-link"
+                                            @click.stop
+                                        >
+                                            <svg
+                                                class="curseforge-icon"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width="16"
+                                                height="16"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                            >
+                                                <path
+                                                    d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                                                ></path>
+                                                <polyline
+                                                    points="15 3 21 3 21 9"
+                                                ></polyline>
+                                                <line
+                                                    x1="10"
+                                                    y1="14"
+                                                    x2="21"
+                                                    y2="3"
+                                                ></line>
+                                            </svg>
+                                        </a>
                                     </div>
                                     <div class="mod-item-version">
                                         {{ item.mod_version }}
@@ -351,6 +389,7 @@
                                 t('modpacks.show.add_modal.search_placeholder')
                             "
                             @input="debouncedSearch"
+                            @paste="handlePaste"
                         />
                         <div v-if="isSearching" class="search-loading">
                             {{ t("modpacks.show.add_modal.searching") }}
@@ -378,6 +417,40 @@
                             <div class="mod-result-content">
                                 <div class="mod-result-name">
                                     {{ mod.name }}
+                                    <a
+                                        v-if="mod.slug"
+                                        :href="getCurseForgeUrl(mod.slug)"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="curseforge-link"
+                                        @click.stop
+                                    >
+                                        <svg
+                                            class="curseforge-icon"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            width="16"
+                                            height="16"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                        >
+                                            <path
+                                                d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                                            ></path>
+                                            <polyline
+                                                points="15 3 21 3 21 9"
+                                            ></polyline>
+                                            <line
+                                                x1="10"
+                                                y1="14"
+                                                x2="21"
+                                                y2="3"
+                                            ></line>
+                                        </svg>
+                                    </a>
                                 </div>
                                 <div class="mod-result-meta">
                                     <span class="mod-result-slug">
@@ -419,7 +492,36 @@
             <!-- Step 2: Select Version -->
             <div v-if="addModStep === 'selectVersion'" class="add-mod-step">
                 <div class="selected-mod-info">
-                    <h3>{{ selectedMod.name }}</h3>
+                    <h3 class="selected-mod-name">
+                        {{ selectedMod.name }}
+                        <a
+                            v-if="selectedMod.slug"
+                            :href="getCurseForgeUrl(selectedMod.slug)"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="curseforge-link"
+                            @click.stop
+                        >
+                            <svg
+                                class="curseforge-icon"
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <path
+                                    d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                                ></path>
+                                <polyline points="15 3 21 3 21 9"></polyline>
+                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                            </svg>
+                        </a>
+                    </h3>
                     <p class="selected-mod-slug">
                         {{ selectedMod.slug }}
                     </p>
@@ -675,6 +777,17 @@ const debouncedSearch = () => {
     }, 500);
 };
 
+// Watch for changes to modSearchQuery to handle paste events
+// Must be defined after modSearchQuery and debouncedSearch
+watch(modSearchQuery, () => {
+    debouncedSearch();
+});
+
+const handlePaste = () => {
+    // The watcher on modSearchQuery will handle triggering the search
+    // after the v-model updates from the paste event
+};
+
 const searchMods = async () => {
     if (modSearchQuery.value.length < 2) {
         return;
@@ -859,6 +972,10 @@ const formatFileSize = (bytes) => {
         return (bytes / 1024).toFixed(2) + " KB";
     }
     return bytes + " B";
+};
+
+const getCurseForgeUrl = (slug) => {
+    return `https://www.curseforge.com/minecraft/mc-mods/${slug}`;
 };
 
 const downloadModItem = async (item) => {
@@ -1283,6 +1400,9 @@ const downloadAllAsZip = async () => {
     margin: 0 0 var(--spacing-xs) 0;
     word-break: break-word;
     overflow-wrap: break-word;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
 }
 
 .mod-item-version {
@@ -1393,6 +1513,9 @@ const downloadAllAsZip = async () => {
     font-weight: 500;
     color: var(--color-text-primary);
     margin-bottom: var(--spacing-xs);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
 }
 
 .mod-result-meta {
@@ -1421,6 +1544,29 @@ const downloadAllAsZip = async () => {
     color: var(--color-primary);
 }
 
+.curseforge-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    transition: all var(--transition-base);
+    opacity: 0.6;
+    flex-shrink: 0;
+}
+
+.curseforge-link:hover {
+    color: var(--color-primary);
+    opacity: 1;
+    transform: translateY(-1px);
+}
+
+.curseforge-icon {
+    width: 16px;
+    height: 16px;
+    display: block;
+}
+
 .search-no-results {
     text-align: center;
     padding: var(--spacing-2xl) 0;
@@ -1436,6 +1582,12 @@ const downloadAllAsZip = async () => {
 .selected-mod-info h3 {
     margin: 0 0 var(--spacing-xs) 0;
     color: var(--color-text-primary);
+}
+
+.selected-mod-name {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
 }
 
 .selected-mod-slug {
