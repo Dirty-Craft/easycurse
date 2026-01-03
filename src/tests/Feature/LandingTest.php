@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class LandingTest extends TestCase
 {
+    use RefreshDatabase;
+
     /**
      * A basic test example.
      */
@@ -117,5 +119,36 @@ class LandingTest extends TestCase
 
         // Verify locale is set to default
         $this->assertEquals('en', app()->getLocale());
+    }
+
+    /**
+     * Test that stats section is present on landing page.
+     */
+    public function test_stats_section_is_present(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->component('Index')
+            ->has('stats')
+            ->has('stats.total_mod_packs')
+            ->has('stats.total_users')
+            ->has('stats.total_downloads')
+        );
+    }
+
+    /**
+     * Test that stats data is correctly passed to the view.
+     */
+    public function test_stats_data_is_correctly_passed(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->component('Index')
+            ->where('stats.total_mod_packs', fn ($value) => is_int($value) && $value >= 0)
+            ->where('stats.total_users', fn ($value) => is_int($value) && $value >= 0)
+            ->where('stats.total_downloads', fn ($value) => is_int($value) && $value >= 0)
+        );
     }
 }

@@ -288,6 +288,42 @@
                 </div>
             </section>
 
+            <!-- Stats Section -->
+            <section class="section stats">
+                <div class="container">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number">
+                                {{
+                                    formatNumber(
+                                        $page.props.stats.total_mod_packs,
+                                    )
+                                }}
+                            </div>
+                            <div class="stat-label">Mod Packs</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">
+                                {{
+                                    formatNumber($page.props.stats.total_users)
+                                }}
+                            </div>
+                            <div class="stat-label">Users</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">
+                                {{
+                                    formatNumber(
+                                        $page.props.stats.total_downloads,
+                                    )
+                                }}
+                            </div>
+                            <div class="stat-label">Downloads</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Features Section -->
             <section class="section features">
                 <div class="container">
@@ -419,4 +455,14 @@ import Button from "../Components/Button.vue";
 import { useTranslations } from "../composables/useTranslations";
 
 const { t } = useTranslations();
+
+const formatNumber = (num) => {
+    if (num >= 1000000) {
+        return (num / 1000000).toFixed(1) + "M";
+    }
+    if (num >= 1000) {
+        return (num / 1000).toFixed(1) + "K";
+    }
+    return num.toString();
+};
 </script>

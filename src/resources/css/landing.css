@@ -714,6 +714,79 @@
     z-index: 1;
 }
 
+/* Stats Section */
+.stats {
+    background: var(--color-background);
+    position: relative;
+    padding: var(--spacing-3xl) 0;
+}
+
+.stats-grid {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--spacing-4xl);
+    max-width: 900px;
+    margin: 0 auto;
+    flex-wrap: wrap;
+}
+
+.stat-card {
+    text-align: center;
+    position: relative;
+    padding: var(--spacing-lg);
+    transition: all var(--transition-base);
+    flex: 1;
+    min-width: 150px;
+}
+
+.stat-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+    transition: width var(--transition-base);
+}
+
+.stat-card:hover::after {
+    width: 60%;
+}
+
+.stat-number {
+    font-size: clamp(3rem, 6vw, 5rem);
+    font-weight: 800;
+    margin-bottom: var(--spacing-xs);
+    color: var(--color-text-primary);
+    line-height: 1;
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.03em;
+    transition: transform var(--transition-base);
+}
+
+.stat-card:hover .stat-number {
+    transform: scale(1.05);
+}
+
+.stat-label {
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    opacity: 0.8;
+    transition: opacity var(--transition-base);
+}
+
+.stat-card:hover .stat-label {
+    opacity: 1;
+}
+
 /* CTA Section */
 .cta {
     background: linear-gradient(135deg, #0d4a52 0%, #0a3d44 50%, #0d4a3f 100%);
@@ -887,6 +960,10 @@
         grid-template-columns: 1fr;
     }
 
+    .stats-grid {
+        gap: var(--spacing-2xl);
+    }
+
     .step-connector {
         display: none;
     }
@@ -921,5 +998,13 @@
         width: 60px;
         height: 60px;
         font-size: 1.5rem;
+    }
+
+    .stats-grid {
+        gap: var(--spacing-xl);
+    }
+
+    .stat-card {
+        min-width: 120px;
     }
 }
