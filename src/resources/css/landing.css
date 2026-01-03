@@ -51,12 +51,31 @@
     gap: var(--spacing-md);
     align-items: center;
     flex-shrink: 0;
-    min-width: fit-content;
 }
 
 .nav-actions .btn {
     white-space: nowrap;
     flex-shrink: 0;
+}
+
+/* Responsive navbar */
+@media (width <= 640px) {
+    .nav-content {
+        gap: var(--spacing-sm);
+    }
+
+    .nav-actions {
+        gap: var(--spacing-sm);
+    }
+
+    .nav-actions .btn {
+        font-size: 0.875rem;
+        padding: var(--spacing-sm) var(--spacing-md);
+    }
+
+    .logo-text {
+        font-size: 1.25rem;
+    }
 }
 
 .logout-form {

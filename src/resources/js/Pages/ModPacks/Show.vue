@@ -257,11 +257,7 @@
                     :disabled="versionForm.processing"
                     @click="updateModPackVersion"
                 >
-                    {{
-                        versionForm.processing
-                            ? "Creating..."
-                            : "Create New Mod Pack"
-                    }}
+                    {{ versionForm.processing ? "Creating..." : "Update" }}
                 </Button>
             </template>
         </Modal>
@@ -1114,6 +1110,7 @@ const downloadAllAsZip = async () => {
 
 .header-left {
     flex: 1;
+    min-width: 0;
 }
 
 .header-actions {
@@ -1218,6 +1215,7 @@ const downloadAllAsZip = async () => {
     align-items: center;
     gap: var(--spacing-lg);
     flex: 1;
+    min-width: 0;
 }
 
 .mod-item-number {
@@ -1240,6 +1238,8 @@ const downloadAllAsZip = async () => {
 
 .mod-item-info {
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .mod-item-name {
@@ -1247,11 +1247,15 @@ const downloadAllAsZip = async () => {
     font-weight: 500;
     color: var(--color-text-primary);
     margin: 0 0 var(--spacing-xs) 0;
+    word-break: break-word;
+    overflow-wrap: break-word;
 }
 
 .mod-item-version {
     font-size: 0.875rem;
     color: var(--color-text-secondary);
+    word-break: break-word;
+    overflow-wrap: break-word;
 }
 
 .mod-item-actions {
@@ -1549,5 +1553,120 @@ const downloadAllAsZip = async () => {
     color: var(--color-text-secondary);
     font-size: 0.8125rem;
     margin: 0;
+}
+
+/* Responsive styles for mobile */
+@media (width <= 768px) {
+    .header-main {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .header-actions {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    .header-actions :deep(button) {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .modpacks-subtitle {
+        flex-wrap: wrap;
+    }
+
+    .section-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-md);
+    }
+
+    .section-actions {
+        flex-wrap: wrap;
+        width: 100%;
+    }
+
+    .section-actions :deep(button) {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .mod-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-md);
+    }
+
+    .mod-item-content {
+        flex-direction: row;
+        align-items: flex-start;
+        min-width: 0;
+    }
+
+    .mod-item-info {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .mod-item-name {
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .mod-item-version {
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .mod-item-actions {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .mod-item-actions :deep(button) {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .share-link-container {
+        flex-direction: column;
+    }
+
+    .share-link-container :deep(button) {
+        width: 100%;
+    }
+}
+
+@media (width <= 640px) {
+    .mod-item-content {
+        gap: var(--spacing-md);
+    }
+
+    .mod-item-number {
+        width: 28px;
+        height: 28px;
+        font-size: 0.75rem;
+    }
+
+    .mod-item-name {
+        font-size: 1rem;
+    }
+
+    .mod-item-version {
+        font-size: 0.8125rem;
+    }
+
+    .header-actions {
+        flex-direction: column;
+    }
+
+    .section-actions {
+        flex-direction: column;
+    }
+
+    .mod-item-actions {
+        flex-direction: column;
+    }
 }
 </style>

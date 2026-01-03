@@ -29,30 +29,6 @@
                     >
                         <div class="mod-pack-header">
                             <h3 class="mod-pack-name">{{ modPack.name }}</h3>
-                            <div class="mod-pack-actions">
-                                <Button
-                                    size="sm"
-                                    variant="primary"
-                                    @click="openShareModal(modPack)"
-                                >
-                                    Share
-                                </Button>
-                                <Button
-                                    tag="Link"
-                                    :href="`/mod-packs/${modPack.id}`"
-                                    size="sm"
-                                    variant="secondary"
-                                >
-                                    View
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="danger"
-                                    @click="deleteModPack(modPack.id)"
-                                >
-                                    Delete
-                                </Button>
-                            </div>
                         </div>
                         <div class="mod-pack-info">
                             <div class="info-item">
@@ -82,6 +58,30 @@
                         >
                             {{ modPack.description }}
                         </p>
+                        <div class="mod-pack-actions">
+                            <Button
+                                size="sm"
+                                variant="primary"
+                                @click="openShareModal(modPack)"
+                            >
+                                Share
+                            </Button>
+                            <Button
+                                tag="Link"
+                                :href="`/mod-packs/${modPack.id}`"
+                                size="sm"
+                                variant="secondary"
+                            >
+                                View
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="danger"
+                                @click="deleteModPack(modPack.id)"
+                            >
+                                Delete
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </div>

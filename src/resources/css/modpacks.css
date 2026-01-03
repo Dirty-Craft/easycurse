@@ -63,6 +63,8 @@
     border-radius: var(--radius-xl);
     padding: var(--spacing-xl);
     transition: all var(--transition-base);
+    display: flex;
+    flex-direction: column;
 }
 
 .mod-pack-card:hover {
@@ -71,11 +73,7 @@
 }
 
 .mod-pack-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
     margin-bottom: var(--spacing-md);
-    gap: var(--spacing-md);
 }
 
 .mod-pack-name {
@@ -83,13 +81,14 @@
     font-weight: 600;
     color: var(--color-text-primary);
     margin: 0;
-    flex: 1;
     font-family: var(--font-family-heading);
 }
 
 .mod-pack-actions {
     display: flex;
     gap: var(--spacing-sm);
+    margin-top: auto;
+    justify-content: flex-end;
 }
 
 .mod-pack-info {
@@ -118,7 +117,7 @@
 .mod-pack-description {
     color: var(--color-text-secondary);
     font-size: 0.875rem;
-    margin: var(--spacing-md) 0 0 0;
+    margin: var(--spacing-md) 0;
     line-height: 1.5;
     font-family: var(--font-family-base);
 }
