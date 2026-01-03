@@ -28,6 +28,37 @@ const initTheme = () => {
 // Initialize theme immediately
 initTheme();
 
+// Initialize font based on locale
+const initFont = (translations = {}) => {
+    // translations might be a function, so call it if needed
+    const trans =
+        typeof translations === "function" ? translations() : translations;
+    const fontFamily =
+        trans["font.family"] ||
+        "'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+    const fontFamilyHeading = trans["font.family_heading"] || fontFamily;
+
+    document.documentElement.style.setProperty(
+        "--font-family-base",
+        fontFamily,
+    );
+    document.documentElement.style.setProperty(
+        "--font-family-heading",
+        fontFamilyHeading,
+    );
+};
+
+// Initialize direction based on locale
+const initDirection = (translations = {}) => {
+    // translations might be a function, so call it if needed
+    const trans =
+        typeof translations === "function" ? translations() : translations;
+    const direction = trans["direction"] || "LTR";
+    const dir = direction.toLowerCase() === "rtl" ? "rtl" : "ltr";
+
+    document.documentElement.setAttribute("dir", dir);
+};
+
 createInertiaApp({
     title: (title) => (title ? `${title} | ${appName}` : appName),
     resolve: (name) =>
@@ -36,6 +67,13 @@ createInertiaApp({
             import.meta.glob("./Pages/**/*.vue"),
         ),
     setup({ el, App, props, plugin }) {
+        // Apply font and direction from translations after Inertia loads
+        const translations = props.initialPage?.props?.translations;
+        if (translations) {
+            initFont(translations);
+            initDirection(translations);
+        }
+
         return createApp({ render: () => h(App, props) })
             .use(plugin)
             .mount(el);

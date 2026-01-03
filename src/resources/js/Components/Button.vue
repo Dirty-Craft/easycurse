@@ -7,13 +7,14 @@
         v-bind="$attrs"
     >
         <slot />
-        <span v-if="showArrow" class="btn-arrow">→</span>
+        <span v-if="showArrow" class="btn-arrow">{{ arrow }}</span>
     </component>
 </template>
 
 <script setup>
 import { computed } from "vue";
 import { Link } from "@inertiajs/vue3";
+import { useTranslations } from "../composables/useTranslations";
 
 const props = defineProps({
     variant: {
@@ -50,6 +51,8 @@ const props = defineProps({
     },
 });
 
+const { translations } = useTranslations();
+
 const componentTag = computed(() => {
     if (props.tag === "Link") return Link;
     return props.tag;
@@ -62,5 +65,12 @@ const buttonClasses = computed(() => {
         props.size !== "md" && `btn-${props.size}`,
         props.full && "btn-full",
     ].filter(Boolean);
+});
+
+const arrow = computed(() => {
+    const trans =
+        typeof translations === "function" ? translations() : translations;
+    const direction = trans?.["direction"] || "LTR";
+    return direction.toLowerCase() === "rtl" ? "←" : "→";
 });
 </script>

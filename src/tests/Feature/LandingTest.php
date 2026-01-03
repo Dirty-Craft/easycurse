@@ -27,4 +27,95 @@ class LandingTest extends TestCase
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page->component('About'));
     }
+
+    /**
+     * Test language switcher with valid language query parameter (English).
+     */
+    public function test_language_switcher_with_valid_english_query_parameter(): void
+    {
+        $response = $this->get('/?lang=en');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->component('Index')
+            ->where('locale', 'en')
+        );
+
+        // Verify cookie is set
+        $response->assertCookie('lang', 'en');
+
+        // Verify locale is set in the application
+        $this->assertEquals('en', app()->getLocale());
+    }
+
+    /**
+     * Test language switcher with valid language query parameter (Farsi).
+     */
+    public function test_language_switcher_with_valid_farsi_query_parameter(): void
+    {
+        $response = $this->get('/?lang=fa');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->component('Index')
+            ->where('locale', 'fa')
+        );
+
+        // Verify cookie is set
+        $response->assertCookie('lang', 'fa');
+
+        // Verify locale is set in the application
+        $this->assertEquals('fa', app()->getLocale());
+    }
+
+    /**
+     * Test language switcher with invalid language query parameter.
+     */
+    public function test_language_switcher_with_invalid_query_parameter(): void
+    {
+        $response = $this->get('/?lang=invalid');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->component('Index')
+            ->where('locale', 'en')
+        );
+
+        // Verify cookie is set to default
+        $response->assertCookie('lang', 'en');
+
+        // Verify locale is set to default
+        $this->assertEquals('en', app()->getLocale());
+    }
+
+    /**
+     * Test language switcher with valid language cookie (Farsi).
+     */
+    public function test_language_switcher_with_valid_farsi_cookie(): void
+    {
+        $response = $this->withCookie('lang', 'fa')
+            ->get('/');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->component('Index')
+            ->where('locale', 'fa')
+        );
+
+        // Verify locale is set in the application
+        $this->assertEquals('fa', app()->getLocale());
+    }
+
+    /**
+     * Test language switcher with invalid language cookie.
+     */
+    public function test_language_switcher_with_invalid_cookie(): void
+    {
+        $response = $this->withCookie('lang', 'invalid')
+            ->get('/');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->component('Index')
+            ->where('locale', 'en')
+        );
+
+        // Verify locale is set to default
+        $this->assertEquals('en', app()->getLocale());
+    }
 }

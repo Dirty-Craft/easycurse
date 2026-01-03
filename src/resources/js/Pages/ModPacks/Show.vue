@@ -5,7 +5,7 @@
             <div class="modpacks-header">
                 <div class="header-top">
                     <Link href="/mod-packs" class="back-link">
-                        ← Back to Mod Packs
+                        {{ t("modpacks.show.back") }}
                     </Link>
                 </div>
                 <div class="header-main">
@@ -19,7 +19,7 @@
                                     class="btn-change-version"
                                     @click="showChangeVersionModal = true"
                                 >
-                                    Change
+                                    {{ t("modpacks.show.change") }}
                                 </button>
                             </p>
                             <p
@@ -32,13 +32,13 @@
                     </div>
                     <div class="header-actions">
                         <Button variant="primary" @click="openShareModal">
-                            Share
+                            {{ t("modpacks.show.share") }}
                         </Button>
                         <Button variant="secondary" @click="openEditModal">
-                            Edit
+                            {{ t("modpacks.show.edit") }}
                         </Button>
                         <Button variant="danger" @click="deleteModPack">
-                            Delete
+                            {{ t("modpacks.show.delete") }}
                         </Button>
                     </div>
                 </div>
@@ -47,7 +47,9 @@
             <div class="modpacks-main">
                 <div class="modpacks-card">
                     <div class="section-header">
-                        <h3 class="section-title">Mods</h3>
+                        <h3 class="section-title">
+                            {{ t("modpacks.show.mods") }}
+                        </h3>
                         <div class="section-actions">
                             <Button
                                 v-if="modPack.items.length > 0"
@@ -56,23 +58,22 @@
                                 :disabled="isDownloadingAll"
                                 @click="downloadAllAsZip"
                             >
-                                <span v-if="!isDownloadingAll"
-                                    >📦 Download All as ZIP</span
-                                >
-                                <span v-else class="loading-text"
-                                    >Downloading...</span
-                                >
+                                <span v-if="!isDownloadingAll">{{
+                                    t("modpacks.show.download_all")
+                                }}</span>
+                                <span v-else class="loading-text">{{
+                                    t("modpacks.show.downloading")
+                                }}</span>
                             </Button>
                             <Button @click="showAddModModal = true">
-                                + Add Mod
+                                {{ t("modpacks.show.add_mod") }}
                             </Button>
                         </div>
                     </div>
 
                     <div v-if="modPack.items.length === 0" class="empty-state">
                         <p>
-                            No mods added yet. Add your first mod to get
-                            started!
+                            {{ t("modpacks.show.empty") }}
                         </p>
                     </div>
 
@@ -109,7 +110,7 @@
                                     {{
                                         downloadingItems.has(item.id)
                                             ? "..."
-                                            : "⬇️ Download"
+                                            : t("modpacks.show.download")
                                     }}
                                 </Button>
                                 <Button
@@ -117,7 +118,7 @@
                                     variant="danger"
                                     @click="deleteModItem(item.id)"
                                 >
-                                    Remove
+                                    {{ t("modpacks.show.remove") }}
                                 </Button>
                             </div>
                         </div>
@@ -129,12 +130,12 @@
         <!-- Edit Modal -->
         <Modal
             v-model:show="showEditModal"
-            title="Edit Mod Pack"
+            :title="t('modpacks.show.edit_modal.title')"
             @close="closeEditModal"
         >
             <form @submit.prevent="handleUpdateModPack">
                 <FormGroup
-                    label="Name"
+                    :label="t('modpacks.index.create_modal.name')"
                     input-id="edit-name"
                     :error="editForm.errors.name"
                 >
@@ -149,7 +150,7 @@
                     />
                 </FormGroup>
                 <FormGroup
-                    label="Description (optional)"
+                    :label="t('modpacks.index.create_modal.description')"
                     input-id="edit-description"
                     :error="editForm.errors.description"
                 >
@@ -167,28 +168,29 @@
                     :disabled="editForm.processing"
                     @click="closeEditModal"
                 >
-                    Cancel
+                    {{ t("modpacks.show.edit_modal.cancel") }}
                 </Button>
                 <Button
                     :disabled="editForm.processing"
                     @click="handleUpdateModPack"
                 >
-                    {{ editForm.processing ? "Updating..." : "Update" }}
+                    {{
+                        editForm.processing
+                            ? t("modpacks.show.edit_modal.updating")
+                            : t("modpacks.show.edit_modal.update")
+                    }}
                 </Button>
             </template>
         </Modal>
 
         <!-- Change Version Modal -->
-        <Modal v-model:show="showChangeVersionModal" title="Change Version">
+        <Modal
+            v-model:show="showChangeVersionModal"
+            :title="t('modpacks.show.version_modal.title')"
+        >
             <form @submit.prevent="updateModPackVersion">
                 <div class="version-change-notice">
-                    <p>
-                        <strong>Note:</strong> Changing the version will create
-                        a <strong>new mod pack</strong> with the same name plus
-                        "(Updated to X Y)". All mods will be updated to versions
-                        compatible with the selected Minecraft version and mod
-                        loader.
-                    </p>
+                    <p v-html="t('modpacks.show.version_modal.note')"></p>
                 </div>
                 <div
                     v-if="versionForm.errors.version_change"
@@ -197,7 +199,7 @@
                     <p>{{ versionForm.errors.version_change }}</p>
                 </div>
                 <FormGroup
-                    label="Minecraft Version"
+                    :label="t('modpacks.index.create_modal.minecraft_version')"
                     input-id="change-minecraft_version"
                 >
                     <Input
@@ -209,8 +211,12 @@
                         <option value="" disabled>
                             {{
                                 gameVersions.length === 0
-                                    ? "No versions available"
-                                    : "Select a Minecraft version"
+                                    ? t(
+                                          "modpacks.index.create_modal.no_versions",
+                                      )
+                                    : t(
+                                          "modpacks.index.create_modal.select_version",
+                                      )
                             }}
                         </option>
                         <option
@@ -222,7 +228,10 @@
                         </option>
                     </Input>
                 </FormGroup>
-                <FormGroup label="Software" input-id="change-software">
+                <FormGroup
+                    :label="t('modpacks.index.create_modal.software')"
+                    input-id="change-software"
+                >
                     <Input
                         id="change-software"
                         v-model="versionForm.software"
@@ -232,8 +241,12 @@
                         <option value="" disabled>
                             {{
                                 modLoaders.length === 0
-                                    ? "No loaders available"
-                                    : "Select a mod loader"
+                                    ? t(
+                                          "modpacks.index.create_modal.no_loaders",
+                                      )
+                                    : t(
+                                          "modpacks.index.create_modal.select_loader",
+                                      )
                             }}
                         </option>
                         <option
@@ -251,13 +264,17 @@
                     variant="secondary"
                     @click="showChangeVersionModal = false"
                 >
-                    Cancel
+                    {{ t("modpacks.show.edit_modal.cancel") }}
                 </Button>
                 <Button
                     :disabled="versionForm.processing"
                     @click="updateModPackVersion"
                 >
-                    {{ versionForm.processing ? "Creating..." : "Update" }}
+                    {{
+                        versionForm.processing
+                            ? t("modpacks.show.version_modal.creating")
+                            : t("modpacks.show.edit_modal.update")
+                    }}
                 </Button>
             </template>
         </Modal>
@@ -265,13 +282,12 @@
         <!-- Share Modal -->
         <Modal
             v-model:show="showShareModal"
-            title="Share Mod Pack"
+            :title="t('modpacks.index.share_modal.title')"
             @close="closeShareModal"
         >
             <div class="share-modal-content">
                 <p class="share-description">
-                    Share this mod pack with others by sending them the link
-                    below.
+                    {{ t("modpacks.index.share_modal.description") }}
                 </p>
                 <div class="share-link-container">
                     <Input
@@ -286,7 +302,11 @@
                         :disabled="isCopying"
                         @click="copyShareLink"
                     >
-                        {{ isCopying ? "Copied!" : "Copy" }}
+                        {{
+                            isCopying
+                                ? t("modpacks.index.share_modal.copied")
+                                : t("modpacks.index.share_modal.copy")
+                        }}
                     </Button>
                 </div>
                 <div class="share-actions">
@@ -298,12 +318,12 @@
                     >
                         {{
                             isRegenerating
-                                ? "Regenerating..."
-                                : "Regenerate Link"
+                                ? t("modpacks.index.share_modal.regenerating")
+                                : t("modpacks.index.share_modal.regenerate")
                         }}
                     </Button>
                     <p class="regenerate-warning">
-                        Regenerating will expire the previous link.
+                        {{ t("modpacks.index.share_modal.warning") }}
                     </p>
                 </div>
             </div>
@@ -312,23 +332,28 @@
         <!-- Add Mod Modal -->
         <Modal
             v-model:show="showAddModModal"
-            title="Add Mod from CurseForge"
+            :title="t('modpacks.show.add_modal.title')"
             size="large"
             @close="closeAddModModal"
         >
             <!-- Step 1: Search for Mod -->
             <div v-if="addModStep === 'search'" class="add-mod-step">
-                <FormGroup label="Search for Mod" input-id="mod-search">
+                <FormGroup
+                    :label="t('modpacks.show.add_modal.search')"
+                    input-id="mod-search"
+                >
                     <div class="search-input-wrapper">
                         <Input
                             id="mod-search"
                             v-model="modSearchQuery"
                             type="text"
-                            placeholder="Search by mod name or slug..."
+                            :placeholder="
+                                t('modpacks.show.add_modal.search_placeholder')
+                            "
                             @input="debouncedSearch"
                         />
                         <div v-if="isSearching" class="search-loading">
-                            Searching...
+                            {{ t("modpacks.show.add_modal.searching") }}
                         </div>
                     </div>
                 </FormGroup>
@@ -336,7 +361,11 @@
                 <div v-if="modSearchResults.length > 0" class="search-results">
                     <div class="search-results-header">
                         <p class="search-results-count">
-                            Found {{ modSearchResults.length }} mod(s)
+                            {{
+                                t("modpacks.show.add_modal.found", {
+                                    count: modSearchResults.length,
+                                })
+                            }}
                         </p>
                     </div>
                     <div class="mod-results-list">
@@ -377,12 +406,12 @@
                     "
                     class="search-no-results"
                 >
-                    <p>No mods found. Try a different search term.</p>
+                    <p>{{ t("modpacks.show.add_modal.no_results") }}</p>
                 </div>
 
                 <div class="modal-footer">
                     <Button variant="secondary" @click="closeAddModModal">
-                        Cancel
+                        {{ t("modpacks.show.edit_modal.cancel") }}
                     </Button>
                 </div>
             </div>
@@ -397,15 +426,18 @@
                 </div>
 
                 <div v-if="isLoadingFiles" class="loading-files">
-                    <p>Loading available versions...</p>
+                    <p>{{ t("modpacks.show.add_modal.loading") }}</p>
                 </div>
 
                 <div v-else-if="modFiles.length > 0" class="files-list">
                     <div class="files-list-header">
                         <p>
-                            Select a version for
-                            <strong>{{ modPack.minecraft_version }}</strong>
-                            ({{ modPack.software }})
+                            {{
+                                t("modpacks.show.add_modal.select_version", {
+                                    version: modPack.minecraft_version,
+                                    software: modPack.software,
+                                })
+                            }}
                         </p>
                     </div>
                     <div class="files-list-items">
@@ -447,9 +479,12 @@
 
                 <div v-else class="no-files">
                     <p>
-                        No compatible versions found for
-                        <strong>{{ modPack.minecraft_version }}</strong>
-                        ({{ modPack.software }}).
+                        {{
+                            t("modpacks.show.add_modal.no_compatible", {
+                                version: modPack.minecraft_version,
+                                software: modPack.software,
+                            })
+                        }}
                     </p>
                 </div>
 
@@ -459,10 +494,10 @@
 
                 <div class="modal-footer">
                     <Button variant="secondary" @click="addModStep = 'search'">
-                        ← Back
+                        {{ t("modpacks.show.add_modal.back") }}
                     </Button>
                     <Button :disabled="!selectedFile" @click="addMod">
-                        Add Mod
+                        {{ t("modpacks.show.add_modal.add") }}
                     </Button>
                 </div>
             </div>
@@ -480,6 +515,9 @@ import FormGroup from "../../Components/FormGroup.vue";
 import Modal from "../../Components/Modal.vue";
 import axios from "axios";
 import { downloadZip } from "client-zip";
+import { useTranslations } from "../../composables/useTranslations";
+
+const { t } = useTranslations();
 
 const props = defineProps({
     modPack: Object,
@@ -540,16 +578,12 @@ const generateShareToken = async () => {
     } catch (error) {
         // eslint-disable-next-line no-console
         console.error("Error generating share token:", error);
-        alert("Failed to generate share link. Please try again.");
+        alert(t("modpacks.show.generate_failed"));
     }
 };
 
 const regenerateShareToken = async () => {
-    if (
-        !confirm(
-            "Are you sure you want to regenerate the share link? The previous link will no longer work.",
-        )
-    ) {
+    if (!confirm(t("modpacks.show.regenerate_confirm"))) {
         return;
     }
 
@@ -563,7 +597,7 @@ const regenerateShareToken = async () => {
     } catch (error) {
         // eslint-disable-next-line no-console
         console.error("Error regenerating share token:", error);
-        alert("Failed to regenerate share link. Please try again.");
+        alert(t("modpacks.show.regenerate_failed"));
     } finally {
         isRegenerating.value = false;
     }
@@ -591,7 +625,7 @@ const copyShareLink = async () => {
                 isCopying.value = false;
             }, 2000);
         } else {
-            alert("Failed to copy link. Please copy it manually.");
+            alert(t("modpacks.show.copy_failed"));
         }
     }
 };
@@ -733,7 +767,9 @@ const addMod = () => {
 
     if (existingMod) {
         // Show error message
-        addModError.value = `This mod (${selectedMod.value.name}) is already added to the mod pack.`;
+        addModError.value = t("modpacks.show.mod_already_added", {
+            name: selectedMod.value.name,
+        });
         return;
     }
 
@@ -755,7 +791,7 @@ const addMod = () => {
             if (errors.curseforge_mod_id) {
                 addModError.value = errors.curseforge_mod_id;
             } else {
-                addModError.value = "Failed to add mod. Please try again.";
+                addModError.value = t("modpacks.show.add_failed");
             }
         },
     });
@@ -787,13 +823,13 @@ const updateModPackVersion = () => {
 };
 
 const deleteModPack = () => {
-    if (confirm("Are you sure you want to delete this mod pack?")) {
+    if (confirm(t("modpacks.show.delete_confirm"))) {
         router.delete(`/mod-packs/${props.modPack.id}`);
     }
 };
 
 const deleteModItem = (itemId) => {
-    if (confirm("Are you sure you want to remove this mod?")) {
+    if (confirm(t("modpacks.show.remove_confirm"))) {
         router.delete(`/mod-packs/${props.modPack.id}/items/${itemId}`);
     }
 };
@@ -827,7 +863,7 @@ const formatFileSize = (bytes) => {
 
 const downloadModItem = async (item) => {
     if (!item.curseforge_mod_id || !item.curseforge_file_id) {
-        alert("This mod does not have download information available.");
+        alert(t("modpacks.show.download_info_missing"));
         return;
     }
 
@@ -872,7 +908,10 @@ const downloadModItem = async (item) => {
         // eslint-disable-next-line no-console
         console.error("Error downloading mod:", error);
         alert(
-            `Failed to download ${item.mod_name}: ${error.message || "Unknown error"}. Please check the console for details.`,
+            t("modpacks.show.download_failed", {
+                name: item.mod_name,
+                error: error.message || "Unknown error",
+            }),
         );
     } finally {
         downloadingItems.value.delete(item.id);
@@ -930,7 +969,7 @@ const downloadAllAsZip = async () => {
 
         const downloadLinks = response.data.data;
         if (downloadLinks.length === 0) {
-            alert("No mods with download information available.");
+            alert(t("modpacks.show.no_download_info"));
             isDownloadingAll.value = false;
             return;
         }
@@ -1003,13 +1042,7 @@ const downloadAllAsZip = async () => {
         // Check if all files failed
         const errorFiles = files.filter((f) => f.name.endsWith("_ERROR.txt"));
         if (errorFiles.length === files.length && errorFiles.length > 0) {
-            alert(
-                "Unable to download any mods. This may be due to:\n" +
-                    "1. Network connectivity issues\n" +
-                    "2. CurseForge CDN restrictions\n" +
-                    "3. Browser security settings\n\n" +
-                    "Please try using the individual download buttons instead.",
-            );
+            alert(t("modpacks.show.download_error"));
             isDownloadingAll.value = false;
             return;
         }
@@ -1024,7 +1057,10 @@ const downloadAllAsZip = async () => {
             );
             if (
                 !confirm(
-                    `${failCount} mod(s) failed to download. Continue creating ZIP with ${successCount} successfully downloaded mod(s)?`,
+                    t("modpacks.show.download_partial_confirm", {
+                        failCount,
+                        successCount,
+                    }),
                 )
             ) {
                 isDownloadingAll.value = false;
@@ -1038,7 +1074,7 @@ const downloadAllAsZip = async () => {
         );
 
         if (successfulFiles.length === 0) {
-            alert("No mods were successfully downloaded.");
+            alert(t("modpacks.show.no_successful_downloads"));
             isDownloadingAll.value = false;
             return;
         }
@@ -1072,9 +1108,7 @@ const downloadAllAsZip = async () => {
         console.error("Error downloading mod pack:", error);
         const errorMessage =
             error?.message || error?.toString() || "Unknown error";
-        alert(
-            `Failed to download mod pack: ${errorMessage}. Please check the console for details.`,
-        );
+        alert(t("modpacks.show.download_pack_failed", { error: errorMessage }));
     } finally {
         isDownloadingAll.value = false;
     }

@@ -193,7 +193,7 @@ class ModPackController extends Controller
 
             if ($existingItem) {
                 return back()->withErrors([
-                    'curseforge_mod_id' => 'This mod is already added to the mod pack.',
+                    'curseforge_mod_id' => __('messages.modpack.mod_already_added'),
                 ]);
             }
         }
@@ -274,7 +274,7 @@ class ModPackController extends Controller
 
         if (! $item->curseforge_mod_id || ! $item->curseforge_file_id) {
             return response()->json([
-                'error' => 'This mod item does not have CurseForge download information.',
+                'error' => __('messages.modpack.no_download_info'),
             ], 404);
         }
 
@@ -286,7 +286,7 @@ class ModPackController extends Controller
 
         if (! $downloadInfo) {
             return response()->json([
-                'error' => 'Unable to retrieve download information for this mod.',
+                'error' => __('messages.modpack.unable_to_retrieve_download'),
             ], 404);
         }
 
@@ -349,7 +349,11 @@ class ModPackController extends Controller
         // If any mods don't have matching versions, return error
         if (! empty($modsWithoutMatchingVersion)) {
             return back()->withErrors([
-                'version_change' => 'The following mods do not have a version available for '.$newMinecraftVersion.' ('.$newSoftware.'): '.implode(', ', $modsWithoutMatchingVersion),
+                'version_change' => __('messages.modpack.mods_without_version', [
+                    'version' => $newMinecraftVersion,
+                    'software' => $newSoftware,
+                    'mods' => implode(', ', $modsWithoutMatchingVersion),
+                ]),
                 'mods_without_version' => $modsWithoutMatchingVersion,
             ]);
         }
@@ -437,7 +441,7 @@ class ModPackController extends Controller
         $parsedUrl = parse_url($url);
         if (! isset($parsedUrl['host']) || ! in_array($parsedUrl['host'], $allowedDomains)) {
             return response()->json([
-                'error' => 'Invalid download URL',
+                'error' => __('messages.modpack.invalid_download_url'),
             ], 400);
         }
 
@@ -456,7 +460,7 @@ class ModPackController extends Controller
                 ]);
 
                 return response()->json([
-                    'error' => 'Failed to download file from CDN',
+                    'error' => __('messages.modpack.download_failed'),
                 ], $response->status());
             }
 
@@ -476,7 +480,7 @@ class ModPackController extends Controller
             ]);
 
             return response()->json([
-                'error' => 'Connection timeout or network error',
+                'error' => __('messages.modpack.connection_timeout'),
             ], 504);
         } catch (\Exception $e) {
             \Log::error('Proxy download error', [
@@ -486,7 +490,7 @@ class ModPackController extends Controller
             ]);
 
             return response()->json([
-                'error' => 'Failed to proxy download: '.$e->getMessage(),
+                'error' => __('messages.modpack.proxy_download_failed', ['error' => $e->getMessage()]),
             ], 500);
         }
     }
@@ -574,7 +578,7 @@ class ModPackController extends Controller
             ]);
         }
 
-        return redirect()->route('mod-packs.show', $newModPack->id)->with('success', 'Mod pack added to your collection!');
+        return redirect()->route('mod-packs.show', $newModPack->id)->with('success', __('messages.modpack.added_to_collection'));
     }
 
     /**
@@ -629,7 +633,7 @@ class ModPackController extends Controller
 
         if (! $item->curseforge_mod_id || ! $item->curseforge_file_id) {
             return response()->json([
-                'error' => 'This mod item does not have CurseForge download information.',
+                'error' => __('messages.modpack.no_download_info'),
             ], 404);
         }
 
@@ -641,7 +645,7 @@ class ModPackController extends Controller
 
         if (! $downloadInfo) {
             return response()->json([
-                'error' => 'Unable to retrieve download information for this mod.',
+                'error' => __('messages.modpack.unable_to_retrieve_download'),
             ], 404);
         }
 
@@ -679,7 +683,7 @@ class ModPackController extends Controller
         $parsedUrl = parse_url($url);
         if (! isset($parsedUrl['host']) || ! in_array($parsedUrl['host'], $allowedDomains)) {
             return response()->json([
-                'error' => 'Invalid download URL',
+                'error' => __('messages.modpack.invalid_download_url'),
             ], 400);
         }
 
@@ -698,7 +702,7 @@ class ModPackController extends Controller
                 ]);
 
                 return response()->json([
-                    'error' => 'Failed to download file from CDN',
+                    'error' => __('messages.modpack.download_failed'),
                 ], $response->status());
             }
 
@@ -718,7 +722,7 @@ class ModPackController extends Controller
             ]);
 
             return response()->json([
-                'error' => 'Connection timeout or network error',
+                'error' => __('messages.modpack.connection_timeout'),
             ], 504);
         } catch (\Exception $e) {
             \Log::error('Proxy download error', [
@@ -728,7 +732,7 @@ class ModPackController extends Controller
             ]);
 
             return response()->json([
-                'error' => 'Failed to proxy download: '.$e->getMessage(),
+                'error' => __('messages.modpack.proxy_download_failed', ['error' => $e->getMessage()]),
             ], 500);
         }
     }

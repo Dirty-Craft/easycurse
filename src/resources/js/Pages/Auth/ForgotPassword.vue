@@ -1,14 +1,13 @@
 <template>
-    <Head title="Forgot Password" />
+    <Head :title="t('auth.forgot.title')" />
     <AppLayout>
         <div class="auth-page">
             <div class="auth-container">
                 <div class="auth-card">
                     <div class="auth-header">
-                        <h1 class="auth-title">Forgot Password</h1>
+                        <h1 class="auth-title">{{ t("auth.forgot.title") }}</h1>
                         <p class="auth-subtitle">
-                            Enter your email address and we'll send you a link
-                            to reset your password.
+                            {{ t("auth.forgot.subtitle") }}
                         </p>
                     </div>
 
@@ -22,7 +21,7 @@
 
                     <form class="auth-form" @submit.prevent="submit">
                         <FormGroup
-                            label="Email"
+                            :label="t('auth.login.email')"
                             input-id="email"
                             :error="form.errors.email"
                         >
@@ -39,16 +38,18 @@
                         <Button type="submit" full :disabled="form.processing">
                             {{
                                 form.processing
-                                    ? "Sending..."
-                                    : "Send Reset Link"
+                                    ? t("auth.forgot.sending")
+                                    : t("auth.forgot.send_link")
                             }}
                         </Button>
                     </form>
 
                     <div class="auth-footer">
                         <p>
-                            Remember your password?
-                            <Link href="/login" class="auth-link">Sign in</Link>
+                            {{ t("auth.forgot.remember") }}
+                            <Link href="/login" class="auth-link">{{
+                                t("auth.login.sign_in")
+                            }}</Link>
                         </p>
                     </div>
                 </div>
@@ -64,6 +65,9 @@ import AppLayout from "../../Layouts/AppLayout.vue";
 import Button from "../../Components/Button.vue";
 import Input from "../../Components/Input.vue";
 import FormGroup from "../../Components/FormGroup.vue";
+import { useTranslations } from "../../composables/useTranslations";
+
+const { t } = useTranslations();
 
 const page = usePage();
 const status = computed(() => page.props.flash?.status);

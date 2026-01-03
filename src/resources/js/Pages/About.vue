@@ -1,14 +1,13 @@
 <template>
-    <Head title="About Us" />
+    <Head :title="t('about.title')" />
     <AppLayout>
         <div class="about-page">
             <section class="about-hero">
                 <div class="container">
                     <div class="about-content">
-                        <h1 class="about-title">About EasyCurse</h1>
+                        <h1 class="about-title">{{ t("about.hero.title") }}</h1>
                         <p class="about-subtitle">
-                            Your mod management companion. Never manually update
-                            mods again.
+                            {{ t("about.hero.subtitle") }}
                         </p>
                     </div>
                 </div>
@@ -17,20 +16,14 @@
             <section class="about-section">
                 <div class="container">
                     <div class="about-text">
-                        <h2 class="section-title">Our Mission</h2>
+                        <h2 class="section-title">
+                            {{ t("about.mission.title") }}
+                        </h2>
                         <p>
-                            EasyCurse was born from the frustration of manually
-                            updating Minecraft mods every time a new version
-                            releases. We believe that managing your mod packs
-                            should be simple, fast, and automated.
+                            {{ t("about.mission.p1") }}
                         </p>
                         <p>
-                            Our platform connects directly to CurseForge's API,
-                            allowing you to create mod packs once and update
-                            them instantly whenever Minecraft releases a new
-                            version. No more searching through hundreds of mod
-                            pages, no more compatibility headaches, no more
-                            manual downloads.
+                            {{ t("about.mission.p2") }}
                         </p>
                     </div>
                 </div>
@@ -39,21 +32,14 @@
             <section class="about-section">
                 <div class="container">
                     <div class="about-text">
-                        <h2 class="section-title">What We Do</h2>
+                        <h2 class="section-title">
+                            {{ t("about.what.title") }}
+                        </h2>
                         <p>
-                            EasyCurse helps Minecraft players and server
-                            administrators manage their mod collections
-                            effortlessly. Create unlimited mod packs, track
-                            updates, download everything as a ready-to-use zip
-                            file, and share your creations with friends and the
-                            community.
+                            {{ t("about.what.p1") }}
                         </p>
                         <p>
-                            Whether you're running a private server, creating
-                            content for your community, sharing mod packs with
-                            others, or just want to keep your personal mod
-                            collection up to date, EasyCurse makes it all
-                            possible with just a few clicks.
+                            {{ t("about.what.p2") }}
                         </p>
                     </div>
                 </div>
@@ -62,44 +48,59 @@
             <section class="about-section">
                 <div class="container">
                     <div class="about-text">
-                        <h2 class="section-title">Open Source</h2>
+                        <h2 class="section-title">
+                            {{ t("about.opensource.title") }}
+                        </h2>
                         <p>
-                            EasyCurse is an open-source project developed by
-                            <a
-                                href="https://github.com/Dirty-Craft"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="link"
+                            <template
+                                v-for="(part, index) in opensourceP1Parts"
+                                :key="index"
                             >
-                                Dirty-Craft
-                            </a>
-                            . We believe in transparency and community
-                            collaboration.
+                                {{ part }}
+                                <a
+                                    v-if="index < opensourceP1Parts.length - 1"
+                                    href="https://github.com/Dirty-Craft"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="link"
+                                >
+                                    Dirty-Craft
+                                </a>
+                            </template>
                         </p>
                         <p>
-                            You can find our source code on
-                            <a
-                                href="https://github.com/Dirty-Craft/easycurse"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="link"
+                            <template
+                                v-for="(part, index) in opensourceP2Parts"
+                                :key="index"
                             >
-                                GitHub
-                            </a>
-                            , contribute to the project, report issues, or
-                            suggest new features. We welcome all contributions!
+                                {{ part }}
+                                <a
+                                    v-if="index < opensourceP2Parts.length - 1"
+                                    href="https://github.com/Dirty-Craft/easycurse"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="link"
+                                >
+                                    GitHub
+                                </a>
+                            </template>
                         </p>
                         <p>
-                            This project is licensed under the
-                            <a
-                                href="https://opensource.org/licenses/MIT"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="link"
+                            <template
+                                v-for="(part, index) in opensourceP3Parts"
+                                :key="index"
                             >
-                                MIT License
-                            </a>
-                            .
+                                {{ part }}
+                                <a
+                                    v-if="index < opensourceP3Parts.length - 1"
+                                    href="https://opensource.org/licenses/MIT"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="link"
+                                >
+                                    MIT License
+                                </a>
+                            </template>
                         </p>
                     </div>
                 </div>
@@ -110,7 +111,27 @@
 
 <script setup>
 import { Head } from "@inertiajs/vue3";
+import { computed } from "vue";
 import AppLayout from "../Layouts/AppLayout.vue";
+import { useTranslations } from "../composables/useTranslations";
+
+const { t } = useTranslations();
+
+// Helper function to split text with :link placeholder and return parts
+const splitWithLink = (text) => {
+    return text.split(":link");
+};
+
+// Computed properties for paragraphs with links
+const opensourceP1Parts = computed(() =>
+    splitWithLink(t("about.opensource.p1")),
+);
+const opensourceP2Parts = computed(() =>
+    splitWithLink(t("about.opensource.p2")),
+);
+const opensourceP3Parts = computed(() =>
+    splitWithLink(t("about.opensource.p3")),
+);
 </script>
 
 <style scoped>

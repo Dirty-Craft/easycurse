@@ -1,5 +1,5 @@
 <template>
-    <Head title="Your mod management companion" />
+    <Head :title="t('landing.title')" />
     <AppLayout>
         <div class="landing-page">
             <!-- Hero Section -->
@@ -8,17 +8,17 @@
                     <div class="hero-content">
                         <div class="hero-badge">
                             <span class="badge-icon">✨</span>
-                            <span>No more manual mod updates</span>
+                            <span>{{ t("landing.hero.badge") }}</span>
                         </div>
                         <h1 class="hero-title">
-                            Never Manually Update
-                            <span class="gradient-text">Minecraft Mods</span>
-                            Again
+                            {{ t("landing.hero.title") }}
+                            <span class="gradient-text">{{
+                                t("landing.hero.title_gradient")
+                            }}</span>
+                            {{ t("landing.hero.title_suffix") }}
                         </h1>
                         <p class="hero-subtitle">
-                            Create mod packs once. Update Minecraft versions
-                            instantly. Download your updated mod pack as a zip.
-                            Simple as that.
+                            {{ t("landing.hero.subtitle") }}
                         </p>
                         <div class="hero-actions">
                             <Button
@@ -27,7 +27,7 @@
                                 href="/register"
                                 show-arrow
                             >
-                                Get Started Free
+                                {{ t("landing.hero.get_started") }}
                             </Button>
                             <Button
                                 v-else
@@ -35,30 +35,34 @@
                                 href="/mod-packs"
                                 show-arrow
                             >
-                                My Mods
+                                {{ t("landing.hero.my_mods") }}
                             </Button>
                             <Button
                                 tag="a"
                                 href="#how-it-works"
                                 variant="secondary"
                             >
-                                Learn More
+                                {{ t("landing.hero.learn_more") }}
                             </Button>
                         </div>
                         <div class="hero-stats">
                             <div class="stat-item">
                                 <div class="stat-number">∞</div>
                                 <div class="stat-label">
-                                    Unlimited Mod Packs
+                                    {{ t("landing.hero.stats.unlimited") }}
                                 </div>
                             </div>
                             <div class="stat-item">
                                 <div class="stat-number">⚡</div>
-                                <div class="stat-label">Instant Updates</div>
+                                <div class="stat-label">
+                                    {{ t("landing.hero.stats.instant") }}
+                                </div>
                             </div>
                             <div class="stat-item">
                                 <div class="stat-number">📦</div>
-                                <div class="stat-label">One-Click Download</div>
+                                <div class="stat-label">
+                                    {{ t("landing.hero.stats.download") }}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -76,10 +80,14 @@
             <section id="how-it-works" class="section how-it-works">
                 <div class="container">
                     <div class="section-header">
-                        <div class="section-badge">Simple Process</div>
-                        <h2 class="section-title">How It Works</h2>
+                        <div class="section-badge">
+                            {{ t("landing.how_it_works.badge") }}
+                        </div>
+                        <h2 class="section-title">
+                            {{ t("landing.how_it_works.title") }}
+                        </h2>
                         <p class="section-subtitle">
-                            Three simple steps to keep your mods updated forever
+                            {{ t("landing.how_it_works.subtitle") }}
                         </p>
                     </div>
                     <div class="steps-grid">
@@ -89,12 +97,15 @@
                                 <div class="step-connector"></div>
                             </div>
                             <div class="step-content">
-                                <h3 class="step-title">Create Your Mod Pack</h3>
+                                <h3 class="step-title">
+                                    {{ t("landing.how_it_works.step1.title") }}
+                                </h3>
                                 <p class="step-description">
-                                    Log in and create a mod pack with all your
-                                    favorite CurseForge mods. Organize them
-                                    however you like. Save multiple sets for
-                                    different playstyles.
+                                    {{
+                                        t(
+                                            "landing.how_it_works.step1.description",
+                                        )
+                                    }}
                                 </p>
                             </div>
                         </div>
@@ -105,13 +116,14 @@
                             </div>
                             <div class="step-content">
                                 <h3 class="step-title">
-                                    Change Minecraft Version
+                                    {{ t("landing.how_it_works.step2.title") }}
                                 </h3>
                                 <p class="step-description">
-                                    When a new Minecraft version drops, simply
-                                    update the version in your mod pack. We'll
-                                    automatically find compatible versions for
-                                    all your mods.
+                                    {{
+                                        t(
+                                            "landing.how_it_works.step2.description",
+                                        )
+                                    }}
                                 </p>
                             </div>
                         </div>
@@ -120,11 +132,15 @@
                                 <div class="step-number">3</div>
                             </div>
                             <div class="step-content">
-                                <h3 class="step-title">Download & Play</h3>
+                                <h3 class="step-title">
+                                    {{ t("landing.how_it_works.step3.title") }}
+                                </h3>
                                 <p class="step-description">
-                                    Get your updated mod pack as a zip file.
-                                    Extract and play. No manual searching, no
-                                    version checking, no hassle.
+                                    {{
+                                        t(
+                                            "landing.how_it_works.step3.description",
+                                        )
+                                    }}
                                 </p>
                             </div>
                         </div>
@@ -137,50 +153,45 @@
                 <div class="container">
                     <div class="benefits-content">
                         <div class="benefits-text">
-                            <div class="section-badge">Why Choose Us</div>
+                            <div class="section-badge">
+                                {{ t("landing.benefits.badge") }}
+                            </div>
                             <h2 class="section-title">
-                                Save Hours of Manual Work
+                                {{ t("landing.benefits.title") }}
                             </h2>
                             <p class="section-subtitle">
-                                Stop wasting time searching for compatible mod
-                                versions. EasyCurse does the heavy lifting for
-                                you.
+                                {{ t("landing.benefits.subtitle") }}
                             </p>
                             <ul class="benefits-list">
                                 <li class="benefit-item">
                                     <span class="benefit-icon">✓</span>
-                                    <span
-                                        >Automatic version matching from
-                                        CurseForge</span
-                                    >
+                                    <span>{{
+                                        t("landing.benefits.item1")
+                                    }}</span>
                                 </li>
                                 <li class="benefit-item">
                                     <span class="benefit-icon">✓</span>
-                                    <span
-                                        >Update entire mod packs in
-                                        seconds</span
-                                    >
+                                    <span>{{
+                                        t("landing.benefits.item2")
+                                    }}</span>
                                 </li>
                                 <li class="benefit-item">
                                     <span class="benefit-icon">✓</span>
-                                    <span
-                                        >Cloud storage for all your mod
-                                        packs</span
-                                    >
+                                    <span>{{
+                                        t("landing.benefits.item3")
+                                    }}</span>
                                 </li>
                                 <li class="benefit-item">
                                     <span class="benefit-icon">✓</span>
-                                    <span
-                                        >One-click download as ready-to-use
-                                        zip</span
-                                    >
+                                    <span>{{
+                                        t("landing.benefits.item4")
+                                    }}</span>
                                 </li>
                                 <li class="benefit-item">
                                     <span class="benefit-icon">✓</span>
-                                    <span
-                                        >Share mod packs with friends and the
-                                        community</span
-                                    >
+                                    <span>{{
+                                        t("landing.benefits.item5")
+                                    }}</span>
                                 </li>
                             </ul>
                         </div>
@@ -198,10 +209,26 @@
                                         <div class="visual-icon">📦</div>
                                         <div class="visual-text">
                                             <div class="visual-title">
-                                                Mod Pack v1.20.1
+                                                {{
+                                                    t(
+                                                        "landing.benefits.visual.modpack",
+                                                    )
+                                                }}
+                                                v1.20.1
                                             </div>
                                             <div class="visual-subtitle">
-                                                45 mods • Ready
+                                                45
+                                                {{
+                                                    t(
+                                                        "landing.benefits.visual.mods",
+                                                    )
+                                                }}
+                                                •
+                                                {{
+                                                    t(
+                                                        "landing.benefits.visual.ready",
+                                                    )
+                                                }}
                                             </div>
                                         </div>
                                     </div>
@@ -210,10 +237,19 @@
                                         <div class="visual-icon">🔄</div>
                                         <div class="visual-text">
                                             <div class="visual-title">
-                                                Updating to v1.21...
+                                                {{
+                                                    t(
+                                                        "landing.benefits.visual.updating_to",
+                                                    )
+                                                }}
+                                                v1.21...
                                             </div>
                                             <div class="visual-subtitle">
-                                                Finding compatible versions
+                                                {{
+                                                    t(
+                                                        "landing.benefits.visual.finding_versions",
+                                                    )
+                                                }}
                                             </div>
                                         </div>
                                     </div>
@@ -222,10 +258,26 @@
                                         <div class="visual-icon">✅</div>
                                         <div class="visual-text">
                                             <div class="visual-title">
-                                                Mod Pack v1.21
+                                                {{
+                                                    t(
+                                                        "landing.benefits.visual.modpack",
+                                                    )
+                                                }}
+                                                v1.21
                                             </div>
                                             <div class="visual-subtitle">
-                                                45 mods • Updated
+                                                45
+                                                {{
+                                                    t(
+                                                        "landing.benefits.visual.mods",
+                                                    )
+                                                }}
+                                                •
+                                                {{
+                                                    t(
+                                                        "landing.benefits.visual.updated",
+                                                    )
+                                                }}
                                             </div>
                                         </div>
                                     </div>
@@ -240,64 +292,69 @@
             <section class="section features">
                 <div class="container">
                     <div class="section-header">
-                        <div class="section-badge">Features</div>
-                        <h2 class="section-title">Everything You Need</h2>
+                        <div class="section-badge">
+                            {{ t("landing.features.badge") }}
+                        </div>
+                        <h2 class="section-title">
+                            {{ t("landing.features.title") }}
+                        </h2>
                         <p class="section-subtitle">
-                            Powerful features to manage your mod collection
-                            effortlessly
+                            {{ t("landing.features.subtitle") }}
                         </p>
                     </div>
                     <div class="features-grid">
                         <div class="feature-card">
                             <div class="feature-icon">🎮</div>
-                            <h3 class="feature-title">Multiple Mod Packs</h3>
+                            <h3 class="feature-title">
+                                {{ t("landing.features.multiple.title") }}
+                            </h3>
                             <p class="feature-description">
-                                Create unlimited mod packs for different
-                                playstyles, servers, or versions. Organize
-                                everything in one place.
+                                {{ t("landing.features.multiple.description") }}
                             </p>
                         </div>
                         <div class="feature-card">
                             <div class="feature-icon">🔄</div>
-                            <h3 class="feature-title">Auto Version Matching</h3>
+                            <h3 class="feature-title">
+                                {{ t("landing.features.auto.title") }}
+                            </h3>
                             <p class="feature-description">
-                                We automatically find compatible mod versions
-                                when you update Minecraft. No more manual
-                                searching.
+                                {{ t("landing.features.auto.description") }}
                             </p>
                         </div>
                         <div class="feature-card">
                             <div class="feature-icon">📥</div>
-                            <h3 class="feature-title">One-Click Download</h3>
+                            <h3 class="feature-title">
+                                {{ t("landing.features.download.title") }}
+                            </h3>
                             <p class="feature-description">
-                                Download your entire mod pack as a single zip
-                                file, ready to extract and play. It's that
-                                simple.
+                                {{ t("landing.features.download.description") }}
                             </p>
                         </div>
                         <div class="feature-card">
                             <div class="feature-icon">💾</div>
-                            <h3 class="feature-title">Cloud Storage</h3>
+                            <h3 class="feature-title">
+                                {{ t("landing.features.storage.title") }}
+                            </h3>
                             <p class="feature-description">
-                                Your mod packs are saved in the cloud. Access
-                                them anytime, anywhere, from any device.
+                                {{ t("landing.features.storage.description") }}
                             </p>
                         </div>
                         <div class="feature-card">
                             <div class="feature-icon">🛡️</div>
-                            <h3 class="feature-title">Always Up-to-Date</h3>
+                            <h3 class="feature-title">
+                                {{ t("landing.features.updated.title") }}
+                            </h3>
                             <p class="feature-description">
-                                Get the latest compatible versions automatically
-                                from CurseForge. Stay current with every update.
+                                {{ t("landing.features.updated.description") }}
                             </p>
                         </div>
                         <div class="feature-card">
                             <div class="feature-icon">🔗</div>
-                            <h3 class="feature-title">Share Your Mod Packs</h3>
+                            <h3 class="feature-title">
+                                {{ t("landing.features.share.title") }}
+                            </h3>
                             <p class="feature-description">
-                                Share your mod packs with friends and the
-                                community. Generate unique links and let others
-                                add your packs to their collection.
+                                {{ t("landing.features.share.description") }}
                             </p>
                         </div>
                     </div>
@@ -309,12 +366,10 @@
                 <div class="container">
                     <div class="cta-content">
                         <h2 class="cta-title">
-                            Ready to Simplify Your Mod Life?
+                            {{ t("landing.cta.title") }}
                         </h2>
                         <p class="cta-subtitle">
-                            Join EasyCurse today and never manually update mods
-                            again. Start managing your mod collection the smart
-                            way.
+                            {{ t("landing.cta.subtitle") }}
                         </p>
                         <div class="cta-actions">
                             <Button
@@ -324,7 +379,7 @@
                                 size="large"
                                 show-arrow
                             >
-                                Get Started Free
+                                {{ t("landing.hero.get_started") }}
                             </Button>
                             <Button
                                 v-else
@@ -333,15 +388,19 @@
                                 size="large"
                                 show-arrow
                             >
-                                My Mods
+                                {{ t("landing.hero.my_mods") }}
                             </Button>
                         </div>
                         <div class="cta-features">
-                            <div class="cta-feature">✓ Free to start</div>
                             <div class="cta-feature">
-                                ✓ No credit card required
+                                ✓ {{ t("landing.cta.feature1") }}
                             </div>
-                            <div class="cta-feature">✓ Setup in minutes</div>
+                            <div class="cta-feature">
+                                ✓ {{ t("landing.cta.feature2") }}
+                            </div>
+                            <div class="cta-feature">
+                                ✓ {{ t("landing.cta.feature3") }}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -357,4 +416,7 @@
 import { Head } from "@inertiajs/vue3";
 import AppLayout from "../Layouts/AppLayout.vue";
 import Button from "../Components/Button.vue";
+import { useTranslations } from "../composables/useTranslations";
+
+const { t } = useTranslations();
 </script>

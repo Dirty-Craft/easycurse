@@ -7,4 +7,5 @@
 - [CurseForge Integration](curseforge.md)
 - [Linter](linter.md)
 - [Styles](styles.md)
+- [Localization](localization.md)
 - [Testing](testing.md)

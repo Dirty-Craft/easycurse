@@ -37,6 +37,32 @@ class HandleInertiaRequests extends Middleware
     {
         $shared = parent::share($request);
 
+        $supportedLocales = ['en', 'fa'];
+        $defaultLocale = 'en';
+
+        if ($request->filled('lang')) {
+            $lang = $request->get('lang');
+            if (in_array($lang, $supportedLocales)) {
+                app()->setLocale($lang);
+                // Save language preference in a cookie for 1 year
+                cookie()->queue(cookie('lang', $lang, 60 * 24 * 365));
+            } else {
+                app()->setLocale($defaultLocale);
+                cookie()->queue(cookie('lang', $defaultLocale, 60 * 24 * 365));
+            }
+        } elseif ($request->hasCookie('lang')) {
+            $lang = $request->cookie('lang');
+            if (in_array($lang, $supportedLocales)) {
+                app()->setLocale($lang);
+            } else {
+                app()->setLocale($defaultLocale);
+            }
+        } else {
+            app()->setLocale($defaultLocale);
+        }
+
+        $currentLocale = app()->getLocale();
+
         return [
             ...$shared,
             'auth' => [
@@ -46,6 +72,10 @@ class HandleInertiaRequests extends Middleware
                 ...($shared['flash'] ?? []),
                 'status' => $request->session()->get('status'),
             ],
+            'locale' => $currentLocale,
+            'translations' => function () {
+                return __('messages');
+            },
         ];
     }
 }

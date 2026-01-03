@@ -93,4 +93,16 @@ const { currentTheme, toggleTheme } = useTheme();
 .theme-switcher:hover .theme-icon {
     transform: rotate(15deg);
 }
+
+@media (width <= 640px) {
+    .theme-switcher {
+        width: 32px;
+        height: 32px;
+    }
+
+    .theme-icon svg {
+        width: 16px;
+        height: 16px;
+    }
+}
 </style>

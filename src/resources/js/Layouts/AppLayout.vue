@@ -8,18 +8,19 @@
                         <span class="logo-text">EasyCurse</span>
                     </Link>
                     <div class="nav-actions">
+                        <LanguageSwitcher />
                         <ThemeSwitcher />
                         <Button
                             v-if="$page.props.auth.user"
                             tag="Link"
                             href="/mod-packs"
                         >
-                            My Mods
+                            {{ t("layout.my_mods") }}
                         </Button>
                         <template v-if="$page.props.auth.user">
                             <form class="logout-form" @submit.prevent="logout">
                                 <Button type="submit" variant="secondary">
-                                    Logout
+                                    {{ t("layout.logout") }}
                                 </Button>
                             </form>
                         </template>
@@ -29,7 +30,7 @@
                             href="/login"
                             variant="secondary"
                         >
-                            Login
+                            {{ t("layout.login") }}
                         </Button>
                     </div>
                 </div>
@@ -48,15 +49,16 @@
                     <div class="footer-brand">
                         <span class="logo-text">EasyCurse</span>
                         <p class="footer-tagline">
-                            Your mod management companion. Never manually update
-                            mods again.
+                            {{ t("layout.footer.tagline") }}
                         </p>
                     </div>
                     <div class="footer-links">
                         <div class="footer-column">
-                            <h3 class="footer-heading">Info</h3>
+                            <h3 class="footer-heading">
+                                {{ t("layout.footer.info") }}
+                            </h3>
                             <Link href="/about" class="footer-link">
-                                About Us
+                                {{ t("layout.footer.about") }}
                             </Link>
                             <a
                                 href="https://github.com/Dirty-Craft/easycurse"
@@ -64,31 +66,36 @@
                                 rel="noopener noreferrer"
                                 class="footer-link"
                             >
-                                GitHub
+                                {{ t("layout.footer.github") }}
                             </a>
                         </div>
                         <div v-if="$page.props.auth.user" class="footer-column">
-                            <h3 class="footer-heading">My Account</h3>
+                            <h3 class="footer-heading">
+                                {{ t("layout.footer.my_account") }}
+                            </h3>
                             <Link href="/profile" class="footer-link">
-                                My Profile
+                                {{ t("layout.footer.profile") }}
                             </Link>
                             <Link href="/change-password" class="footer-link">
-                                Change Password
+                                {{ t("layout.footer.change_password") }}
                             </Link>
                         </div>
                     </div>
                 </div>
                 <div class="footer-bottom">
                     <p>
-                        © {{ new Date().getFullYear() }} EasyCurse. Licensed
-                        under
+                        {{
+                            t("layout.footer.copyright", {
+                                year: new Date().getFullYear(),
+                            })
+                        }}
                         <a
                             href="https://opensource.org/licenses/MIT"
                             target="_blank"
                             rel="noopener noreferrer"
                             class="footer-link"
                         >
-                            MIT License
+                            {{ t("layout.footer.mit") }}
                         </a>
                         .
                     </p>
@@ -102,8 +109,18 @@
 import { Link, router } from "@inertiajs/vue3";
 import { onMounted } from "vue";
 import Button from "../Components/Button.vue";
+import LanguageSwitcher from "../Components/LanguageSwitcher.vue";
 import ThemeSwitcher from "../Components/ThemeSwitcher.vue";
 import { useTheme } from "../composables/useTheme";
+import { useTranslations } from "../composables/useTranslations";
+import { useFont } from "../composables/useFont";
+import { useDirection } from "../composables/useDirection";
+
+const { t } = useTranslations();
+
+// Initialize font and direction when layout mounts
+useFont();
+useDirection();
 
 const logout = () => {
     router.post("/logout");

@@ -1,13 +1,13 @@
 <template>
-    <Head title="Change Password" />
+    <Head :title="t('auth.change.title')" />
     <AppLayout>
         <div class="auth-page">
             <div class="auth-container">
                 <div class="auth-card">
                     <div class="auth-header">
-                        <h1 class="auth-title">Change Password</h1>
+                        <h1 class="auth-title">{{ t("auth.change.title") }}</h1>
                         <p class="auth-subtitle">
-                            Update your password to keep your account secure
+                            {{ t("auth.change.subtitle") }}
                         </p>
                     </div>
 
@@ -21,7 +21,7 @@
 
                     <form class="auth-form" @submit.prevent="submit">
                         <FormGroup
-                            label="Current Password"
+                            :label="t('auth.change.current')"
                             input-id="current_password"
                             :error="form.errors.current_password"
                         >
@@ -36,7 +36,7 @@
                         </FormGroup>
 
                         <FormGroup
-                            label="New Password"
+                            :label="t('auth.change.new')"
                             input-id="password"
                             :error="form.errors.password"
                         >
@@ -50,7 +50,7 @@
                         </FormGroup>
 
                         <FormGroup
-                            label="Confirm New Password"
+                            :label="t('auth.change.confirm_new')"
                             input-id="password_confirmation"
                             :error="form.errors.password_confirmation"
                         >
@@ -66,17 +66,17 @@
                         <Button type="submit" full :disabled="form.processing">
                             {{
                                 form.processing
-                                    ? "Changing..."
-                                    : "Change Password"
+                                    ? t("auth.change.changing")
+                                    : t("auth.change.change")
                             }}
                         </Button>
                     </form>
 
                     <div class="auth-footer">
                         <p>
-                            <Link href="/mod-packs" class="auth-link"
-                                >Back to Mod Packs</Link
-                            >
+                            <Link href="/mod-packs" class="auth-link">{{
+                                t("auth.change.back")
+                            }}</Link>
                         </p>
                     </div>
                 </div>
@@ -92,6 +92,9 @@ import AppLayout from "../../Layouts/AppLayout.vue";
 import Button from "../../Components/Button.vue";
 import Input from "../../Components/Input.vue";
 import FormGroup from "../../Components/FormGroup.vue";
+import { useTranslations } from "../../composables/useTranslations";
+
+const { t } = useTranslations();
 
 const page = usePage();
 const status = computed(() => page.props.flash?.status);

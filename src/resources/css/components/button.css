@@ -92,7 +92,18 @@
     transition: transform var(--transition-base);
 }
 
+/* RTL: arrow should be on the left side */
+[dir="rtl"] .btn-arrow {
+    margin-left: 0;
+    margin-right: var(--spacing-sm);
+}
+
 .btn-primary:hover:not(:disabled) .btn-arrow {
     transform: translateX(4px);
+}
+
+/* RTL: arrow should move left on hover */
+[dir="rtl"] .btn-primary:hover:not(:disabled) .btn-arrow {
+    transform: translateX(-4px);
 }
 

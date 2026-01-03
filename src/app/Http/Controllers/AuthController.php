@@ -41,7 +41,7 @@ class AuthController extends Controller
         }
 
         throw ValidationException::withMessages([
-            'email' => ['The provided credentials do not match our records.'],
+            'email' => [__('messages.auth.credentials_invalid')],
         ]);
     }
 
@@ -191,14 +191,14 @@ class AuthController extends Controller
 
         if (! Hash::check($request->current_password, $user->password)) {
             throw ValidationException::withMessages([
-                'current_password' => ['The current password is incorrect.'],
+                'current_password' => [__('messages.auth.current_password_incorrect')],
             ]);
         }
 
         $user->password = Hash::make($request->password);
         $user->save();
 
-        return back()->with('status', 'Password changed successfully.');
+        return back()->with('status', __('messages.auth.password_changed'));
     }
 
     /**
@@ -224,6 +224,6 @@ class AuthController extends Controller
         $user->name = $request->name;
         $user->save();
 
-        return back()->with('status', 'Profile updated successfully.');
+        return back()->with('status', __('messages.auth.profile_updated'));
     }
 }

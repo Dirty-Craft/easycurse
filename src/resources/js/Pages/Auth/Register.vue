@@ -1,19 +1,21 @@
 <template>
-    <Head title="Register" />
+    <Head :title="t('auth.register.title')" />
     <AppLayout>
         <div class="auth-page">
             <div class="auth-container">
                 <div class="auth-card">
                     <div class="auth-header">
-                        <h1 class="auth-title">Create Account</h1>
+                        <h1 class="auth-title">
+                            {{ t("auth.register.create") }}
+                        </h1>
                         <p class="auth-subtitle">
-                            Sign up to get started with EasyCurse
+                            {{ t("auth.register.subtitle") }}
                         </p>
                     </div>
 
                     <form class="auth-form" @submit.prevent="submit">
                         <FormGroup
-                            label="Name"
+                            :label="t('auth.register.name')"
                             input-id="name"
                             :error="form.errors.name"
                         >
@@ -28,7 +30,7 @@
                         </FormGroup>
 
                         <FormGroup
-                            label="Email"
+                            :label="t('auth.login.email')"
                             input-id="email"
                             :error="form.errors.email"
                         >
@@ -42,7 +44,7 @@
                         </FormGroup>
 
                         <FormGroup
-                            label="Password"
+                            :label="t('auth.login.password')"
                             input-id="password"
                             :error="form.errors.password"
                         >
@@ -56,7 +58,7 @@
                         </FormGroup>
 
                         <FormGroup
-                            label="Confirm Password"
+                            :label="t('auth.register.confirm_password')"
                             input-id="password_confirmation"
                         >
                             <Input
@@ -71,16 +73,18 @@
                         <Button type="submit" full :disabled="form.processing">
                             {{
                                 form.processing
-                                    ? "Creating account..."
-                                    : "Create Account"
+                                    ? t("auth.register.creating")
+                                    : t("auth.register.create")
                             }}
                         </Button>
                     </form>
 
                     <div class="auth-footer">
                         <p>
-                            Already have an account?
-                            <Link href="/login" class="auth-link">Sign in</Link>
+                            {{ t("auth.register.have_account") }}
+                            <Link href="/login" class="auth-link">{{
+                                t("auth.register.sign_in")
+                            }}</Link>
                         </p>
                     </div>
                 </div>
@@ -95,6 +99,9 @@ import AppLayout from "../../Layouts/AppLayout.vue";
 import Button from "../../Components/Button.vue";
 import Input from "../../Components/Input.vue";
 import FormGroup from "../../Components/FormGroup.vue";
+import { useTranslations } from "../../composables/useTranslations";
+
+const { t } = useTranslations();
 
 const form = useForm({
     name: "",
