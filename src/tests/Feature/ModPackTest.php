@@ -2069,6 +2069,10 @@ class ModPackTest extends TestCase
             ], 200),
         ]);
 
+        // Verify initial downloads_count is 0
+        $modPack->refresh();
+        $this->assertEquals(0, $modPack->downloads_count);
+
         $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/download-links");
 
         $response->assertStatus(200);
@@ -2085,6 +2089,10 @@ class ModPackTest extends TestCase
         $this->assertContains($item1->id, $itemIds);
         $this->assertContains($item2->id, $itemIds);
 
+        // Verify downloads_count was incremented
+        $modPack->refresh();
+        $this->assertEquals(1, $modPack->downloads_count);
+
         // Also test individual item download link endpoint (covers getItemDownloadLink method)
         // Need to ensure HTTP fake covers getModFile endpoint (used by getFileDownloadInfo)
         Http::fake([
@@ -2096,6 +2104,11 @@ class ModPackTest extends TestCase
                 ],
             ], 200),
         ]);
+        // Reset downloads_count for individual download test
+        $modPack->update(['downloads_count' => 0]);
+        $modPack->refresh();
+        $this->assertEquals(0, $modPack->downloads_count);
+
         $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/items/{$item1->id}/download-link");
         $response->assertStatus(200);
         $response->assertJsonStructure([
@@ -2104,6 +2117,10 @@ class ModPackTest extends TestCase
         $itemData = $response->json('data');
         $this->assertEquals($item1->id, $itemData['item_id']);
         $this->assertEquals('JEI', $itemData['mod_name']);
+
+        // Verify downloads_count was incremented
+        $modPack->refresh();
+        $this->assertEquals(1, $modPack->downloads_count);
     }
 
     /**
@@ -3266,6 +3283,10 @@ class ModPackTest extends TestCase
         ]);
         $token = $modPack->generateShareToken();
 
+        // Verify initial downloads_count is 0
+        $modPack->refresh();
+        $this->assertEquals(0, $modPack->downloads_count);
+
         Http::fake([
             'api.curseforge.com/v1/mods/123456/files/789012' => Http::response([
                 'data' => [
@@ -3294,6 +3315,10 @@ class ModPackTest extends TestCase
                 ],
             ],
         ]);
+
+        // Verify downloads_count was incremented
+        $modPack->refresh();
+        $this->assertEquals(1, $modPack->downloads_count);
     }
 
     /**
@@ -3311,6 +3336,10 @@ class ModPackTest extends TestCase
             'curseforge_file_id' => 789012,
         ]);
         $token = $modPack->generateShareToken();
+
+        // Verify initial downloads_count is 0
+        $modPack->refresh();
+        $this->assertEquals(0, $modPack->downloads_count);
 
         Http::fake([
             'api.curseforge.com/v1/mods/123456/files/789012' => Http::response([
@@ -3345,6 +3374,10 @@ class ModPackTest extends TestCase
                 'mod_version' => '1.0.0',
             ],
         ]);
+
+        // Verify downloads_count was incremented
+        $modPack->refresh();
+        $this->assertEquals(1, $modPack->downloads_count);
     }
 
     /**
@@ -3477,6 +3510,10 @@ class ModPackTest extends TestCase
         ]);
         $token = $modPack->generateShareToken();
 
+        // Verify initial downloads_count is 0
+        $modPack->refresh();
+        $this->assertEquals(0, $modPack->downloads_count);
+
         Http::fake([
             'api.curseforge.com/v1/mods/123456/files/789012' => Http::response([
                 'data' => [
@@ -3497,6 +3534,10 @@ class ModPackTest extends TestCase
         $data = $response->json('data');
         $this->assertCount(1, $data);
         $this->assertEquals($itemWithMetadata->id, $data[0]['item_id']);
+
+        // Verify downloads_count was incremented
+        $modPack->refresh();
+        $this->assertEquals(1, $modPack->downloads_count);
     }
 
     /**

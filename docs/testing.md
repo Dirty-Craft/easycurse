@@ -19,3 +19,6 @@ For an easier and quick command, you can use this:
 $ docker compose exec app composer test
 # It runs all the necessary setup commands too before testing
 ```
+
+## CI
+[This GitHub Workflow](../.github/workflows/tests.yml) runs the tests automatically on commits to the master branch and pull requests.

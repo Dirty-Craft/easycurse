@@ -23,6 +23,7 @@ class ModPack extends Model
         'software',
         'description',
         'share_token',
+        'downloads_count',
     ];
 
     /**

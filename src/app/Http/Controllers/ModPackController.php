@@ -315,6 +315,9 @@ class ModPackController extends Controller
             }
         }
 
+        // Increment downloads count for ZIP download
+        $modPack->increment('downloads_count');
+
         return response()->json([
             'data' => $downloadLinks,
         ]);
@@ -345,6 +348,9 @@ class ModPackController extends Controller
                 'error' => __('messages.modpack.unable_to_retrieve_download'),
             ], 404);
         }
+
+        // Increment downloads count
+        $modPack->increment('downloads_count');
 
         return response()->json([
             'data' => [
@@ -671,6 +677,9 @@ class ModPackController extends Controller
             }
         }
 
+        // Increment downloads count for ZIP download
+        $modPack->increment('downloads_count');
+
         return response()->json([
             'data' => $downloadLinks,
         ]);
@@ -704,6 +713,9 @@ class ModPackController extends Controller
                 'error' => __('messages.modpack.unable_to_retrieve_download'),
             ], 404);
         }
+
+        // Increment downloads count
+        $modPack->increment('downloads_count');
 
         return response()->json([
             'data' => [

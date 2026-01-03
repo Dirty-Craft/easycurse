@@ -13,7 +13,7 @@ class LandingController extends Controller
         $stats = [
             'total_mod_packs' => ModPack::count(),
             'total_users' => User::count(),
-            'total_downloads' => ModPack::whereNotNull('share_token')->count(),
+            'total_downloads' => ModPack::sum('downloads_count'),
         ];
 
         return Inertia::render('Index', [

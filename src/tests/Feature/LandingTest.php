@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\ModPack;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -149,6 +151,72 @@ class LandingTest extends TestCase
             ->where('stats.total_mod_packs', fn ($value) => is_int($value) && $value >= 0)
             ->where('stats.total_users', fn ($value) => is_int($value) && $value >= 0)
             ->where('stats.total_downloads', fn ($value) => is_int($value) && $value >= 0)
+        );
+    }
+
+    /**
+     * Test that total_downloads is the sum of downloads_count from all mod packs.
+     */
+    public function test_total_downloads_is_sum_of_downloads_count(): void
+    {
+        $user1 = User::factory()->create();
+        $user2 = User::factory()->create();
+
+        // Create mod packs with different download counts
+        $modPack1 = ModPack::factory()->create([
+            'user_id' => $user1->id,
+            'downloads_count' => 5,
+        ]);
+        $modPack2 = ModPack::factory()->create([
+            'user_id' => $user1->id,
+            'downloads_count' => 10,
+        ]);
+        $modPack3 = ModPack::factory()->create([
+            'user_id' => $user2->id,
+            'downloads_count' => 15,
+        ]);
+
+        $expectedTotal = 5 + 10 + 15; // 30
+
+        $response = $this->get('/');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->component('Index')
+            ->where('stats.total_downloads', $expectedTotal)
+        );
+    }
+
+    /**
+     * Test that total_downloads is zero when no mod packs exist.
+     */
+    public function test_total_downloads_is_zero_when_no_mod_packs_exist(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->component('Index')
+            ->where('stats.total_downloads', 0)
+        );
+    }
+
+    /**
+     * Test that total_downloads handles mod packs with zero downloads correctly.
+     */
+    public function test_total_downloads_handles_zero_downloads(): void
+    {
+        $user = User::factory()->create();
+
+        // Create mod packs with zero downloads
+        ModPack::factory()->count(3)->create([
+            'user_id' => $user->id,
+            'downloads_count' => 0,
+        ]);
+
+        $response = $this->get('/');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page->component('Index')
+            ->where('stats.total_downloads', 0)
         );
     }
 }
