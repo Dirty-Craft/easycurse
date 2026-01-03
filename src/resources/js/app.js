@@ -7,6 +7,27 @@ import { resolvePageComponent } from "laravel-vite-plugin/inertia-helpers";
 
 const appName = import.meta.env.VITE_APP_NAME || "EasyCurse";
 
+// Initialize theme before app loads to prevent flash
+const initTheme = () => {
+    const THEME_STORAGE_KEY = "easycurse-theme";
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+
+    if (savedTheme && (savedTheme === "dark" || savedTheme === "light")) {
+        document.documentElement.setAttribute("data-theme", savedTheme);
+    } else {
+        // Check system preference
+        const prefersLight = window.matchMedia(
+            "(prefers-color-scheme: light)",
+        ).matches;
+        const theme = prefersLight ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", theme);
+        localStorage.setItem(THEME_STORAGE_KEY, theme);
+    }
+};
+
+// Initialize theme immediately
+initTheme();
+
 createInertiaApp({
     title: (title) => (title ? `${title} | ${appName}` : appName),
     resolve: (name) =>

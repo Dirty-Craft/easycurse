@@ -8,6 +8,7 @@
                         <span class="logo-text">EasyCurse</span>
                     </Link>
                     <div class="nav-actions">
+                        <ThemeSwitcher />
                         <Button
                             v-if="$page.props.auth.user"
                             tag="Link"
@@ -99,11 +100,20 @@
 
 <script setup>
 import { Link, router } from "@inertiajs/vue3";
+import { onMounted } from "vue";
 import Button from "../Components/Button.vue";
+import ThemeSwitcher from "../Components/ThemeSwitcher.vue";
+import { useTheme } from "../composables/useTheme";
 
 const logout = () => {
     router.post("/logout");
 };
+
+// Initialize theme when layout mounts
+const { initTheme } = useTheme();
+onMounted(() => {
+    initTheme();
+});
 </script>
 
 <style scoped>

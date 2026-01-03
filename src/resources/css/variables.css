@@ -76,3 +76,55 @@
     --transition-base: 250ms ease-in-out;
     --transition-slow: 350ms ease-in-out;
 }
+
+/* Light Theme */
+:root[data-theme="light"] {
+    /* Primary Brand Colors - Vibrant Cyan/Teal theme */
+    --color-primary: #00a8cc;
+    --color-primary-dark: #0088aa;
+    --color-primary-light: #00c8f0;
+    --color-primary-lighter: #33d4ff;
+    
+    /* Secondary Colors */
+    --color-secondary: #059669;
+    --color-secondary-dark: #047857;
+    --color-secondary-light: #10b981;
+    
+    /* Accent Colors */
+    --color-accent: #ea580c;
+    --color-accent-dark: #c2410c;
+    --color-accent-light: #f97316;
+    
+    /* Neutral Colors */
+    --color-background: #ffffff;
+    --color-background-light: #f8fafc;
+    --color-background-lighter: #f1f5f9;
+    --color-surface: #ffffff;
+    --color-surface-light: #e2e8f0;
+    
+    /* Text Colors */
+    --color-text-primary: #0f172a;
+    --color-text-secondary: #475569;
+    --color-text-muted: #64748b;
+    --color-text-dark: #0f172a;
+    
+    /* Border & Divider */
+    --color-border: #e2e8f0;
+    --color-border-light: #cbd5e1;
+    
+    /* Status Colors */
+    --color-success: #059669;
+    --color-warning: #d97706;
+    --color-error: #dc2626;
+    --color-info: #2563eb;
+    
+    /* Shadows - adjusted for light theme */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 5%);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 10%), 0 2px 4px -2px rgb(0 0 0 / 10%);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 10%), 0 4px 6px -4px rgb(0 0 0 / 10%);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 10%), 0 8px 10px -6px rgb(0 0 0 / 10%);
+    --shadow-glow: 0 0 20px rgb(0 168 204 / 20%);
+    --shadow-glow-strong: 0 0 40px rgb(0 168 204 / 30%);
+    --shadow-glow-secondary: 0 0 20px rgb(5 150 105 / 20%);
+    --shadow-glow-accent: 0 0 20px rgb(234 88 12 / 20%);
+}
