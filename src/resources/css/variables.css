@@ -81,7 +81,7 @@
 :root[data-theme="light"] {
     /* Primary Brand Colors - Vibrant Cyan/Teal theme */
     --color-primary: #00a8cc;
-    --color-primary-dark: #0088aa;
+    --color-primary-dark: #08a;
     --color-primary-light: #00c8f0;
     --color-primary-lighter: #33d4ff;
     
@@ -96,10 +96,10 @@
     --color-accent-light: #f97316;
     
     /* Neutral Colors */
-    --color-background: #ffffff;
+    --color-background: #fff;
     --color-background-light: #f8fafc;
     --color-background-lighter: #f1f5f9;
-    --color-surface: #ffffff;
+    --color-surface: #fff;
     --color-surface-light: #e2e8f0;
     
     /* Text Colors */

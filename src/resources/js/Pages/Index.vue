@@ -47,19 +47,19 @@
                         </div>
                         <div class="hero-stats">
                             <div class="stat-item">
-                                <div class="stat-number">∞</div>
+                                <div class="stat-number emoji">♾️</div>
                                 <div class="stat-label">
                                     {{ t("landing.hero.stats.unlimited") }}
                                 </div>
                             </div>
                             <div class="stat-item">
-                                <div class="stat-number">⚡</div>
+                                <div class="stat-number emoji">⚡</div>
                                 <div class="stat-label">
                                     {{ t("landing.hero.stats.instant") }}
                                 </div>
                             </div>
                             <div class="stat-item">
-                                <div class="stat-number">📦</div>
+                                <div class="stat-number emoji">📦</div>
                                 <div class="stat-label">
                                     {{ t("landing.hero.stats.download") }}
                                 </div>
@@ -73,6 +73,83 @@
                     <div class="gradient-orb orb-3"></div>
                     <div class="gradient-orb orb-4"></div>
                     <div class="grid-pattern"></div>
+                </div>
+            </section>
+
+            <!-- Comparison Section -->
+            <section class="section comparison">
+                <div class="container">
+                    <div class="section-header">
+                        <div class="section-badge">
+                            {{ t("landing.comparison.badge") }}
+                        </div>
+                        <h2 class="section-title">
+                            {{ t("landing.comparison.title") }}
+                        </h2>
+                        <p class="section-subtitle">
+                            {{ t("landing.comparison.subtitle") }}
+                        </p>
+                    </div>
+                    <div class="comparison-grid">
+                        <div class="comparison-card">
+                            <div class="comparison-header">
+                                <h3 class="comparison-title">
+                                    {{
+                                        t("landing.comparison.curseforge.title")
+                                    }}
+                                </h3>
+                            </div>
+                            <ul class="comparison-list">
+                                <li class="comparison-item">
+                                    <span class="comparison-icon">✓</span>
+                                    <span>{{
+                                        t("landing.comparison.curseforge.item1")
+                                    }}</span>
+                                </li>
+                                <li class="comparison-item">
+                                    <span class="comparison-icon">⏳</span>
+                                    <span>{{
+                                        t("landing.comparison.curseforge.item2")
+                                    }}</span>
+                                </li>
+                                <li class="comparison-item">
+                                    <span class="comparison-icon">❌</span>
+                                    <span>{{
+                                        t("landing.comparison.curseforge.item3")
+                                    }}</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="comparison-card comparison-card-featured">
+                            <div class="comparison-header">
+                                <h3 class="comparison-title">
+                                    {{
+                                        t("landing.comparison.easycurse.title")
+                                    }}
+                                </h3>
+                            </div>
+                            <ul class="comparison-list">
+                                <li class="comparison-item">
+                                    <span class="comparison-icon">✓</span>
+                                    <span>{{
+                                        t("landing.comparison.easycurse.item1")
+                                    }}</span>
+                                </li>
+                                <li class="comparison-item">
+                                    <span class="comparison-icon">⚡</span>
+                                    <span>{{
+                                        t("landing.comparison.easycurse.item2")
+                                    }}</span>
+                                </li>
+                                <li class="comparison-item">
+                                    <span class="comparison-icon">📦</span>
+                                    <span>{{
+                                        t("landing.comparison.easycurse.item3")
+                                    }}</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </section>
 

@@ -76,7 +76,7 @@
 
 <script setup>
 import { Head, Link, useForm, usePage } from "@inertiajs/vue3";
-import { computed, watch } from "vue";
+import { computed } from "vue";
 import AppLayout from "../../Layouts/AppLayout.vue";
 import Button from "../../Components/Button.vue";
 import Input from "../../Components/Input.vue";

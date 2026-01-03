@@ -26,6 +26,14 @@ module.exports = {
         // so these rules generate a lot of noisy, non-actionable warnings.
         'no-descending-specificity': null,
         'no-duplicate-selectors': null,
+
+        // Allow Vue-specific pseudo-class selectors like :deep()
+        'selector-pseudo-class-no-unknown': [
+            true,
+            {
+                ignorePseudoClasses: ['deep'],
+            },
+        ],
     },
 };
 

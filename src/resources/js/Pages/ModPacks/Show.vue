@@ -228,6 +228,7 @@
         >
             <form @submit.prevent="updateModPackVersion">
                 <div class="version-change-notice">
+                    <!-- eslint-disable-next-line vue/no-v-html -->
                     <p v-html="t('modpacks.show.version_modal.note')"></p>
                 </div>
                 <div
@@ -711,12 +712,16 @@ const copyShareLink = async () => {
     }
 
     try {
-        await navigator.clipboard.writeText(shareUrl.value);
+        if (navigator?.clipboard?.writeText) {
+            await navigator.clipboard.writeText(shareUrl.value);
+        } else {
+            throw new Error("Clipboard API not available");
+        }
         isCopying.value = true;
         setTimeout(() => {
             isCopying.value = false;
         }, 2000);
-    } catch (error) {
+    } catch {
         // Fallback for older browsers
         const input = document.getElementById("share-link");
         if (input) {

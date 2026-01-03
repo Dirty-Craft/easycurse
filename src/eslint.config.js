@@ -22,6 +22,7 @@ export default [
                 console: 'readonly',
                 window: 'readonly',
                 document: 'readonly',
+                navigator: 'readonly',
                 setTimeout: 'readonly',
                 clearTimeout: 'readonly',
                 setInterval: 'readonly',

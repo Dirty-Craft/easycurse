@@ -31,6 +31,7 @@ const currentTheme = ref(getInitialTheme());
 export function useTheme() {
     const setTheme = (theme) => {
         if (!themes.includes(theme)) {
+            // eslint-disable-next-line no-console
             console.warn(`Invalid theme: ${theme}. Using 'dark' instead.`);
             theme = "dark";
         }
