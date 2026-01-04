@@ -73,7 +73,7 @@
 
 /* Button Sizes */
 .btn-sm {
-    padding: var(--spacing-xs) var(--spacing-md);
+    padding: var(--spacing-md) var(--spacing-md);
     font-size: 0.875rem;
 }
 
