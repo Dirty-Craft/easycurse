@@ -62,7 +62,7 @@ return [
     'landing.benefits.visual.finding_versions' => 'Finding compatible versions',
     'landing.benefits.visual.updated' => 'Updated',
     'landing.comparison.badge' => 'Why EasyCurse',
-    'landing.comparison.title' => 'EasyCurse VS CurseForge App',
+    'landing.comparison.title' => 'EasyCurse VS CurseForge',
     'landing.comparison.subtitle' => 'CurseForge App is perfect for installing published modpacks, but EasyCurse empowers you to build and manage your own personal modpacks with full control.',
     'landing.comparison.curseforge.title' => 'CurseForge App',
     'landing.comparison.curseforge.item1' => 'Great for installing ready-made modpacks',

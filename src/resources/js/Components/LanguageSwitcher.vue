@@ -33,7 +33,11 @@
                 :class="{ active: currentLocale === lang.code }"
             >
                 <span class="lang-code">{{ lang.code.toUpperCase() }}</span>
-                <span class="lang-name">{{ lang.name }}</span>
+                <span
+                    class="lang-name"
+                    :style="{ fontFamily: lang.fontFamily }"
+                    >{{ lang.name }}</span
+                >
                 <svg
                     v-if="currentLocale === lang.code"
                     class="check-icon"
@@ -64,8 +68,17 @@ const isOpen = ref(false);
 const dropdownRef = ref(null);
 
 const languages = [
-    { code: "en", name: "English" },
-    { code: "fa", name: "فارسی" },
+    {
+        code: "en",
+        name: "English",
+        fontFamily:
+            "'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    },
+    {
+        code: "fa",
+        name: "فارسی",
+        fontFamily: "'Vazir', 'Tahoma', 'Arial', sans-serif",
+    },
 ];
 
 const toggleDropdown = () => {

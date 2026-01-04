@@ -77,6 +77,104 @@
                 </div>
             </section>
 
+            <!-- How It Works Section -->
+            <section id="how-it-works" class="section how-it-works">
+                <div class="container">
+                    <div class="section-header">
+                        <div class="section-badge">
+                            {{ t("landing.how_it_works.badge") }}
+                        </div>
+                        <h2 class="section-title">
+                            {{ t("landing.how_it_works.title") }}
+                        </h2>
+                        <p class="section-subtitle">
+                            {{ t("landing.how_it_works.subtitle") }}
+                        </p>
+                    </div>
+                    <div class="how-it-works-content">
+                        <div class="steps-grid">
+                            <div class="step-card">
+                                <div class="step-icon-wrapper">
+                                    <div class="step-number">1</div>
+                                    <div class="step-connector"></div>
+                                </div>
+                                <div class="step-content">
+                                    <h3 class="step-title">
+                                        {{
+                                            t(
+                                                "landing.how_it_works.step1.title",
+                                            )
+                                        }}
+                                    </h3>
+                                    <p class="step-description">
+                                        {{
+                                            t(
+                                                "landing.how_it_works.step1.description",
+                                            )
+                                        }}
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="step-card">
+                                <div class="step-icon-wrapper">
+                                    <div class="step-number">2</div>
+                                    <div class="step-connector"></div>
+                                </div>
+                                <div class="step-content">
+                                    <h3 class="step-title">
+                                        {{
+                                            t(
+                                                "landing.how_it_works.step2.title",
+                                            )
+                                        }}
+                                    </h3>
+                                    <p class="step-description">
+                                        {{
+                                            t(
+                                                "landing.how_it_works.step2.description",
+                                            )
+                                        }}
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="step-card">
+                                <div class="step-icon-wrapper">
+                                    <div class="step-number">3</div>
+                                </div>
+                                <div class="step-content">
+                                    <h3 class="step-title">
+                                        {{
+                                            t(
+                                                "landing.how_it_works.step3.title",
+                                            )
+                                        }}
+                                    </h3>
+                                    <p class="step-description">
+                                        {{
+                                            t(
+                                                "landing.how_it_works.step3.description",
+                                            )
+                                        }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="demo-video-container">
+                            <div class="demo-video-wrapper">
+                                <video
+                                    class="demo-video"
+                                    src="/demo.mp4"
+                                    autoplay
+                                    loop
+                                    muted
+                                    playsinline
+                                ></video>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Comparison Section -->
             <section class="section comparison">
                 <div class="container">
@@ -84,8 +182,14 @@
                         <div class="section-badge">
                             {{ t("landing.comparison.badge") }}
                         </div>
-                        <h2 class="section-title">
-                            {{ t("landing.comparison.title") }}
+                        <h2 class="section-title comparison-section-title">
+                            <span class="comparison-title-easycurse"
+                                >EasyCurse</span
+                            >
+                            <span class="comparison-vs"><span>VS</span></span>
+                            <span class="comparison-title-curseforge"
+                                >CurseForge</span
+                            >
                         </h2>
                         <p class="section-subtitle">
                             {{ t("landing.comparison.subtitle") }}
@@ -149,78 +253,6 @@
                                     }}</span>
                                 </li>
                             </ul>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- How It Works Section -->
-            <section id="how-it-works" class="section how-it-works">
-                <div class="container">
-                    <div class="section-header">
-                        <div class="section-badge">
-                            {{ t("landing.how_it_works.badge") }}
-                        </div>
-                        <h2 class="section-title">
-                            {{ t("landing.how_it_works.title") }}
-                        </h2>
-                        <p class="section-subtitle">
-                            {{ t("landing.how_it_works.subtitle") }}
-                        </p>
-                    </div>
-                    <div class="steps-grid">
-                        <div class="step-card">
-                            <div class="step-icon-wrapper">
-                                <div class="step-number">1</div>
-                                <div class="step-connector"></div>
-                            </div>
-                            <div class="step-content">
-                                <h3 class="step-title">
-                                    {{ t("landing.how_it_works.step1.title") }}
-                                </h3>
-                                <p class="step-description">
-                                    {{
-                                        t(
-                                            "landing.how_it_works.step1.description",
-                                        )
-                                    }}
-                                </p>
-                            </div>
-                        </div>
-                        <div class="step-card">
-                            <div class="step-icon-wrapper">
-                                <div class="step-number">2</div>
-                                <div class="step-connector"></div>
-                            </div>
-                            <div class="step-content">
-                                <h3 class="step-title">
-                                    {{ t("landing.how_it_works.step2.title") }}
-                                </h3>
-                                <p class="step-description">
-                                    {{
-                                        t(
-                                            "landing.how_it_works.step2.description",
-                                        )
-                                    }}
-                                </p>
-                            </div>
-                        </div>
-                        <div class="step-card">
-                            <div class="step-icon-wrapper">
-                                <div class="step-number">3</div>
-                            </div>
-                            <div class="step-content">
-                                <h3 class="step-title">
-                                    {{ t("landing.how_it_works.step3.title") }}
-                                </h3>
-                                <p class="step-description">
-                                    {{
-                                        t(
-                                            "landing.how_it_works.step3.description",
-                                        )
-                                    }}
-                                </p>
-                            </div>
                         </div>
                     </div>
                 </div>
