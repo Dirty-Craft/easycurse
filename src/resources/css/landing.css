@@ -583,7 +583,6 @@
 }
 
 .step-content {
-    text-align: left;
     flex: 1;
     padding-top: 0;
     min-width: 0;

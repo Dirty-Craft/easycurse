@@ -705,6 +705,10 @@
         gap: var(--spacing-md);
     }
 
+    #how-it-works .section-header {
+        margin-bottom: 0;
+    }
+
     .section-actions {
         display: flex;
         flex-direction: column;
