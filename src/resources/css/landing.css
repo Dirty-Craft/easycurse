@@ -41,6 +41,7 @@
 }
 
 .logo-text {
+    font-family: Minecraft, Minecraftia, monospace;
     font-size: 1.5rem;
     font-weight: 700;
     background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
@@ -174,6 +175,10 @@
     margin-bottom: var(--spacing-xl);
     color: var(--color-text-primary);
     letter-spacing: -0.03em;
+}
+
+html[lang="en"] .hero-title {
+    font-family: Minecraft, Minecraftia, monospace;
 }
 
 .hero-subtitle {
@@ -397,6 +402,7 @@
     justify-content: center;
     gap: var(--spacing-lg);
     flex-wrap: wrap;
+    font-family: Minecraft, Minecraftia, monospace;
 }
 
 .comparison-title-easycurse {

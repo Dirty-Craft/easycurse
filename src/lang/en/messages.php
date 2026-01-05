@@ -5,8 +5,8 @@ return [
     'direction' => 'LTR',
 
     // Font configuration
-    'font.family' => "'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-    'font.family_heading' => "'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    'font.family' => 'monospace',
+    'font.family_heading' => 'monospace',
 
     // Auth messages
     'auth.credentials_invalid' => 'The provided credentials do not match our records.',
