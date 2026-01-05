@@ -23,6 +23,12 @@ Read the full setup guide and technical documentation [here](docs/README.md).
 
 EasyCurse is a mod management companion for Minecraft that eliminates the hassle of manually updating mods when new Minecraft versions are released. Unlike the CurseForge App, which is designed for installing published modpacks, EasyCurse empowers you to build and manage your own personal modpacks with full control.
 
+### Demo
+
+<video src="src/public/demo.mp4" controls width="100%">
+  Your browser does not support the video tag.
+</video>
+
 ### The Problem
 
 When a new Minecraft version drops, manually updating mods is time-consuming and error-prone. You need to:
