@@ -34,6 +34,9 @@
                         <Button variant="primary" @click="openShareModal">
                             {{ t("modpacks.show.share") }}
                         </Button>
+                        <Button variant="secondary" @click="duplicateModPack">
+                            {{ t("modpacks.show.duplicate") }}
+                        </Button>
                         <Button variant="secondary" @click="openEditModal">
                             {{ t("modpacks.show.edit") }}
                         </Button>
@@ -1039,6 +1042,12 @@ const updateModPackVersion = () => {
             console.error("Error changing version:", errors);
         },
     });
+};
+
+const duplicateModPack = () => {
+    if (confirm(t("modpacks.show.duplicate_confirm"))) {
+        router.post(`/mod-packs/${props.modPack.id}/duplicate`);
+    }
 };
 
 const deleteModPack = () => {
