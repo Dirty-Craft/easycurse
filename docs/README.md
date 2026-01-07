@@ -5,6 +5,7 @@
 - [Packages](packages.md)
 - [Database](database.md)
 - [CurseForge Integration](curseforge.md)
+- [Modrinth Integration](modrinth.md)
 - [Linter](linter.md)
 - [Styles](styles.md)
 - [Localization](localization.md)

@@ -188,7 +188,7 @@
                             >
                             <span class="comparison-vs"><span>VS</span></span>
                             <span class="comparison-title-curseforge"
-                                >CurseForge</span
+                                >CurseForge App</span
                             >
                         </h2>
                         <p class="section-subtitle">

@@ -401,20 +401,27 @@ html[lang="en"] .hero-title {
     align-items: center;
     justify-content: center;
     gap: var(--spacing-lg);
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     font-family: Minecraft, Minecraftia, monospace;
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
 }
 
 .comparison-title-easycurse {
     background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
 }
 
 .comparison-title-curseforge {
     background: linear-gradient(135deg, #F18E36 0%, #E44D26 100%);
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
 }
 
 .comparison-vs {
@@ -439,6 +446,7 @@ html[lang="en"] .hero-title {
         0 4px 12px rgb(0 217 255 / 30%),
         0 0 20px rgb(0 217 255 / 20%),
         inset 0 1px 0 rgb(255 255 255 / 20%);
+    flex-shrink: 0;
 }
 
 .comparison-vs::before {
@@ -1342,13 +1350,19 @@ html[lang="en"] .hero-title {
     }
 
     .comparison-section-title {
-        gap: var(--spacing-md);
+        gap: var(--spacing-sm);
+        font-size: clamp(1.125rem, 5vw, 1.75rem);
     }
 
     .comparison-vs {
-        width: 56px;
-        height: 56px;
-        font-size: 0.75rem;
+        width: 48px;
+        height: 48px;
+        font-size: 0.6875rem;
+    }
+
+    .comparison-title-easycurse,
+    .comparison-title-curseforge {
+        font-size: clamp(1.125rem, 5vw, 1.75rem);
     }
 }
 
@@ -1414,12 +1428,18 @@ html[lang="en"] .hero-title {
     }
 
     .comparison-section-title {
-        gap: var(--spacing-sm);
+        gap: var(--spacing-xs);
+        font-size: clamp(0.875rem, 6vw, 1.25rem);
     }
 
     .comparison-vs {
-        width: 48px;
-        height: 48px;
-        font-size: 0.6875rem;
+        width: 40px;
+        height: 40px;
+        font-size: 0.625rem;
+    }
+
+    .comparison-title-easycurse,
+    .comparison-title-curseforge {
+        font-size: clamp(0.875rem, 6vw, 1.25rem);
     }
 }

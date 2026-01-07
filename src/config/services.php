@@ -42,4 +42,9 @@ return [
         'minecraft_mods_class_id' => env('CURSEFORGE_MINECRAFT_MODS_CLASS_ID', '6'),
     ],
 
+    'modrinth' => [
+        'base_url' => env('MODRINTH_BASE_URL', 'https://api.modrinth.com/v2/'),
+        'user_agent' => env('MODRINTH_USER_AGENT', 'EasyCurse/0.0.1'),
+    ],
+
 ];
