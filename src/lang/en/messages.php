@@ -24,6 +24,7 @@ return [
     'modpack.proxy_download_failed' => 'Failed to proxy download: :error',
     'modpack.no_download_info' => 'This mod item does not have CurseForge download information.',
     'modpack.unable_to_retrieve_download' => 'Unable to retrieve download information for this mod.',
+    'modpack.invalid_item_ids' => 'One or more selected items do not belong to this mod pack.',
 
     // Landing page
     'landing.title' => 'Your mod management companion',
@@ -236,6 +237,12 @@ return [
     'modpacks.show.no_successful_downloads' => 'No mods were successfully downloaded.',
     'modpacks.show.zip_failed' => 'Failed to create ZIP file',
     'modpacks.show.download_pack_failed' => 'Failed to download mod pack: :error. Please check the console for details.',
+    'modpacks.show.selected_count' => ':count item(s) selected',
+    'modpacks.show.download_selected' => '📦 Download Selected',
+    'modpacks.show.delete_selected' => '🗑️ Delete Selected',
+    'modpacks.show.clear_selection' => 'Clear Selection',
+    'modpacks.show.bulk_delete_confirm' => 'Are you sure you want to delete :count selected mod(s)?',
+    'modpacks.show.bulk_delete_failed' => 'Failed to delete selected mods. Please try again.',
     'modpacks.shared.back' => '← Back to Home',
     'modpacks.shared.by' => 'by :name',
     'modpacks.shared.view_collection' => 'View in My Collection',

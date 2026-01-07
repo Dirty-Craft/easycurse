@@ -40,8 +40,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/mod-packs/{id}/items', [\App\Http\Controllers\ModPackController::class, 'storeItem'])->name('mod-packs.items.store');
     Route::delete('/mod-packs/{id}/items/{itemId}', [\App\Http\Controllers\ModPackController::class, 'destroyItem'])->name('mod-packs.items.destroy');
     Route::get('/mod-packs/{id}/download-links', [\App\Http\Controllers\ModPackController::class, 'getDownloadLinks'])->name('mod-packs.download-links');
+    Route::post('/mod-packs/{id}/bulk-download-links', [\App\Http\Controllers\ModPackController::class, 'getBulkDownloadLinks'])->name('mod-packs.bulk-download-links');
     Route::get('/mod-packs/{id}/items/{itemId}/download-link', [\App\Http\Controllers\ModPackController::class, 'getItemDownloadLink'])->name('mod-packs.items.download-link');
     Route::get('/mod-packs/{id}/proxy-download', [\App\Http\Controllers\ModPackController::class, 'proxyDownload'])->name('mod-packs.proxy-download');
+    Route::post('/mod-packs/{id}/bulk-items/delete', [\App\Http\Controllers\ModPackController::class, 'destroyBulkItems'])->name('mod-packs.bulk-items.destroy');
     Route::post('/mod-packs/{id}/change-version', [\App\Http\Controllers\ModPackController::class, 'changeVersion'])->name('mod-packs.change-version');
     Route::post('/mod-packs/{id}/share', [\App\Http\Controllers\ModPackController::class, 'generateShareToken'])->name('mod-packs.share');
     Route::post('/mod-packs/{id}/duplicate', [\App\Http\Controllers\ModPackController::class, 'duplicate'])->name('mod-packs.duplicate');
