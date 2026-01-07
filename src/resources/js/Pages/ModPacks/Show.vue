@@ -240,9 +240,67 @@
                                     'mod-item-selected': selectedItems.has(
                                         item.id,
                                     ),
+                                    'mod-item-dragging':
+                                        draggedItemId === item.id,
+                                    'mod-item-drag-over':
+                                        dragOverItemId === item.id,
                                 }"
+                                draggable="true"
+                                @dragstart="
+                                    handleDragStart($event, item.id, index)
+                                "
+                                @dragend="handleDragEnd"
+                                @dragover.prevent="
+                                    handleDragOver($event, item.id)
+                                "
+                                @dragleave="handleDragLeave"
+                                @drop="handleDrop($event, item.id)"
                             >
                                 <div class="mod-item-content">
+                                    <div class="mod-item-drag-handle">
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            width="16"
+                                            height="16"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                        >
+                                            <circle
+                                                cx="9"
+                                                cy="12"
+                                                r="1"
+                                            ></circle>
+                                            <circle
+                                                cx="9"
+                                                cy="5"
+                                                r="1"
+                                            ></circle>
+                                            <circle
+                                                cx="9"
+                                                cy="19"
+                                                r="1"
+                                            ></circle>
+                                            <circle
+                                                cx="15"
+                                                cy="12"
+                                                r="1"
+                                            ></circle>
+                                            <circle
+                                                cx="15"
+                                                cy="5"
+                                                r="1"
+                                            ></circle>
+                                            <circle
+                                                cx="15"
+                                                cy="19"
+                                                r="1"
+                                            ></circle>
+                                        </svg>
+                                    </div>
                                     <div class="mod-item-checkbox">
                                         <input
                                             type="checkbox"
@@ -1286,6 +1344,12 @@ const modsSearchQuery = ref("");
 const selectedItems = ref(new Set());
 const isDownloadingBulk = ref(false);
 const isDeletingBulk = ref(false);
+
+// Drag & drop state
+const draggedItemId = ref(null);
+const draggedItemIndex = ref(null);
+const dragOverItemId = ref(null);
+const isReordering = ref(false);
 
 // Update mod modal state
 const updateModSearchQuery = ref("");
@@ -2365,6 +2429,94 @@ const downloadAllAsZip = async () => {
         alert(t("modpacks.show.download_pack_failed", { error: errorMessage }));
     } finally {
         isDownloadingAll.value = false;
+    }
+};
+
+// Drag & drop handlers
+const handleDragStart = (event, itemId, index) => {
+    draggedItemId.value = itemId;
+    draggedItemIndex.value = index;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/html", itemId);
+    // Add a slight delay to allow the drag image to be set
+    setTimeout(() => {
+        if (event.target) {
+            event.target.style.opacity = "0.5";
+        }
+    }, 0);
+};
+
+const handleDragEnd = (event) => {
+    draggedItemId.value = null;
+    draggedItemIndex.value = null;
+    dragOverItemId.value = null;
+    if (event.target) {
+        event.target.style.opacity = "1";
+    }
+};
+
+const handleDragOver = (event, itemId) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+
+    // Only update dragOverItemId if it's different and not the dragged item
+    if (dragOverItemId.value !== itemId && draggedItemId.value !== itemId) {
+        dragOverItemId.value = itemId;
+    }
+};
+
+const handleDragLeave = () => {
+    dragOverItemId.value = null;
+};
+
+const handleDrop = async (event, targetItemId) => {
+    event.preventDefault();
+    dragOverItemId.value = null;
+
+    if (!draggedItemId.value || draggedItemId.value === targetItemId) {
+        return;
+    }
+
+    // Get the current order of items (from props, not filtered)
+    const items = [...props.modPack.items];
+    const draggedIndex = items.findIndex(
+        (item) => item.id === draggedItemId.value,
+    );
+    const targetIndex = items.findIndex((item) => item.id === targetItemId);
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+        return;
+    }
+
+    // Reorder: remove dragged item and insert at target position
+    const [draggedItem] = items.splice(draggedIndex, 1);
+    // Adjust target index if we removed an item before the target
+    // If dragging down, target index decreases by 1 after removal
+    // If dragging up, target index stays the same
+    const insertIndex =
+        draggedIndex < targetIndex ? targetIndex - 1 : targetIndex;
+    items.splice(insertIndex, 0, draggedItem);
+
+    // Get the new order of item IDs
+    const newOrder = items.map((item) => item.id);
+
+    // Update the backend
+    isReordering.value = true;
+    try {
+        await axios.post(`/mod-packs/${props.modPack.id}/items/reorder`, {
+            item_ids: newOrder,
+        });
+
+        // Reload the page to reflect the new order
+        router.reload();
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error reordering items:", error);
+        alert(t("modpacks.show.reorder_failed") || "Failed to reorder mods");
+    } finally {
+        isReordering.value = false;
+        draggedItemId.value = null;
+        draggedItemIndex.value = null;
     }
 };
 </script>

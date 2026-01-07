@@ -390,6 +390,47 @@
     box-shadow: 0 0 0 2px var(--color-primary-alpha);
 }
 
+.mod-item-dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
+
+.mod-item-drag-over {
+    border-color: var(--color-primary);
+    background: var(--color-background-light);
+    box-shadow: 0 0 0 2px var(--color-primary-alpha);
+    transform: translateY(-2px);
+}
+
+.mod-item[draggable="true"] {
+    cursor: grab;
+}
+
+.mod-item[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.mod-item-drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-right: var(--spacing-xs);
+    flex-shrink: 0;
+    color: var(--color-text-secondary);
+    cursor: grab;
+    opacity: 0.6;
+    transition: opacity var(--transition-base);
+}
+
+.mod-item-drag-handle:hover {
+    opacity: 1;
+    color: var(--color-primary);
+}
+
+.mod-item-drag-handle:active {
+    cursor: grabbing;
+}
+
 .mod-item-checkbox {
     display: flex;
     align-items: center;
