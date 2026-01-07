@@ -157,12 +157,11 @@
                                         <div class="mod-item-name">
                                             {{ item.mod_name }}
                                             <a
-                                                v-if="item.curseforge_slug"
-                                                :href="
-                                                    getCurseForgeUrl(
-                                                        item.curseforge_slug,
-                                                    )
+                                                v-if="
+                                                    item.curseforge_slug ||
+                                                    item.modrinth_slug
                                                 "
+                                                :href="getItemModUrl(item)"
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 class="curseforge-link"
@@ -672,7 +671,29 @@ const downloadBulkSelected = async () => {
     }
 };
 
-const getCurseForgeUrl = (slug) => {
-    return `https://www.curseforge.com/minecraft/mc-mods/${slug}`;
+const getItemModUrl = (item) => {
+    if (!item) {
+        return null;
+    }
+
+    // Check source field first
+    if (item.source === "modrinth" && item.modrinth_slug) {
+        return `https://modrinth.com/mod/${item.modrinth_slug}`;
+    }
+
+    if (item.source === "curseforge" && item.curseforge_slug) {
+        return `https://www.curseforge.com/minecraft/mc-mods/${item.curseforge_slug}`;
+    }
+
+    // Fallback: check which slug exists
+    if (item.modrinth_slug) {
+        return `https://modrinth.com/mod/${item.modrinth_slug}`;
+    }
+
+    if (item.curseforge_slug) {
+        return `https://www.curseforge.com/minecraft/mc-mods/${item.curseforge_slug}`;
+    }
+
+    return null;
 };
 </script>

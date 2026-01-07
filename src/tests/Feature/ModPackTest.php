@@ -917,6 +917,8 @@ class ModPackTest extends TestCase
         // Test error in searchMods (covers lines 265-271)
         Http::fake([
             'api.curseforge.com/v1/mods/search*' => Http::response([], 500),
+            'api.modrinth.com/v2/search*' => Http::response([], 500),
+            'api.modrinth.com/v2/project/*' => Http::response([], 500),
         ]);
 
         $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/search-mods?query=test");
@@ -1685,6 +1687,109 @@ class ModPackTest extends TestCase
         // Should fall back to general search since URL couldn't be parsed
         $data = $response->json('data');
         $this->assertNotEmpty($data);
+    }
+
+    /**
+     * Test searching mods with Modrinth URL by slug (success case).
+     */
+    public function test_searching_mods_with_modrinth_url_by_slug_success(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'fabric',
+        ]);
+
+        Http::fake([
+            'api.modrinth.com/v2/project/test-mod' => Http::response([
+                'id' => 'test-project-id',
+                'slug' => 'test-mod',
+                'title' => 'Test Mod',
+                'description' => 'A test mod',
+            ], 200),
+        ]);
+
+        $url = 'https://modrinth.com/mod/test-mod';
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/search-mods?query=".urlencode($url));
+
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertNotEmpty($data);
+        $this->assertEquals('modrinth', $data[0]['_source'] ?? null);
+    }
+
+    /**
+     * Test that user can add mod item with Modrinth data.
+     */
+    public function test_user_can_add_mod_item_with_modrinth_data(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/items", [
+            'mod_name' => 'Sodium',
+            'mod_version' => '0.5.3',
+            'modrinth_project_id' => 'AANobbMI',
+            'modrinth_version_id' => 'version-id-123',
+            'modrinth_slug' => 'sodium',
+            'source' => 'modrinth',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('mod_pack_items', [
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Sodium',
+            'mod_version' => '0.5.3',
+            'modrinth_project_id' => 'AANobbMI',
+            'modrinth_version_id' => 'version-id-123',
+            'modrinth_slug' => 'sodium',
+            'source' => 'modrinth',
+        ]);
+    }
+
+    /**
+     * Test that searching mods returns results from both CurseForge and Modrinth.
+     */
+    public function test_searching_mods_returns_results_from_both_platforms(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'fabric',
+        ]);
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/search*searchFilter=test*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 123,
+                        'name' => 'Test Mod CF',
+                        'slug' => 'test-mod-cf',
+                    ],
+                ],
+            ], 200),
+            'api.modrinth.com/v2/search*query=test*' => Http::response([
+                'hits' => [
+                    [
+                        'project_id' => 'test-project-id',
+                        'title' => 'Test Mod MR',
+                        'slug' => 'test-mod-mr',
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/search-mods?query=test");
+
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertNotEmpty($data);
+        // Should have results from both platforms
+        $sources = array_column($data, '_source');
+        $this->assertContains('curseforge', $sources);
+        $this->assertContains('modrinth', $sources);
     }
 
     /**

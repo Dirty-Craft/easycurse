@@ -4,11 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\ModPack;
 use App\Models\ModPackItem;
-use App\Services\CurseForgeService;
+use App\Services\ModService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class ModPackController extends Controller
@@ -23,9 +22,9 @@ class ModPackController extends Controller
             ->latest()
             ->get();
 
-        $curseForgeService = new CurseForgeService;
-        $gameVersions = $curseForgeService->getGameVersions();
-        $modLoaders = $curseForgeService->getModLoaders();
+        $modService = new ModService;
+        $gameVersions = $modService->getGameVersions();
+        $modLoaders = $modService->getModLoaders();
 
         return Inertia::render('ModPacks/Index', [
             'modPacks' => $modPacks,
@@ -63,9 +62,9 @@ class ModPackController extends Controller
             ->with('items')
             ->findOrFail($id);
 
-        $curseForgeService = new CurseForgeService;
-        $gameVersions = $curseForgeService->getGameVersions();
-        $modLoaders = $curseForgeService->getModLoaders();
+        $modService = new ModService;
+        $gameVersions = $modService->getGameVersions();
+        $modLoaders = $modService->getModLoaders();
 
         return Inertia::render('ModPacks/Show', [
             'modPack' => $modPack,
@@ -103,7 +102,7 @@ class ModPackController extends Controller
     }
 
     /**
-     * Search for mods using CurseForge API.
+     * Search for mods using CurseForge and Modrinth APIs.
      */
     public function searchMods(Request $request, string $id)
     {
@@ -113,88 +112,62 @@ class ModPackController extends Controller
             'query' => ['required', 'string', 'min:2', 'max:255'],
         ]);
 
-        $curseForgeService = new CurseForgeService;
+        $modService = new ModService;
         $query = trim($validated['query']);
 
         $results = [];
 
-        // Check if the query looks like a CurseForge URL
-        // More lenient check: just see if it contains curseforge.com and looks like a URL
-        $isUrl = (str_starts_with($query, 'http://') || str_starts_with($query, 'https://'))
-                && str_contains(strtolower($query), 'curseforge.com');
+        // Check if the query looks like a URL
+        $isUrl = (str_starts_with($query, 'http://') || str_starts_with($query, 'https://'));
 
+        // Handle URL search
         if ($isUrl) {
-            Log::debug('Detected CurseForge URL in search query', [
-                'query' => $query,
-            ]);
-
-            $modInfo = $curseForgeService->extractModInfoFromUrl($query);
+            $modInfo = $modService->extractModInfoFromUrl($query);
             if ($modInfo) {
-                if (isset($modInfo['slug'])) {
-                    // Extract slug from URL and search by slug
-                    Log::debug('Searching mod by slug from URL', [
-                        'slug' => $modInfo['slug'],
-                    ]);
-                    $mod = $curseForgeService->searchModBySlug($modInfo['slug']);
+                $source = $modInfo['source'] ?? null;
+                $modId = $modInfo['id'] ?? $modInfo['mod_id'] ?? $modInfo['project_id'] ?? null;
+                $slug = $modInfo['slug'] ?? null;
+
+                if ($slug) {
+                    // Search by slug
+                    $mods = $modService->searchModBySlug($slug);
+                    $results = array_merge($results, $mods);
+                } elseif ($modId) {
+                    // Get mod by ID
+                    $mod = $modService->getMod($modId, $source);
                     if ($mod) {
-                        Log::debug('Found mod by slug', [
-                            'mod_id' => $mod['id'] ?? null,
-                            'mod_name' => $mod['name'] ?? null,
-                        ]);
                         $results[] = $mod;
-                    } else {
-                        Log::debug('Mod not found by slug', [
-                            'slug' => $modInfo['slug'],
-                        ]);
-                    }
-                } elseif (isset($modInfo['mod_id'])) {
-                    // Extract mod ID from URL and get mod directly
-                    Log::debug('Getting mod by ID from URL', [
-                        'mod_id' => $modInfo['mod_id'],
-                    ]);
-                    $mod = $curseForgeService->getMod($modInfo['mod_id']);
-                    if ($mod) {
-                        Log::debug('Found mod by ID', [
-                            'mod_id' => $mod['id'] ?? null,
-                            'mod_name' => $mod['name'] ?? null,
-                        ]);
-                        $results[] = $mod;
-                    } else {
-                        Log::debug('Mod not found by ID', [
-                            'mod_id' => $modInfo['mod_id'],
-                        ]);
                     }
                 }
-            } else {
-                Log::debug('Failed to extract mod info from URL', [
-                    'query' => $query,
-                ]);
             }
         }
 
-        // If URL search didn't return results, try slug search (if query looks like a slug - lowercase, no spaces)
+        // If URL search didn't return results, try slug search on both platforms
         if (empty($results) && preg_match('/^[a-z0-9-]+$/', $query)) {
-            $mod = $curseForgeService->searchModBySlug($query);
-            if ($mod) {
-                $results[] = $mod;
-            }
+            $mods = $modService->searchModBySlug($query);
+            $results = array_merge($results, $mods);
         }
 
-        // Also try general search if slug/URL search didn't return results or query doesn't look like a slug
-        if (empty($results)) {
-            $searchResults = $curseForgeService->searchMods([
-                'searchFilter' => $query,
+        // Also try general search on both platforms
+        if (empty($results) || ! $isUrl) {
+            $searchResults = $modService->searchMods([
+                'query' => $query,
             ]);
             $results = array_merge($results, $searchResults);
         }
 
-        // Remove duplicates by mod ID
+        // Remove duplicates by mod ID and source
+        // ModService already normalizes field names, but we still need to deduplicate
         $uniqueResults = [];
-        $seenIds = [];
+        $seenKeys = [];
         foreach ($results as $result) {
-            if (! isset($seenIds[$result['id']])) {
+            $source = $result['_source'] ?? 'unknown';
+            $modId = $result['id'] ?? $result['project_id'] ?? null;
+            $key = "{$source}:{$modId}";
+
+            if ($modId && ! isset($seenKeys[$key])) {
                 $uniqueResults[] = $result;
-                $seenIds[$result['id']] = true;
+                $seenKeys[$key] = true;
             }
         }
 
@@ -211,14 +184,21 @@ class ModPackController extends Controller
         $modPack = ModPack::where('user_id', Auth::id())->findOrFail($id);
 
         $validated = $request->validate([
-            'mod_id' => ['required', 'integer'],
+            'mod_id' => ['required'],
+            'source' => ['nullable', 'string', 'in:curseforge,modrinth'],
         ]);
 
-        $curseForgeService = new CurseForgeService;
-        $files = $curseForgeService->getModFiles(
+        // Default to curseforge if source is not provided (for backward compatibility)
+        if (empty($validated['source'])) {
+            $validated['source'] = 'curseforge';
+        }
+
+        $modService = new ModService;
+        $files = $modService->getModFiles(
             $validated['mod_id'],
             $modPack->minecraft_version,
-            $modPack->software
+            $modPack->software,
+            $validated['source']
         );
 
         return response()->json([
@@ -239,10 +219,24 @@ class ModPackController extends Controller
             'curseforge_mod_id' => ['nullable', 'integer'],
             'curseforge_file_id' => ['nullable', 'integer'],
             'curseforge_slug' => ['nullable', 'string', 'max:255'],
+            'modrinth_project_id' => ['nullable', 'string', 'max:255'],
+            'modrinth_version_id' => ['nullable', 'string', 'max:255'],
+            'modrinth_slug' => ['nullable', 'string', 'max:255'],
+            'source' => ['nullable', 'string', 'in:curseforge,modrinth'],
         ]);
 
+        // Determine source if not provided
+        $source = $validated['source'] ?? null;
+        if (! $source) {
+            if (! empty($validated['curseforge_mod_id'])) {
+                $source = 'curseforge';
+            } elseif (! empty($validated['modrinth_project_id'])) {
+                $source = 'modrinth';
+            }
+        }
+
         // Check if mod is already in the mod pack
-        if (isset($validated['curseforge_mod_id']) && $validated['curseforge_mod_id']) {
+        if ($source === 'curseforge' && ! empty($validated['curseforge_mod_id'])) {
             $existingItem = ModPackItem::where('mod_pack_id', $modPack->id)
                 ->where('curseforge_mod_id', $validated['curseforge_mod_id'])
                 ->first();
@@ -250,6 +244,16 @@ class ModPackController extends Controller
             if ($existingItem) {
                 return back()->withErrors([
                     'curseforge_mod_id' => __('messages.modpack.mod_already_added'),
+                ]);
+            }
+        } elseif ($source === 'modrinth' && ! empty($validated['modrinth_project_id'])) {
+            $existingItem = ModPackItem::where('mod_pack_id', $modPack->id)
+                ->where('modrinth_project_id', $validated['modrinth_project_id'])
+                ->first();
+
+            if ($existingItem) {
+                return back()->withErrors([
+                    'modrinth_project_id' => __('messages.modpack.mod_already_added'),
                 ]);
             }
         }
@@ -263,6 +267,10 @@ class ModPackController extends Controller
             'curseforge_mod_id' => $validated['curseforge_mod_id'] ?? null,
             'curseforge_file_id' => $validated['curseforge_file_id'] ?? null,
             'curseforge_slug' => $validated['curseforge_slug'] ?? null,
+            'modrinth_project_id' => $validated['modrinth_project_id'] ?? null,
+            'modrinth_version_id' => $validated['modrinth_version_id'] ?? null,
+            'modrinth_slug' => $validated['modrinth_slug'] ?? null,
+            'source' => $source,
             'sort_order' => $maxSortOrder + 1,
         ]);
 
@@ -283,6 +291,10 @@ class ModPackController extends Controller
             'curseforge_mod_id' => ['nullable', 'integer'],
             'curseforge_file_id' => ['nullable', 'integer'],
             'curseforge_slug' => ['nullable', 'string', 'max:255'],
+            'modrinth_project_id' => ['nullable', 'string', 'max:255'],
+            'modrinth_version_id' => ['nullable', 'string', 'max:255'],
+            'modrinth_slug' => ['nullable', 'string', 'max:255'],
+            'source' => ['nullable', 'string', 'in:curseforge,modrinth'],
         ]);
 
         $item->update($validated);
@@ -329,6 +341,10 @@ class ModPackController extends Controller
                 'curseforge_mod_id' => $item->curseforge_mod_id,
                 'curseforge_file_id' => $item->curseforge_file_id,
                 'curseforge_slug' => $item->curseforge_slug,
+                'modrinth_project_id' => $item->modrinth_project_id,
+                'modrinth_version_id' => $item->modrinth_version_id,
+                'modrinth_slug' => $item->modrinth_slug,
+                'source' => $item->source,
                 'sort_order' => $item->sort_order,
             ]);
         }
@@ -345,19 +361,11 @@ class ModPackController extends Controller
             ->with('items')
             ->findOrFail($id);
 
-        $curseForgeService = new CurseForgeService;
+        $modService = new ModService;
         $downloadLinks = [];
 
         foreach ($modPack->items as $item) {
-            if (! $item->curseforge_mod_id || ! $item->curseforge_file_id) {
-                // Skip items without CurseForge metadata
-                continue;
-            }
-
-            $downloadInfo = $curseForgeService->getFileDownloadInfo(
-                $item->curseforge_mod_id,
-                $item->curseforge_file_id
-            );
+            $downloadInfo = $this->getItemDownloadInfo($item, $modService);
 
             if ($downloadInfo) {
                 $downloadLinks[] = [
@@ -404,19 +412,11 @@ class ModPackController extends Controller
             ], 400);
         }
 
-        $curseForgeService = new CurseForgeService;
+        $modService = new ModService;
         $downloadLinks = [];
 
         foreach ($items as $item) {
-            if (! $item->curseforge_mod_id || ! $item->curseforge_file_id) {
-                // Skip items without CurseForge metadata
-                continue;
-            }
-
-            $downloadInfo = $curseForgeService->getFileDownloadInfo(
-                $item->curseforge_mod_id,
-                $item->curseforge_file_id
-            );
+            $downloadInfo = $this->getItemDownloadInfo($item, $modService);
 
             if ($downloadInfo) {
                 $downloadLinks[] = [
@@ -475,17 +475,22 @@ class ModPackController extends Controller
         $modPack = ModPack::where('user_id', Auth::id())->findOrFail($id);
         $item = ModPackItem::where('mod_pack_id', $modPack->id)->findOrFail($itemId);
 
-        if (! $item->curseforge_mod_id || ! $item->curseforge_file_id) {
+        // Check if item has required metadata before attempting to get download info
+        $hasMetadata = false;
+        if ($item->source === 'curseforge' || ($item->curseforge_mod_id && $item->curseforge_file_id)) {
+            $hasMetadata = true;
+        } elseif ($item->source === 'modrinth' || ($item->modrinth_project_id && $item->modrinth_version_id)) {
+            $hasMetadata = true;
+        }
+
+        if (! $hasMetadata) {
             return response()->json([
                 'error' => __('messages.modpack.no_download_info'),
             ], 404);
         }
 
-        $curseForgeService = new CurseForgeService;
-        $downloadInfo = $curseForgeService->getFileDownloadInfo(
-            $item->curseforge_mod_id,
-            $item->curseforge_file_id
-        );
+        $modService = new ModService;
+        $downloadInfo = $this->getItemDownloadInfo($item, $modService);
 
         if (! $downloadInfo) {
             return response()->json([
@@ -529,21 +534,34 @@ class ModPackController extends Controller
             return redirect()->route('mod-packs.show', $modPack->id);
         }
 
-        $curseForgeService = new CurseForgeService;
+        $modService = new ModService;
         $modsWithoutMatchingVersion = [];
 
         // Check each mod item to see if it has a matching version for the new MC version
         foreach ($modPack->items as $item) {
-            if (! $item->curseforge_mod_id) {
-                // Skip items without CurseForge mod ID (they can't be validated)
+            $source = $item->source;
+            if (! $source) {
+                // Determine source from item data
+                if ($item->curseforge_mod_id) {
+                    $source = 'curseforge';
+                } elseif ($item->modrinth_project_id) {
+                    $source = 'modrinth';
+                } else {
+                    // Skip items without platform metadata (they can't be validated)
+                    continue;
+                }
+            }
+
+            $modId = $source === 'curseforge' ? $item->curseforge_mod_id : $item->modrinth_project_id;
+            if (! $modId) {
                 continue;
             }
 
-            // Get available files for the new version
-            $files = $curseForgeService->getModFiles(
-                $item->curseforge_mod_id,
+            $files = $modService->getModFiles(
+                $modId,
                 $newMinecraftVersion,
-                $newSoftware
+                $newSoftware,
+                $source
             );
 
             // If no files found for this mod with the new version, add to error list
@@ -577,27 +595,48 @@ class ModPackController extends Controller
         // Copy all mod items with new versions
         $sortOrder = 1;
         foreach ($modPack->items as $item) {
-            if (! $item->curseforge_mod_id) {
-                // For items without CurseForge mod ID, copy as-is
-                ModPackItem::create([
-                    'mod_pack_id' => $newModPack->id,
-                    'mod_name' => $item->mod_name,
-                    'mod_version' => $item->mod_version,
-                    'curseforge_mod_id' => $item->curseforge_mod_id,
-                    'curseforge_file_id' => $item->curseforge_file_id,
-                    'curseforge_slug' => $item->curseforge_slug,
-                    'sort_order' => $sortOrder++,
-                ]);
-            } else {
-                // Get the latest file for the new version
-                // We already validated that files exist, so this should always return a file
-                $latestFile = $curseForgeService->getLatestModFile(
-                    $item->curseforge_mod_id,
-                    $newMinecraftVersion,
-                    $newSoftware
-                );
+            $source = $item->source;
+            if (! $source) {
+                // Determine source from item data
+                if ($item->curseforge_mod_id) {
+                    $source = 'curseforge';
+                } elseif ($item->modrinth_project_id) {
+                    $source = 'modrinth';
+                } else {
+                    // For items without platform metadata, copy as-is
+                    ModPackItem::create([
+                        'mod_pack_id' => $newModPack->id,
+                        'mod_name' => $item->mod_name,
+                        'mod_version' => $item->mod_version,
+                        'curseforge_mod_id' => $item->curseforge_mod_id,
+                        'curseforge_file_id' => $item->curseforge_file_id,
+                        'curseforge_slug' => $item->curseforge_slug,
+                        'modrinth_project_id' => $item->modrinth_project_id,
+                        'modrinth_version_id' => $item->modrinth_version_id,
+                        'modrinth_slug' => $item->modrinth_slug,
+                        'source' => $item->source,
+                        'sort_order' => $sortOrder++,
+                    ]);
 
-                if ($latestFile) {
+                    continue;
+                }
+            }
+
+            $modId = $source === 'curseforge' ? $item->curseforge_mod_id : $item->modrinth_project_id;
+            if (! $modId) {
+                continue;
+            }
+
+            // Get the latest file/version for the new version
+            $latestFile = $modService->getLatestModFile(
+                $modId,
+                $newMinecraftVersion,
+                $newSoftware,
+                $source
+            );
+
+            if ($latestFile) {
+                if ($source === 'curseforge') {
                     ModPackItem::create([
                         'mod_pack_id' => $newModPack->id,
                         'mod_name' => $item->mod_name,
@@ -605,17 +644,35 @@ class ModPackController extends Controller
                         'curseforge_mod_id' => $item->curseforge_mod_id,
                         'curseforge_file_id' => $latestFile['id'],
                         'curseforge_slug' => $item->curseforge_slug,
+                        'modrinth_project_id' => null,
+                        'modrinth_version_id' => null,
+                        'modrinth_slug' => null,
+                        'source' => 'curseforge',
                         'sort_order' => $sortOrder++,
                     ]);
-                } else {
-                    // This shouldn't happen since we validated files exist, but log it just in case
-                    \Log::warning('getLatestModFile returned null for mod', [
-                        'mod_id' => $item->curseforge_mod_id,
+                } elseif ($source === 'modrinth') {
+                    ModPackItem::create([
+                        'mod_pack_id' => $newModPack->id,
                         'mod_name' => $item->mod_name,
-                        'minecraft_version' => $newMinecraftVersion,
-                        'software' => $newSoftware,
+                        'mod_version' => $latestFile['version_number'] ?? $latestFile['name'] ?? $item->mod_version,
+                        'curseforge_mod_id' => null,
+                        'curseforge_file_id' => null,
+                        'curseforge_slug' => null,
+                        'modrinth_project_id' => $item->modrinth_project_id,
+                        'modrinth_version_id' => $latestFile['id'],
+                        'modrinth_slug' => $item->modrinth_slug,
+                        'source' => 'modrinth',
+                        'sort_order' => $sortOrder++,
                     ]);
                 }
+            } else {
+                \Log::warning('getLatestModFile returned null for mod', [
+                    'mod_id' => $modId,
+                    'mod_name' => $item->mod_name,
+                    'source' => $source,
+                    'minecraft_version' => $newMinecraftVersion,
+                    'software' => $newSoftware,
+                ]);
             }
         }
 
@@ -731,9 +788,9 @@ class ModPackController extends Controller
             ->with(['items', 'user'])
             ->firstOrFail();
 
-        $curseForgeService = new CurseForgeService;
-        $gameVersions = $curseForgeService->getGameVersions();
-        $modLoaders = $curseForgeService->getModLoaders();
+        $modService = new ModService;
+        $gameVersions = $modService->getGameVersions();
+        $modLoaders = $modService->getModLoaders();
 
         // Check if the current user owns this mod pack
         $isOwner = Auth::check() && $modPack->user_id === Auth::id();
@@ -780,6 +837,10 @@ class ModPackController extends Controller
                 'curseforge_mod_id' => $item->curseforge_mod_id,
                 'curseforge_file_id' => $item->curseforge_file_id,
                 'curseforge_slug' => $item->curseforge_slug,
+                'modrinth_project_id' => $item->modrinth_project_id,
+                'modrinth_version_id' => $item->modrinth_version_id,
+                'modrinth_slug' => $item->modrinth_slug,
+                'source' => $item->source,
                 'sort_order' => $item->sort_order,
             ]);
         }
@@ -796,19 +857,11 @@ class ModPackController extends Controller
             ->with('items')
             ->firstOrFail();
 
-        $curseForgeService = new CurseForgeService;
+        $modService = new ModService;
         $downloadLinks = [];
 
         foreach ($modPack->items as $item) {
-            if (! $item->curseforge_mod_id || ! $item->curseforge_file_id) {
-                // Skip items without CurseForge metadata
-                continue;
-            }
-
-            $downloadInfo = $curseForgeService->getFileDownloadInfo(
-                $item->curseforge_mod_id,
-                $item->curseforge_file_id
-            );
+            $downloadInfo = $this->getItemDownloadInfo($item, $modService);
 
             if ($downloadInfo) {
                 $downloadLinks[] = [
@@ -855,19 +908,11 @@ class ModPackController extends Controller
             ], 400);
         }
 
-        $curseForgeService = new CurseForgeService;
+        $modService = new ModService;
         $downloadLinks = [];
 
         foreach ($items as $item) {
-            if (! $item->curseforge_mod_id || ! $item->curseforge_file_id) {
-                // Skip items without CurseForge metadata
-                continue;
-            }
-
-            $downloadInfo = $curseForgeService->getFileDownloadInfo(
-                $item->curseforge_mod_id,
-                $item->curseforge_file_id
-            );
+            $downloadInfo = $this->getItemDownloadInfo($item, $modService);
 
             if ($downloadInfo) {
                 $downloadLinks[] = [
@@ -899,17 +944,22 @@ class ModPackController extends Controller
 
         $item = ModPackItem::where('mod_pack_id', $modPack->id)->findOrFail($itemId);
 
-        if (! $item->curseforge_mod_id || ! $item->curseforge_file_id) {
+        // Check if item has required metadata before attempting to get download info
+        $hasMetadata = false;
+        if ($item->source === 'curseforge' || ($item->curseforge_mod_id && $item->curseforge_file_id)) {
+            $hasMetadata = true;
+        } elseif ($item->source === 'modrinth' || ($item->modrinth_project_id && $item->modrinth_version_id)) {
+            $hasMetadata = true;
+        }
+
+        if (! $hasMetadata) {
             return response()->json([
                 'error' => __('messages.modpack.no_download_info'),
             ], 404);
         }
 
-        $curseForgeService = new CurseForgeService;
-        $downloadInfo = $curseForgeService->getFileDownloadInfo(
-            $item->curseforge_mod_id,
-            $item->curseforge_file_id
-        );
+        $modService = new ModService;
+        $downloadInfo = $this->getItemDownloadInfo($item, $modService);
 
         if (! $downloadInfo) {
             return response()->json([
@@ -1017,23 +1067,30 @@ class ModPackController extends Controller
             ->with('items')
             ->findOrFail($id);
 
-        $curseForgeService = new CurseForgeService;
+        $modService = new ModService;
         $updates = [];
 
         foreach ($modPack->items as $item) {
-            if (! $item->curseforge_mod_id) {
-                // Skip items without CurseForge mod ID
-                continue;
-            }
-
-            $latestFile = $curseForgeService->getLatestModFile(
-                $item->curseforge_mod_id,
+            $latestVersionData = $this->getItemLatestVersion(
+                $item,
                 $modPack->minecraft_version,
-                $modPack->software
+                $modPack->software,
+                $modService
             );
 
-            if ($latestFile) {
-                $latestVersion = $latestFile['displayName'] ?? $latestFile['fileName'] ?? null;
+            if ($latestVersionData) {
+                // Handle both CurseForge and Modrinth response formats
+                $source = $item->source ?? ($item->curseforge_mod_id ? 'curseforge' : 'modrinth');
+                if ($source === 'curseforge') {
+                    $latestVersion = $latestVersionData['displayName'] ?? $latestVersionData['fileName'] ?? null;
+                    $latestId = $latestVersionData['id'] ?? null;
+                    $fileDate = $latestVersionData['fileDate'] ?? null;
+                } else {
+                    $latestVersion = $latestVersionData['version_number'] ?? $latestVersionData['name'] ?? null;
+                    $latestId = $latestVersionData['id'] ?? null;
+                    $fileDate = $latestVersionData['date_published'] ?? null;
+                }
+
                 $currentVersion = $item->mod_version;
 
                 // Only include if there's an update available
@@ -1043,8 +1100,9 @@ class ModPackController extends Controller
                         'mod_name' => $item->mod_name,
                         'current_version' => $currentVersion,
                         'latest_version' => $latestVersion,
-                        'latest_file_id' => $latestFile['id'],
-                        'file_date' => $latestFile['fileDate'] ?? null,
+                        'latest_file_id' => $latestId,
+                        'file_date' => $fileDate,
+                        'source' => $source,
                     ];
                 }
             }
@@ -1082,23 +1140,30 @@ class ModPackController extends Controller
             ], 400);
         }
 
-        $curseForgeService = new CurseForgeService;
+        $modService = new ModService;
         $updates = [];
 
         foreach ($items as $item) {
-            if (! $item->curseforge_mod_id) {
-                // Skip items without CurseForge mod ID
-                continue;
-            }
-
-            $latestFile = $curseForgeService->getLatestModFile(
-                $item->curseforge_mod_id,
+            $latestVersionData = $this->getItemLatestVersion(
+                $item,
                 $modPack->minecraft_version,
-                $modPack->software
+                $modPack->software,
+                $modService
             );
 
-            if ($latestFile) {
-                $latestVersion = $latestFile['displayName'] ?? $latestFile['fileName'] ?? null;
+            if ($latestVersionData) {
+                // Handle both CurseForge and Modrinth response formats
+                $source = $item->source ?? ($item->curseforge_mod_id ? 'curseforge' : 'modrinth');
+                if ($source === 'curseforge') {
+                    $latestVersion = $latestVersionData['displayName'] ?? $latestVersionData['fileName'] ?? null;
+                    $latestId = $latestVersionData['id'] ?? null;
+                    $fileDate = $latestVersionData['fileDate'] ?? null;
+                } else {
+                    $latestVersion = $latestVersionData['version_number'] ?? $latestVersionData['name'] ?? null;
+                    $latestId = $latestVersionData['id'] ?? null;
+                    $fileDate = $latestVersionData['date_published'] ?? null;
+                }
+
                 $currentVersion = $item->mod_version;
 
                 // Only include if there's an update available
@@ -1108,8 +1173,9 @@ class ModPackController extends Controller
                         'mod_name' => $item->mod_name,
                         'current_version' => $currentVersion,
                         'latest_version' => $latestVersion,
-                        'latest_file_id' => $latestFile['id'],
-                        'file_date' => $latestFile['fileDate'] ?? null,
+                        'latest_file_id' => $latestId,
+                        'file_date' => $fileDate,
+                        'source' => $source,
                     ];
                 }
             }
@@ -1130,28 +1196,40 @@ class ModPackController extends Controller
             ->with('items')
             ->findOrFail($id);
 
-        $curseForgeService = new CurseForgeService;
+        $modService = new ModService;
         $updatedCount = 0;
         $failedCount = 0;
 
         foreach ($modPack->items as $item) {
-            if (! $item->curseforge_mod_id) {
-                // Skip items without CurseForge mod ID
-                continue;
-            }
-
-            $latestFile = $curseForgeService->getLatestModFile(
-                $item->curseforge_mod_id,
+            $latestVersionData = $this->getItemLatestVersion(
+                $item,
                 $modPack->minecraft_version,
-                $modPack->software
+                $modPack->software,
+                $modService
             );
 
-            if ($latestFile) {
-                $item->update([
-                    'mod_version' => $latestFile['displayName'] ?? $latestFile['fileName'] ?? $item->mod_version,
-                    'curseforge_file_id' => $latestFile['id'],
-                ]);
-                $updatedCount++;
+            if ($latestVersionData) {
+                $source = $item->source ?? ($item->curseforge_mod_id ? 'curseforge' : 'modrinth');
+                $updateData = [];
+
+                if ($source === 'curseforge') {
+                    $updateData = [
+                        'mod_version' => $latestVersionData['displayName'] ?? $latestVersionData['fileName'] ?? $item->mod_version,
+                        'curseforge_file_id' => $latestVersionData['id'],
+                    ];
+                } elseif ($source === 'modrinth') {
+                    $updateData = [
+                        'mod_version' => $latestVersionData['version_number'] ?? $latestVersionData['name'] ?? $item->mod_version,
+                        'modrinth_version_id' => $latestVersionData['id'],
+                    ];
+                }
+
+                if (! empty($updateData)) {
+                    $item->update($updateData);
+                    $updatedCount++;
+                } else {
+                    $failedCount++;
+                }
             } else {
                 $failedCount++;
             }
@@ -1190,30 +1268,40 @@ class ModPackController extends Controller
             ], 400);
         }
 
-        $curseForgeService = new CurseForgeService;
+        $modService = new ModService;
         $updatedCount = 0;
         $failedCount = 0;
 
         foreach ($items as $item) {
-            if (! $item->curseforge_mod_id) {
-                // Skip items without CurseForge mod ID
-                $failedCount++;
-
-                continue;
-            }
-
-            $latestFile = $curseForgeService->getLatestModFile(
-                $item->curseforge_mod_id,
+            $latestVersionData = $this->getItemLatestVersion(
+                $item,
                 $modPack->minecraft_version,
-                $modPack->software
+                $modPack->software,
+                $modService
             );
 
-            if ($latestFile) {
-                $item->update([
-                    'mod_version' => $latestFile['displayName'] ?? $latestFile['fileName'] ?? $item->mod_version,
-                    'curseforge_file_id' => $latestFile['id'],
-                ]);
-                $updatedCount++;
+            if ($latestVersionData) {
+                $source = $item->source ?? ($item->curseforge_mod_id ? 'curseforge' : 'modrinth');
+                $updateData = [];
+
+                if ($source === 'curseforge') {
+                    $updateData = [
+                        'mod_version' => $latestVersionData['displayName'] ?? $latestVersionData['fileName'] ?? $item->mod_version,
+                        'curseforge_file_id' => $latestVersionData['id'],
+                    ];
+                } elseif ($source === 'modrinth') {
+                    $updateData = [
+                        'mod_version' => $latestVersionData['version_number'] ?? $latestVersionData['name'] ?? $item->mod_version,
+                        'modrinth_version_id' => $latestVersionData['id'],
+                    ];
+                }
+
+                if (! empty($updateData)) {
+                    $item->update($updateData);
+                    $updatedCount++;
+                } else {
+                    $failedCount++;
+                }
             } else {
                 $failedCount++;
             }
@@ -1260,5 +1348,76 @@ class ModPackController extends Controller
         return response()->json([
             'success' => true,
         ]);
+    }
+
+    /**
+     * Get download info for a mod pack item (handles both CurseForge and Modrinth).
+     */
+    private function getItemDownloadInfo(ModPackItem $item, ModService $modService): ?array
+    {
+        $source = $item->source;
+
+        // Determine source from item data if not set
+        if (! $source) {
+            if ($item->curseforge_mod_id && $item->curseforge_file_id) {
+                $source = 'curseforge';
+            } elseif ($item->modrinth_project_id && $item->modrinth_version_id) {
+                $source = 'modrinth';
+            } else {
+                return null;
+            }
+        }
+
+        $modId = null;
+        $fileId = null;
+
+        if ($source === 'curseforge') {
+            if (! $item->curseforge_mod_id || ! $item->curseforge_file_id) {
+                return null;
+            }
+            $modId = $item->curseforge_mod_id;
+            $fileId = $item->curseforge_file_id;
+        } elseif ($source === 'modrinth') {
+            if (! $item->modrinth_project_id || ! $item->modrinth_version_id) {
+                return null;
+            }
+            $modId = $item->modrinth_project_id;
+            $fileId = $item->modrinth_version_id;
+        } else {
+            return null;
+        }
+
+        return $modService->getFileDownloadInfo($modId, $fileId, $source);
+    }
+
+    /**
+     * Get latest version/file for a mod pack item (handles both CurseForge and Modrinth).
+     */
+    private function getItemLatestVersion(ModPackItem $item, string $gameVersion, string $software, ModService $modService): ?array
+    {
+        $source = $item->source;
+
+        // Determine source from item data if not set
+        if (! $source) {
+            if ($item->curseforge_mod_id) {
+                $source = 'curseforge';
+            } elseif ($item->modrinth_project_id) {
+                $source = 'modrinth';
+            } else {
+                return null;
+            }
+        }
+
+        $modId = null;
+
+        if ($source === 'curseforge' && $item->curseforge_mod_id) {
+            $modId = $item->curseforge_mod_id;
+        } elseif ($source === 'modrinth' && $item->modrinth_project_id) {
+            $modId = $item->modrinth_project_id;
+        } else {
+            return null;
+        }
+
+        return $modService->getLatestModFile($modId, $gameVersion, $software, $source);
     }
 }

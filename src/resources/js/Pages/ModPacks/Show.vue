@@ -319,12 +319,11 @@
                                         <div class="mod-item-name">
                                             {{ item.mod_name }}
                                             <a
-                                                v-if="item.curseforge_slug"
-                                                :href="
-                                                    getCurseForgeUrl(
-                                                        item.curseforge_slug,
-                                                    )
+                                                v-if="
+                                                    item.curseforge_slug ||
+                                                    item.modrinth_slug
                                                 "
+                                                :href="getItemModUrl(item)"
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 class="curseforge-link"
@@ -365,8 +364,10 @@
                                 <div class="mod-item-actions">
                                     <Button
                                         v-if="
-                                            item.curseforge_mod_id &&
-                                            item.curseforge_file_id
+                                            (item.curseforge_mod_id &&
+                                                item.curseforge_file_id) ||
+                                            (item.modrinth_project_id &&
+                                                item.modrinth_version_id)
                                         "
                                         size="sm"
                                         variant="primary"
@@ -376,8 +377,10 @@
                                     </Button>
                                     <Button
                                         v-if="
-                                            item.curseforge_mod_id &&
-                                            item.curseforge_file_id
+                                            (item.curseforge_mod_id &&
+                                                item.curseforge_file_id) ||
+                                            (item.modrinth_project_id &&
+                                                item.modrinth_version_id)
                                         "
                                         size="sm"
                                         variant="success"
@@ -659,10 +662,10 @@
                         >
                             <div class="mod-result-content">
                                 <div class="mod-result-name">
-                                    {{ mod.name }}
+                                    {{ mod.name || mod.title }}
                                     <a
                                         v-if="mod.slug"
-                                        :href="getCurseForgeUrl(mod.slug)"
+                                        :href="getModUrl(mod)"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         class="curseforge-link"
@@ -736,10 +739,10 @@
             <div v-if="addModStep === 'selectVersion'" class="add-mod-step">
                 <div class="selected-mod-info">
                     <h3 class="selected-mod-name">
-                        {{ selectedMod.name }}
+                        {{ selectedMod.name || selectedMod.title }}
                         <a
                             v-if="selectedMod.slug"
-                            :href="getCurseForgeUrl(selectedMod.slug)"
+                            :href="getModUrl(selectedMod)"
                             target="_blank"
                             rel="noopener noreferrer"
                             class="curseforge-link"
@@ -798,17 +801,39 @@
                         >
                             <div class="file-item-content">
                                 <div class="file-item-name">
-                                    {{ file.displayName || file.fileName }}
+                                    {{
+                                        file.displayName ||
+                                        file.fileName ||
+                                        file.version_number ||
+                                        file.name
+                                    }}
                                 </div>
                                 <div class="file-item-meta">
                                     <span class="file-item-date">
-                                        {{ formatDate(file.fileDate) }}
+                                        {{
+                                            formatDate(
+                                                file.fileDate ||
+                                                    file.date_published,
+                                            )
+                                        }}
                                     </span>
                                     <span
-                                        v-if="file.fileLength"
+                                        v-if="
+                                            file.fileLength ||
+                                            (file.files &&
+                                                file.files[0] &&
+                                                file.files[0].size)
+                                        "
                                         class="file-item-size"
                                     >
-                                        {{ formatFileSize(file.fileLength) }}
+                                        {{
+                                            formatFileSize(
+                                                file.fileLength ||
+                                                    (file.files &&
+                                                        file.files[0] &&
+                                                        file.files[0].size),
+                                            )
+                                        }}
                                     </span>
                                 </div>
                             </div>
@@ -900,10 +925,10 @@
                         >
                             <div class="mod-result-content">
                                 <div class="mod-result-name">
-                                    {{ mod.name }}
+                                    {{ mod.name || mod.title }}
                                     <a
                                         v-if="mod.slug"
-                                        :href="getCurseForgeUrl(mod.slug)"
+                                        :href="getModUrl(mod)"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         class="curseforge-link"
@@ -977,10 +1002,10 @@
             <div v-if="updateModStep === 'selectVersion'" class="add-mod-step">
                 <div class="selected-mod-info">
                     <h3 class="selected-mod-name">
-                        {{ updateSelectedMod.name }}
+                        {{ updateSelectedMod.name || updateSelectedMod.title }}
                         <a
                             v-if="updateSelectedMod.slug"
-                            :href="getCurseForgeUrl(updateSelectedMod.slug)"
+                            :href="getModUrl(updateSelectedMod)"
                             target="_blank"
                             rel="noopener noreferrer"
                             class="curseforge-link"
@@ -1039,17 +1064,39 @@
                         >
                             <div class="file-item-content">
                                 <div class="file-item-name">
-                                    {{ file.displayName || file.fileName }}
+                                    {{
+                                        file.displayName ||
+                                        file.fileName ||
+                                        file.version_number ||
+                                        file.name
+                                    }}
                                 </div>
                                 <div class="file-item-meta">
                                     <span class="file-item-date">
-                                        {{ formatDate(file.fileDate) }}
+                                        {{
+                                            formatDate(
+                                                file.fileDate ||
+                                                    file.date_published,
+                                            )
+                                        }}
                                     </span>
                                     <span
-                                        v-if="file.fileLength"
+                                        v-if="
+                                            file.fileLength ||
+                                            (file.files &&
+                                                file.files[0] &&
+                                                file.files[0].size)
+                                        "
                                         class="file-item-size"
                                     >
-                                        {{ formatFileSize(file.fileLength) }}
+                                        {{
+                                            formatFileSize(
+                                                file.fileLength ||
+                                                    (file.files &&
+                                                        file.files[0] &&
+                                                        file.files[0].size),
+                                            )
+                                        }}
                                     </span>
                                 </div>
                             </div>
@@ -1453,11 +1500,21 @@ const selectMod = async (mod) => {
     addModError.value = "";
 
     try {
+        // Determine source: check _source property or infer from mod structure
+        // Modrinth mods have string IDs, CurseForge mods have numeric IDs
+        const source =
+            mod._source ||
+            (typeof mod.id === "string" ? "modrinth" : "curseforge");
+
+        // Get the correct mod ID (Modrinth might use project_id)
+        const modId = mod.id || mod.project_id;
+
         const response = await axios.get(
             `/mod-packs/${props.modPack.id}/mod-files`,
             {
                 params: {
-                    mod_id: mod.id,
+                    mod_id: modId,
+                    source: source,
                 },
             },
         );
@@ -1501,27 +1558,71 @@ const addMod = () => {
     // Clear any previous errors
     addModError.value = "";
 
+    // Determine source: check _source property or infer from mod structure
+    const source =
+        selectedMod.value._source ||
+        (typeof selectedMod.value.id === "string" ? "modrinth" : "curseforge");
+
+    // Get the correct mod ID (Modrinth might use project_id)
+    const modId = selectedMod.value.id || selectedMod.value.project_id;
+
     // Check if mod is already in the mod pack
-    const existingMod = props.modPack.items.find(
-        (item) => item.curseforge_mod_id === selectedMod.value.id,
-    );
+    let existingMod = null;
+    if (source === "curseforge") {
+        existingMod = props.modPack.items.find(
+            (item) => item.curseforge_mod_id === modId,
+        );
+    } else if (source === "modrinth") {
+        existingMod = props.modPack.items.find(
+            (item) => item.modrinth_project_id === modId,
+        );
+    }
 
     if (existingMod) {
         // Show error message
         addModError.value = t("modpacks.show.mod_already_added", {
-            name: selectedMod.value.name,
+            name: selectedMod.value.name || selectedMod.value.title,
         });
         return;
     }
 
-    const form = useForm({
-        mod_name: selectedMod.value.name,
-        mod_version:
-            selectedFile.value.displayName || selectedFile.value.fileName,
-        curseforge_mod_id: selectedMod.value.id,
-        curseforge_file_id: selectedFile.value.id,
-        curseforge_slug: selectedMod.value.slug,
-    });
+    // Build form data based on source
+    // Modrinth search results use 'title', while CurseForge uses 'name'
+    const modName = selectedMod.value.name || selectedMod.value.title || "";
+
+    if (!modName) {
+        addModError.value =
+            t("modpacks.show.add_failed") + ": Missing mod name";
+        return;
+    }
+
+    const formData = {
+        mod_name: modName,
+        source: source,
+    };
+
+    if (source === "curseforge") {
+        formData.mod_version =
+            selectedFile.value.displayName || selectedFile.value.fileName;
+        formData.curseforge_mod_id = modId;
+        formData.curseforge_file_id = selectedFile.value.id;
+        if (selectedMod.value.slug) {
+            formData.curseforge_slug = selectedMod.value.slug;
+        }
+    } else if (source === "modrinth") {
+        // Modrinth versions use version_number or name
+        formData.mod_version =
+            selectedFile.value.version_number ||
+            selectedFile.value.name ||
+            selectedFile.value.id;
+        formData.modrinth_project_id = modId;
+        formData.modrinth_version_id = selectedFile.value.id;
+        if (selectedMod.value.slug) {
+            formData.modrinth_slug = selectedMod.value.slug;
+        }
+    }
+
+    const form = useForm(formData);
 
     form.post(`/mod-packs/${props.modPack.id}/items`, {
         onSuccess: () => {
@@ -1529,8 +1630,24 @@ const addMod = () => {
         },
         onError: (errors) => {
             // Handle backend validation errors
+            // eslint-disable-next-line no-console
+            console.error("Add mod error:", errors);
+
+            // Check for specific field errors
             if (errors.curseforge_mod_id) {
                 addModError.value = errors.curseforge_mod_id;
+            } else if (errors.modrinth_project_id) {
+                addModError.value = errors.modrinth_project_id;
+            } else if (errors.mod_version) {
+                addModError.value = errors.mod_version;
+            } else if (errors.mod_name) {
+                addModError.value = errors.mod_name;
+            } else if (Object.keys(errors).length > 0) {
+                // Show first error found
+                const firstError = Object.values(errors)[0];
+                addModError.value = Array.isArray(firstError)
+                    ? firstError[0]
+                    : firstError;
             } else {
                 addModError.value = t("modpacks.show.add_failed");
             }
@@ -1598,6 +1715,7 @@ const openUpdateModModal = async (item) => {
             id: item.curseforge_mod_id,
             name: item.mod_name,
             slug: item.curseforge_slug,
+            _source: "curseforge",
         };
         updateModSearchQuery.value = item.mod_name;
 
@@ -1612,6 +1730,45 @@ const openUpdateModModal = async (item) => {
                 {
                     params: {
                         mod_id: item.curseforge_mod_id,
+                        source: "curseforge",
+                    },
+                },
+            );
+
+            updateModFiles.value = response.data.data || [];
+
+            // Auto-select the latest file if available
+            if (updateModFiles.value.length > 0) {
+                updateSelectedFile.value = updateModFiles.value[0];
+            }
+        } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error("Error loading mod files:", error);
+            updateModFiles.value = [];
+        } finally {
+            isLoadingUpdateFiles.value = false;
+        }
+    } else if (item.modrinth_project_id) {
+        updateSelectedMod.value = {
+            id: item.modrinth_project_id,
+            name: item.mod_name,
+            slug: item.modrinth_slug,
+            _source: "modrinth",
+        };
+        updateModSearchQuery.value = item.mod_name;
+
+        // Load files for this mod
+        isLoadingUpdateFiles.value = true;
+        updateModFiles.value = [];
+        updateSelectedFile.value = null;
+
+        try {
+            const response = await axios.get(
+                `/mod-packs/${props.modPack.id}/mod-files`,
+                {
+                    params: {
+                        mod_id: item.modrinth_project_id,
+                        source: "modrinth",
                     },
                 },
             );
@@ -1630,7 +1787,7 @@ const openUpdateModModal = async (item) => {
             isLoadingUpdateFiles.value = false;
         }
     } else {
-        // If no curseforge_mod_id, start with search
+        // If no mod ID, start with search
         updateModStep.value = "search";
         updateSelectedMod.value = null;
         updateModSearchQuery.value = item.mod_name;
@@ -1712,11 +1869,21 @@ const selectUpdateMod = async (mod) => {
     updateModError.value = "";
 
     try {
+        // Determine source: check _source property or infer from mod structure
+        // Modrinth mods have string IDs, CurseForge mods have numeric IDs
+        const source =
+            mod._source ||
+            (typeof mod.id === "string" ? "modrinth" : "curseforge");
+
+        // Get the correct mod ID (Modrinth might use project_id)
+        const modId = mod.id || mod.project_id;
+
         const response = await axios.get(
             `/mod-packs/${props.modPack.id}/mod-files`,
             {
                 params: {
-                    mod_id: mod.id,
+                    mod_id: modId,
+                    source: source,
                 },
             },
         );
@@ -1753,15 +1920,56 @@ const updateMod = () => {
         return;
     }
 
-    const form = useForm({
-        mod_name: updateSelectedMod.value.name,
-        mod_version:
+    // Determine source: check _source property or infer from mod structure
+    const source =
+        updateSelectedMod.value._source ||
+        (typeof updateSelectedMod.value.id === "string"
+            ? "modrinth"
+            : "curseforge");
+
+    // Get the correct mod ID (Modrinth might use project_id)
+    const modId =
+        updateSelectedMod.value.id || updateSelectedMod.value.project_id;
+
+    // Build form data based on source
+    // Modrinth search results use 'title', while CurseForge uses 'name'
+    const modName =
+        updateSelectedMod.value.name || updateSelectedMod.value.title || "";
+
+    if (!modName) {
+        updateModError.value =
+            t("modpacks.show.update_failed") + ": Missing mod name";
+        return;
+    }
+
+    const formData = {
+        mod_name: modName,
+        source: source,
+    };
+
+    if (source === "curseforge") {
+        formData.mod_version =
             updateSelectedFile.value.displayName ||
-            updateSelectedFile.value.fileName,
-        curseforge_mod_id: updateSelectedMod.value.id,
-        curseforge_file_id: updateSelectedFile.value.id,
-        curseforge_slug: updateSelectedMod.value.slug,
-    });
+            updateSelectedFile.value.fileName;
+        formData.curseforge_mod_id = modId;
+        formData.curseforge_file_id = updateSelectedFile.value.id;
+        if (updateSelectedMod.value.slug) {
+            formData.curseforge_slug = updateSelectedMod.value.slug;
+        }
+    } else if (source === "modrinth") {
+        // Modrinth versions use version_number or name
+        formData.mod_version =
+            updateSelectedFile.value.version_number ||
+            updateSelectedFile.value.name ||
+            updateSelectedFile.value.id;
+        formData.modrinth_project_id = modId;
+        formData.modrinth_version_id = updateSelectedFile.value.id;
+        if (updateSelectedMod.value.slug) {
+            formData.modrinth_slug = updateSelectedMod.value.slug;
+        }
+    }
+
+    const form = useForm(formData);
 
     form.put(
         `/mod-packs/${props.modPack.id}/items/${currentUpdateItem.value.id}`,
@@ -1771,8 +1979,24 @@ const updateMod = () => {
             },
             onError: (errors) => {
                 // Handle backend validation errors
+                // eslint-disable-next-line no-console
+                console.error("Update mod error:", errors);
+
+                // Check for specific field errors
                 if (errors.curseforge_mod_id) {
                     updateModError.value = errors.curseforge_mod_id;
+                } else if (errors.modrinth_project_id) {
+                    updateModError.value = errors.modrinth_project_id;
+                } else if (errors.mod_version) {
+                    updateModError.value = errors.mod_version;
+                } else if (errors.mod_name) {
+                    updateModError.value = errors.mod_name;
+                } else if (Object.keys(errors).length > 0) {
+                    // Show first error found
+                    const firstError = Object.values(errors)[0];
+                    updateModError.value = Array.isArray(firstError)
+                        ? firstError[0]
+                        : firstError;
                 } else {
                     updateModError.value = t("modpacks.show.update_failed");
                 }
@@ -1791,9 +2015,11 @@ const updateBulkToLatest = async () => {
         itemIds.includes(item.id),
     );
 
-    // Filter to only mods with curseforge_mod_id
+    // Filter to mods with either curseforge_mod_id or modrinth_project_id
     const modsToUpdate = selectedMods.filter(
-        (item) => item.curseforge_mod_id && item.curseforge_file_id,
+        (item) =>
+            (item.curseforge_mod_id && item.curseforge_file_id) ||
+            (item.modrinth_project_id && item.modrinth_version_id),
     );
 
     if (modsToUpdate.length === 0) {
@@ -1842,9 +2068,11 @@ const updateAllToLatest = async () => {
         return;
     }
 
-    // Filter to only mods with curseforge_mod_id
+    // Filter to mods with either curseforge_mod_id or modrinth_project_id
     const modsToUpdate = props.modPack.items.filter(
-        (item) => item.curseforge_mod_id && item.curseforge_file_id,
+        (item) =>
+            (item.curseforge_mod_id && item.curseforge_file_id) ||
+            (item.modrinth_project_id && item.modrinth_version_id),
     );
 
     if (modsToUpdate.length === 0) {
@@ -1973,12 +2201,54 @@ const formatFileSize = (bytes) => {
     return bytes + " B";
 };
 
-const getCurseForgeUrl = (slug) => {
-    return `https://www.curseforge.com/minecraft/mc-mods/${slug}`;
+const getModUrl = (mod) => {
+    if (!mod || !mod.slug) {
+        return null;
+    }
+
+    const source =
+        mod._source ||
+        (mod.id && typeof mod.id === "number" ? "curseforge" : "modrinth");
+
+    if (source === "modrinth") {
+        return `https://modrinth.com/mod/${mod.slug}`;
+    }
+
+    // Default to CurseForge
+    return `https://www.curseforge.com/minecraft/mc-mods/${mod.slug}`;
+};
+
+const getItemModUrl = (item) => {
+    if (!item) {
+        return null;
+    }
+
+    // Check source field first
+    if (item.source === "modrinth" && item.modrinth_slug) {
+        return `https://modrinth.com/mod/${item.modrinth_slug}`;
+    }
+
+    if (item.source === "curseforge" && item.curseforge_slug) {
+        return `https://www.curseforge.com/minecraft/mc-mods/${item.curseforge_slug}`;
+    }
+
+    // Fallback: check which slug exists
+    if (item.modrinth_slug) {
+        return `https://modrinth.com/mod/${item.modrinth_slug}`;
+    }
+
+    if (item.curseforge_slug) {
+        return `https://www.curseforge.com/minecraft/mc-mods/${item.curseforge_slug}`;
+    }
+
+    return null;
 };
 
 const downloadModItem = async (item) => {
-    if (!item.curseforge_mod_id || !item.curseforge_file_id) {
+    const isCurseForge = item.curseforge_mod_id && item.curseforge_file_id;
+    const isModrinth = item.modrinth_project_id && item.modrinth_version_id;
+
+    if (!isCurseForge && !isModrinth) {
         alert(t("modpacks.show.download_info_missing"));
         return;
     }
