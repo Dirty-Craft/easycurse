@@ -200,7 +200,7 @@ return [
     'modpacks.show.empty' => 'No mods added yet. Add your first mod to get started!',
     'modpacks.show.search_mods_placeholder' => 'Search mods by name, version, or slug...',
     'modpacks.show.no_search_results' => 'No mods found matching your search.',
-    'modpacks.show.download' => '⬇️ Download',
+    'modpacks.show.download' => 'Download',
     'modpacks.show.remove' => 'Remove',
     'modpacks.show.edit_modal.title' => 'Edit Mod Pack',
     'modpacks.show.edit_modal.cancel' => 'Cancel',
