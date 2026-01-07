@@ -251,6 +251,81 @@
     color: var(--color-text-secondary);
 }
 
+.mods-search-wrapper {
+    margin-bottom: var(--spacing-lg);
+}
+
+.mods-search-input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.mods-search-icon {
+    position: absolute;
+    left: var(--spacing-md);
+    color: var(--color-text-secondary);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.mods-search-input {
+    width: 100%;
+    padding-left: calc(var(--spacing-md) + 18px + var(--spacing-sm));
+    padding-right: calc(var(--spacing-md) + 20px + var(--spacing-sm));
+}
+
+.mods-search-input:focus {
+    padding-right: calc(var(--spacing-md) + 20px + var(--spacing-sm));
+}
+
+.mods-search-clear {
+    position: absolute;
+    right: var(--spacing-sm);
+    background: none;
+    border: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    padding: var(--spacing-xs);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-base);
+    z-index: 1;
+}
+
+.mods-search-clear:hover {
+    color: var(--color-text-primary);
+    background: var(--color-background-light);
+}
+
+.mods-search-clear:focus {
+    outline: none;
+    color: var(--color-primary);
+    background: var(--color-background-light);
+}
+
+.mods-search-clear svg {
+    display: block;
+}
+
+/* RTL support */
+[dir="rtl"] .mods-search-icon {
+    left: auto;
+    right: var(--spacing-md);
+}
+
+[dir="rtl"] .mods-search-input {
+    padding-left: calc(var(--spacing-md) + 20px + var(--spacing-sm));
+    padding-right: calc(var(--spacing-md) + 18px + var(--spacing-sm));
+}
+
+[dir="rtl"] .mods-search-clear {
+    right: auto;
+    left: var(--spacing-sm);
+}
+
 .mods-list {
     display: flex;
     flex-direction: column;

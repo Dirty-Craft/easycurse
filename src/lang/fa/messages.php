@@ -196,6 +196,8 @@ return [
     'modpacks.show.downloading' => 'در حال دانلود...',
     'modpacks.show.add_mod' => '+ افزودن ماد',
     'modpacks.show.empty' => 'هنوز مادی اضافه نشده.',
+    'modpacks.show.search_mods_placeholder' => 'جستجوی مادها بر اساس نام، نسخه یا slug...',
+    'modpacks.show.no_search_results' => 'هیچ مادی مطابق با جستجوی شما پیدا نشد.',
     'modpacks.show.download' => '⬇️ دانلود',
     'modpacks.show.remove' => 'حذف',
     'modpacks.show.edit_modal.title' => 'ویرایش مودپک',

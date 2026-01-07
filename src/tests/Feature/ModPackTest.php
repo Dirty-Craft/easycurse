@@ -294,6 +294,104 @@ class ModPackTest extends TestCase
     }
 
     /**
+     * Test that mod pack show page includes searchable mod fields.
+     * This test verifies that mod items have the necessary fields
+     * (mod_name, mod_version, curseforge_slug) for client-side search functionality.
+     */
+    public function test_mod_pack_show_includes_searchable_mod_fields(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        // Create mod items with different searchable fields and explicit sort_order
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Test Mod One',
+            'mod_version' => '1.0.0',
+            'curseforge_slug' => 'test-mod-one',
+            'sort_order' => 1,
+        ]);
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Another Mod',
+            'mod_version' => '2.1.0',
+            'curseforge_slug' => 'another-mod',
+            'sort_order' => 2,
+        ]);
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Third Mod',
+            'mod_version' => '3.5.2',
+            'curseforge_slug' => null, // Some mods may not have slug
+            'sort_order' => 3,
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}");
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->component('ModPacks/Show')
+            ->has('modPack.items', 3)
+            ->where('modPack.items.0.mod_name', 'Test Mod One')
+            ->where('modPack.items.0.mod_version', '1.0.0')
+            ->where('modPack.items.0.curseforge_slug', 'test-mod-one')
+            ->where('modPack.items.1.mod_name', 'Another Mod')
+            ->where('modPack.items.1.mod_version', '2.1.0')
+            ->where('modPack.items.2.mod_name', 'Third Mod')
+            ->where('modPack.items.2.mod_version', '3.5.2')
+        );
+    }
+
+    /**
+     * Test that mod pack show page loads correctly with multiple mods for search functionality.
+     * This ensures the page structure supports client-side filtering.
+     * Note: The actual search filtering is tested client-side in the Vue component.
+     */
+    public function test_mod_pack_show_loads_with_multiple_mods_for_search(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        // Create multiple mods with varied names to test search, with explicit sort_order
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Jei',
+            'mod_version' => '1.0.0',
+            'curseforge_slug' => 'jei',
+            'sort_order' => 1,
+        ]);
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'OptiFine',
+            'mod_version' => '2.0.0',
+            'curseforge_slug' => 'optifine',
+            'sort_order' => 2,
+        ]);
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'JourneyMap',
+            'mod_version' => '3.0.0',
+            'curseforge_slug' => 'journeymap',
+            'sort_order' => 3,
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}");
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->component('ModPacks/Show')
+            ->has('modPack.items', 3)
+            // Verify searchable fields are present in the response
+            ->where('modPack.items.0.mod_name', 'Jei')
+            ->where('modPack.items.0.mod_version', '1.0.0')
+            ->where('modPack.items.1.mod_name', 'OptiFine')
+            ->where('modPack.items.1.mod_version', '2.0.0')
+            ->where('modPack.items.2.mod_name', 'JourneyMap')
+            ->where('modPack.items.2.mod_version', '3.0.0')
+        );
+    }
+
+    /**
      * Test that user can update their mod pack.
      */
     public function test_user_can_update_their_mod_pack(): void
