@@ -23,6 +23,10 @@ class ModPackItem extends Model
         'curseforge_mod_id',
         'curseforge_file_id',
         'curseforge_slug',
+        'modrinth_project_id',
+        'modrinth_version_id',
+        'modrinth_slug',
+        'source',
     ];
 
     /**
