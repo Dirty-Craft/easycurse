@@ -662,6 +662,7 @@ const downloadBulkSelected = async () => {
         // Clear selection after successful download
         clearSelection();
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error("Error downloading selected mods:", error);
         const errorMessage =
             error?.message || error?.toString() || "Unknown error";

@@ -2142,6 +2142,7 @@ const downloadBulkSelected = async () => {
         // Clear selection after successful download
         clearSelection();
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error("Error downloading selected mods:", error);
         const errorMessage =
             error?.message || error?.toString() || "Unknown error";
@@ -2182,6 +2183,7 @@ const deleteBulkSelected = () => {
                 clearSelection();
             },
             onError: (errors) => {
+                // eslint-disable-next-line no-console
                 console.error("Error deleting selected mods:", errors);
                 alert(t("modpacks.show.bulk_delete_failed"));
             },

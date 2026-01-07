@@ -19,8 +19,6 @@
     border: 2px solid var(--color-border);
     border-radius: var(--radius-sm);
     appearance: none;
-    appearance: none;
-    appearance: none;
     position: relative;
     transition: all var(--transition-base);
 }
