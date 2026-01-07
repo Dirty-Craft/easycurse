@@ -77,87 +77,163 @@
                         </p>
                     </div>
 
-                    <div v-else class="mods-list">
-                        <div
-                            v-for="(item, index) in modPack.items"
-                            :key="item.id"
-                            class="mod-item"
-                        >
-                            <div class="mod-item-content">
-                                <div class="mod-item-number">
-                                    {{ index + 1 }}
-                                </div>
-                                <div class="mod-item-info">
-                                    <div class="mod-item-name">
-                                        {{ item.mod_name }}
-                                        <a
-                                            v-if="item.curseforge_slug"
-                                            :href="
-                                                getCurseForgeUrl(
-                                                    item.curseforge_slug,
-                                                )
-                                            "
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            class="curseforge-link"
-                                            @click.stop
-                                        >
-                                            <svg
-                                                class="curseforge-icon"
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                width="16"
-                                                height="16"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="2"
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                            >
-                                                <path
-                                                    d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
-                                                ></path>
-                                                <polyline
-                                                    points="15 3 21 3 21 9"
-                                                ></polyline>
-                                                <line
-                                                    x1="10"
-                                                    y1="14"
-                                                    x2="21"
-                                                    y2="3"
-                                                ></line>
-                                            </svg>
-                                        </a>
-                                    </div>
-                                    <div class="mod-item-version">
-                                        {{ item.mod_version }}
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mod-item-actions">
-                                <Button
-                                    v-if="
-                                        item.curseforge_mod_id &&
-                                        item.curseforge_file_id
+                    <div v-else>
+                        <div class="mods-search-wrapper">
+                            <div class="mods-search-input-container">
+                                <svg
+                                    class="mods-search-icon"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="18"
+                                    height="18"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <path d="m21 21-4.35-4.35"></path>
+                                </svg>
+                                <Input
+                                    id="mods-search"
+                                    v-model="modsSearchQuery"
+                                    type="text"
+                                    :placeholder="
+                                        t(
+                                            'modpacks.show.search_mods_placeholder',
+                                        )
                                     "
-                                    size="sm"
-                                    variant="success"
-                                    :disabled="downloadingItems.has(item.id)"
-                                    @click="downloadModItem(item)"
+                                    class="mods-search-input"
+                                />
+                                <button
+                                    v-if="modsSearchQuery"
+                                    type="button"
+                                    class="mods-search-clear"
+                                    aria-label="Clear search"
+                                    @click="clearSearch"
                                 >
-                                    {{
-                                        downloadingItems.has(item.id)
-                                            ? "..."
-                                            : t("modpacks.show.download")
-                                    }}
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="danger"
-                                    @click="deleteModItem(item.id)"
-                                >
-                                    {{ t("modpacks.show.remove") }}
-                                </Button>
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="16"
+                                        height="16"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                    >
+                                        <line
+                                            x1="18"
+                                            y1="6"
+                                            x2="6"
+                                            y2="18"
+                                        ></line>
+                                        <line
+                                            x1="6"
+                                            y1="6"
+                                            x2="18"
+                                            y2="18"
+                                        ></line>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div
+                            v-if="filteredMods.length === 0"
+                            class="empty-state"
+                        >
+                            <p>
+                                {{ t("modpacks.show.no_search_results") }}
+                            </p>
+                        </div>
+
+                        <div v-else class="mods-list">
+                            <div
+                                v-for="(item, index) in filteredMods"
+                                :key="item.id"
+                                class="mod-item"
+                            >
+                                <div class="mod-item-content">
+                                    <div class="mod-item-number">
+                                        {{ index + 1 }}
+                                    </div>
+                                    <div class="mod-item-info">
+                                        <div class="mod-item-name">
+                                            {{ item.mod_name }}
+                                            <a
+                                                v-if="item.curseforge_slug"
+                                                :href="
+                                                    getCurseForgeUrl(
+                                                        item.curseforge_slug,
+                                                    )
+                                                "
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                class="curseforge-link"
+                                                @click.stop
+                                            >
+                                                <svg
+                                                    class="curseforge-icon"
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="16"
+                                                    height="16"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                >
+                                                    <path
+                                                        d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                                                    ></path>
+                                                    <polyline
+                                                        points="15 3 21 3 21 9"
+                                                    ></polyline>
+                                                    <line
+                                                        x1="10"
+                                                        y1="14"
+                                                        x2="21"
+                                                        y2="3"
+                                                    ></line>
+                                                </svg>
+                                            </a>
+                                        </div>
+                                        <div class="mod-item-version">
+                                            {{ item.mod_version }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mod-item-actions">
+                                    <Button
+                                        v-if="
+                                            item.curseforge_mod_id &&
+                                            item.curseforge_file_id
+                                        "
+                                        size="sm"
+                                        variant="success"
+                                        :disabled="
+                                            downloadingItems.has(item.id)
+                                        "
+                                        @click="downloadModItem(item)"
+                                    >
+                                        {{
+                                            downloadingItems.has(item.id)
+                                                ? "..."
+                                                : t("modpacks.show.download")
+                                        }}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="danger"
+                                        @click="deleteModItem(item.id)"
+                                    >
+                                        {{ t("modpacks.show.remove") }}
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -610,7 +686,7 @@
 
 <script setup>
 import { Head, Link, router, useForm } from "@inertiajs/vue3";
-import { ref, watch } from "vue";
+import { ref, watch, computed } from "vue";
 import AppLayout from "../../Layouts/AppLayout.vue";
 import Button from "../../Components/Button.vue";
 import Input from "../../Components/Input.vue";
@@ -763,8 +839,33 @@ const selectedFile = ref(null);
 const isDownloadingAll = ref(false);
 const downloadingItems = ref(new Set());
 const addModError = ref("");
+const modsSearchQuery = ref("");
 
 let searchTimeout = null;
+
+// Filter mods based on search query
+const filteredMods = computed(() => {
+    if (!modsSearchQuery.value.trim()) {
+        return props.modPack.items;
+    }
+
+    const query = modsSearchQuery.value.toLowerCase().trim();
+    return props.modPack.items.filter((item) => {
+        const modName = (item.mod_name || "").toLowerCase();
+        const modVersion = (item.mod_version || "").toLowerCase();
+        const curseforgeSlug = (item.curseforge_slug || "").toLowerCase();
+
+        return (
+            modName.includes(query) ||
+            modVersion.includes(query) ||
+            curseforgeSlug.includes(query)
+        );
+    });
+});
+
+const clearSearch = () => {
+    modsSearchQuery.value = "";
+};
 
 const debouncedSearch = () => {
     if (searchTimeout) {
