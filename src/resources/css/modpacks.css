@@ -393,6 +393,7 @@
 .mod-item-checkbox {
     display: flex;
     align-items: center;
+    justify-content: center;
     padding-right: var(--spacing-sm);
     flex-shrink: 0;
 }
@@ -402,6 +403,7 @@
     height: 20px;
     cursor: pointer;
     accent-color: var(--color-primary);
+    margin: 0;
 }
 
 .bulk-actions-bar {
@@ -980,8 +982,7 @@
     }
 
     .mod-item-checkbox {
-        padding-right: 0;
-        padding-bottom: var(--spacing-xs);
+        padding-right: var(--spacing-xs);
     }
 }
 

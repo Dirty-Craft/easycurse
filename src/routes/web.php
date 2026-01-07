@@ -10,6 +10,7 @@ Route::get('/about', [LandingController::class, 'about'])->name('about');
 // Public shared modpack routes
 Route::get('/shared/{token}', [\App\Http\Controllers\ModPackController::class, 'showShared'])->name('mod-packs.shared.show');
 Route::get('/shared/{token}/download-links', [\App\Http\Controllers\ModPackController::class, 'getSharedDownloadLinks'])->name('mod-packs.shared.download-links');
+Route::post('/shared/{token}/bulk-download-links', [\App\Http\Controllers\ModPackController::class, 'getSharedBulkDownloadLinks'])->name('mod-packs.shared.bulk-download-links');
 Route::get('/shared/{token}/items/{itemId}/download-link', [\App\Http\Controllers\ModPackController::class, 'getSharedItemDownloadLink'])->name('mod-packs.shared.items.download-link');
 Route::get('/shared/{token}/proxy-download', [\App\Http\Controllers\ModPackController::class, 'sharedProxyDownload'])->name('mod-packs.shared.proxy-download');
 

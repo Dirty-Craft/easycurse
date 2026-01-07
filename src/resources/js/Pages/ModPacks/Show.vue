@@ -210,14 +210,18 @@
                                     ),
                                 }"
                             >
-                                <div class="mod-item-checkbox">
-                                    <input
-                                        type="checkbox"
-                                        :checked="selectedItems.has(item.id)"
-                                        @change="toggleItemSelection(item.id)"
-                                    />
-                                </div>
                                 <div class="mod-item-content">
+                                    <div class="mod-item-checkbox">
+                                        <input
+                                            type="checkbox"
+                                            :checked="
+                                                selectedItems.has(item.id)
+                                            "
+                                            @change="
+                                                toggleItemSelection(item.id)
+                                            "
+                                        />
+                                    </div>
                                     <div class="mod-item-number">
                                         {{ index + 1 }}
                                     </div>

@@ -809,6 +809,65 @@ class ModPackController extends Controller
     }
 
     /**
+     * Get download links for selected mod items in a shared mod pack.
+     */
+    public function getSharedBulkDownloadLinks(Request $request, string $token)
+    {
+        $modPack = ModPack::where('share_token', $token)
+            ->with('items')
+            ->firstOrFail();
+
+        $validated = $request->validate([
+            'item_ids' => ['required', 'array', 'min:1'],
+            'item_ids.*' => ['required', 'integer', 'exists:mod_pack_items,id'],
+        ]);
+
+        // Verify all items belong to this mod pack
+        $itemIds = $validated['item_ids'];
+        $items = ModPackItem::where('mod_pack_id', $modPack->id)
+            ->whereIn('id', $itemIds)
+            ->get();
+
+        if ($items->count() !== count($itemIds)) {
+            return response()->json([
+                'error' => __('messages.modpack.invalid_item_ids'),
+            ], 400);
+        }
+
+        $curseForgeService = new CurseForgeService;
+        $downloadLinks = [];
+
+        foreach ($items as $item) {
+            if (! $item->curseforge_mod_id || ! $item->curseforge_file_id) {
+                // Skip items without CurseForge metadata
+                continue;
+            }
+
+            $downloadInfo = $curseForgeService->getFileDownloadInfo(
+                $item->curseforge_mod_id,
+                $item->curseforge_file_id
+            );
+
+            if ($downloadInfo) {
+                $downloadLinks[] = [
+                    'item_id' => $item->id,
+                    'mod_name' => $item->mod_name,
+                    'mod_version' => $item->mod_version,
+                    'download_url' => $downloadInfo['url'],
+                    'filename' => $downloadInfo['filename'],
+                ];
+            }
+        }
+
+        // Increment downloads count for ZIP download
+        $modPack->increment('downloads_count');
+
+        return response()->json([
+            'data' => $downloadLinks,
+        ]);
+    }
+
+    /**
      * Get download link for a specific mod item in a shared mod pack.
      */
     public function getSharedItemDownloadLink(string $token, string $itemId)
