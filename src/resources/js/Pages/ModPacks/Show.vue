@@ -662,41 +662,61 @@
                         >
                             <div class="mod-result-content">
                                 <div class="mod-result-name">
-                                    {{ mod.name || mod.title }}
-                                    <a
-                                        v-if="mod.slug"
-                                        :href="getModUrl(mod)"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        class="curseforge-link"
-                                        @click.stop
-                                    >
-                                        <svg
-                                            class="curseforge-icon"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            width="16"
-                                            height="16"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
+                                    <div class="mod-result-platform-logo">
+                                        <img
+                                            v-if="mod._source === 'curseforge'"
+                                            class="platform-logo platform-logo-curseforge"
+                                            src="https://static-beta.curseforge.com/images/favicon.ico"
+                                            alt="CurseForge"
+                                            title="CurseForge"
+                                            @error="handleLogoError"
+                                        />
+                                        <img
+                                            v-if="mod._source === 'modrinth'"
+                                            class="platform-logo platform-logo-modrinth"
+                                            src="https://cdn.modrinth.com/logo.svg"
+                                            alt="Modrinth"
+                                            title="Modrinth"
+                                            @error="handleLogoError"
+                                        />
+                                    </div>
+                                    <div class="mod-result-name-text">
+                                        {{ mod.name || mod.title }}
+                                        <a
+                                            v-if="mod.slug"
+                                            :href="getModUrl(mod)"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="curseforge-link"
+                                            @click.stop
                                         >
-                                            <path
-                                                d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
-                                            ></path>
-                                            <polyline
-                                                points="15 3 21 3 21 9"
-                                            ></polyline>
-                                            <line
-                                                x1="10"
-                                                y1="14"
-                                                x2="21"
-                                                y2="3"
-                                            ></line>
-                                        </svg>
-                                    </a>
+                                            <svg
+                                                class="curseforge-icon"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width="16"
+                                                height="16"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                            >
+                                                <path
+                                                    d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                                                ></path>
+                                                <polyline
+                                                    points="15 3 21 3 21 9"
+                                                ></polyline>
+                                                <line
+                                                    x1="10"
+                                                    y1="14"
+                                                    x2="21"
+                                                    y2="3"
+                                                ></line>
+                                            </svg>
+                                        </a>
+                                    </div>
                                 </div>
                                 <div class="mod-result-meta">
                                     <span class="mod-result-slug">
@@ -925,41 +945,61 @@
                         >
                             <div class="mod-result-content">
                                 <div class="mod-result-name">
-                                    {{ mod.name || mod.title }}
-                                    <a
-                                        v-if="mod.slug"
-                                        :href="getModUrl(mod)"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        class="curseforge-link"
-                                        @click.stop
-                                    >
-                                        <svg
-                                            class="curseforge-icon"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            width="16"
-                                            height="16"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
+                                    <div class="mod-result-platform-logo">
+                                        <img
+                                            v-if="mod._source === 'curseforge'"
+                                            class="platform-logo platform-logo-curseforge"
+                                            src="https://static-beta.curseforge.com/images/favicon.ico"
+                                            alt="CurseForge"
+                                            title="CurseForge"
+                                            @error="handleLogoError"
+                                        />
+                                        <img
+                                            v-if="mod._source === 'modrinth'"
+                                            class="platform-logo platform-logo-modrinth"
+                                            src="https://cdn.modrinth.com/logo.svg"
+                                            alt="Modrinth"
+                                            title="Modrinth"
+                                            @error="handleLogoError"
+                                        />
+                                    </div>
+                                    <div class="mod-result-name-text">
+                                        {{ mod.name || mod.title }}
+                                        <a
+                                            v-if="mod.slug"
+                                            :href="getModUrl(mod)"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="curseforge-link"
+                                            @click.stop
                                         >
-                                            <path
-                                                d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
-                                            ></path>
-                                            <polyline
-                                                points="15 3 21 3 21 9"
-                                            ></polyline>
-                                            <line
-                                                x1="10"
-                                                y1="14"
-                                                x2="21"
-                                                y2="3"
-                                            ></line>
-                                        </svg>
-                                    </a>
+                                            <svg
+                                                class="curseforge-icon"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width="16"
+                                                height="16"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                            >
+                                                <path
+                                                    d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                                                ></path>
+                                                <polyline
+                                                    points="15 3 21 3 21 9"
+                                                ></polyline>
+                                                <line
+                                                    x1="10"
+                                                    y1="14"
+                                                    x2="21"
+                                                    y2="3"
+                                                ></line>
+                                            </svg>
+                                        </a>
+                                    </div>
                                 </div>
                                 <div class="mod-result-meta">
                                     <span class="mod-result-slug">
@@ -2199,6 +2239,13 @@ const formatFileSize = (bytes) => {
         return (bytes / 1024).toFixed(2) + " KB";
     }
     return bytes + " B";
+};
+
+const handleLogoError = (event) => {
+    // Hide the image if it fails to load
+    if (event.target) {
+        event.target.style.display = "none";
+    }
 };
 
 const getModUrl = (mod) => {

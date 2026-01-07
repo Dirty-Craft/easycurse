@@ -209,7 +209,7 @@ return [
     'modpacks.show.version_modal.title' => 'Change Version',
     'modpacks.show.version_modal.note' => '<strong>Note:</strong> Changing the version will create a <strong>new mod pack</strong> with the same name plus "(Updated to X Y)". All mods will be updated to versions compatible with the selected Minecraft version and mod loader.',
     'modpacks.show.version_modal.creating' => 'Creating...',
-    'modpacks.show.add_modal.title' => 'Add Mod from CurseForge',
+    'modpacks.show.add_modal.title' => 'Add Mod',
     'modpacks.show.add_modal.search' => 'Search for Mod',
     'modpacks.show.add_modal.search_placeholder' => 'Search by mod name or slug...',
     'modpacks.show.add_modal.searching' => 'Searching...',

@@ -636,6 +636,12 @@
     font-size: 0.875rem;
 }
 
+/* RTL: move loading indicator to left */
+[dir="rtl"] .search-loading {
+    right: auto;
+    left: var(--spacing-md);
+}
+
 .search-results {
     margin-top: var(--spacing-lg);
     max-height: 400px;
@@ -691,7 +697,31 @@
     margin-bottom: var(--spacing-xs);
     display: flex;
     align-items: center;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.mod-result-platform-logo {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.platform-logo {
+    display: block;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    object-fit: contain;
+}
+
+.mod-result-name-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
     gap: var(--spacing-xs);
+    flex-wrap: wrap;
 }
 
 .mod-result-meta {

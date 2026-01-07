@@ -209,7 +209,7 @@ return [
     'modpacks.show.version_modal.title' => 'تغییر نسخه',
     'modpacks.show.version_modal.note' => 'نکته: با تغییر نسخه، یک مودپک جدید با نام مشابه ساخته می‌شود و همه مادها به نسخه سازگار آپدیت می‌شوند.',
     'modpacks.show.version_modal.creating' => 'در حال ایجاد...',
-    'modpacks.show.add_modal.title' => 'افزودن ماد از CurseForge',
+    'modpacks.show.add_modal.title' => 'افزودن ماد',
     'modpacks.show.add_modal.search' => 'جستجوی ماد',
     'modpacks.show.add_modal.search_placeholder' => 'جستجو بر اساس نام ماد...',
     'modpacks.show.add_modal.searching' => 'در حال جستجو...',
