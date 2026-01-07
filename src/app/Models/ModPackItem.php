@@ -27,6 +27,7 @@ class ModPackItem extends Model
         'modrinth_version_id',
         'modrinth_slug',
         'source',
+        'last_update_notified_at',
     ];
 
     /**
@@ -35,6 +36,18 @@ class ModPackItem extends Model
      * @var string
      */
     protected $table = 'mod_pack_items';
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'last_update_notified_at' => 'datetime',
+        ];
+    }
 
     /**
      * Get the mod pack that owns the item.
