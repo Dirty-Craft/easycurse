@@ -404,6 +404,36 @@
     cursor: pointer;
     accent-color: var(--color-primary);
     margin: 0;
+    background-color: var(--color-background);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    appearance: none;
+    appearance: none;
+    appearance: none;
+    position: relative;
+    transition: all var(--transition-base);
+}
+
+.mod-item-checkbox input[type="checkbox"]:hover {
+    border-color: var(--color-primary);
+    background-color: var(--color-background-light);
+}
+
+.mod-item-checkbox input[type="checkbox"]:checked {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.mod-item-checkbox input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: translate(-50%, -60%) rotate(45deg);
 }
 
 .bulk-actions-bar {
@@ -835,7 +865,7 @@
 }
 
 /* Responsive styles for mobile */
-@media (width <= 768px) {
+@media (width <= 868px) {
     .header-actions button {
         flex: 1;
         min-width: 0;
@@ -984,5 +1014,77 @@
     .mod-item-checkbox {
         padding-right: var(--spacing-xs);
     }
+}
+
+/* Update Preview Modal */
+.loading-preview {
+    text-align: center;
+    padding: var(--spacing-lg);
+}
+
+.preview-description {
+    margin-bottom: var(--spacing-md);
+    color: var(--color-text-secondary);
+}
+
+.preview-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-sm);
+}
+
+.preview-item {
+    padding: var(--spacing-md);
+    border-bottom: 1px solid var(--color-border);
+    transition: background-color 0.2s;
+}
+
+.preview-item:last-child {
+    border-bottom: none;
+}
+
+.preview-item:hover {
+    background-color: var(--color-bg-secondary);
+}
+
+.preview-item-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.preview-item-name {
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.preview-item-versions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.preview-current-version {
+    color: var(--color-text-secondary);
+    font-size: 0.9em;
+}
+
+.preview-arrow {
+    color: var(--color-text-secondary);
+    font-weight: bold;
+}
+
+.preview-latest-version {
+    color: var(--color-primary);
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+.preview-item-date {
+    font-size: 0.85em;
+    color: var(--color-text-tertiary);
 }
 

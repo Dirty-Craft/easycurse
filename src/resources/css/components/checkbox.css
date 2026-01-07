@@ -15,6 +15,36 @@
     cursor: pointer;
     accent-color: var(--color-primary);
     flex-shrink: 0;
+    background-color: var(--color-background);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    appearance: none;
+    appearance: none;
+    appearance: none;
+    position: relative;
+    transition: all var(--transition-base);
+}
+
+.form-checkbox input[type="checkbox"]:hover {
+    border-color: var(--color-primary);
+    background-color: var(--color-background-light);
+}
+
+.form-checkbox input[type="checkbox"]:checked {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.form-checkbox input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 4px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: translate(-50%, -60%) rotate(45deg);
 }
 
 .form-checkbox:has(input:disabled) {

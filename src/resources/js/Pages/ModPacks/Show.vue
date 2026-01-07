@@ -56,6 +56,20 @@
                         <div class="section-actions">
                             <Button
                                 v-if="modPack.items.length > 0"
+                                variant="primary"
+                                :class="{ 'btn-loading': isUpdatingAll }"
+                                :disabled="isUpdatingAll"
+                                @click="updateAllToLatest"
+                            >
+                                <span v-if="!isUpdatingAll">{{
+                                    t("modpacks.show.update_all_to_latest")
+                                }}</span>
+                                <span v-else class="loading-text">{{
+                                    t("modpacks.show.updating")
+                                }}</span>
+                            </Button>
+                            <Button
+                                v-if="modPack.items.length > 0"
                                 variant="success"
                                 :class="{ 'btn-loading': isDownloadingAll }"
                                 :disabled="isDownloadingAll"
@@ -156,6 +170,24 @@
                                 }}
                             </div>
                             <div class="bulk-actions-buttons">
+                                <Button
+                                    variant="primary"
+                                    size="sm"
+                                    :disabled="isUpdatingBulk"
+                                    :class="{
+                                        'btn-loading': isUpdatingBulk,
+                                    }"
+                                    @click="updateBulkToLatest"
+                                >
+                                    <span v-if="!isUpdatingBulk">{{
+                                        t(
+                                            "modpacks.show.update_selected_to_latest",
+                                        )
+                                    }}</span>
+                                    <span v-else class="loading-text">{{
+                                        t("modpacks.show.updating")
+                                    }}</span>
+                                </Button>
                                 <Button
                                     variant="success"
                                     size="sm"
@@ -273,6 +305,17 @@
                                     </div>
                                 </div>
                                 <div class="mod-item-actions">
+                                    <Button
+                                        v-if="
+                                            item.curseforge_mod_id &&
+                                            item.curseforge_file_id
+                                        "
+                                        size="sm"
+                                        variant="primary"
+                                        @click="openUpdateModModal(item)"
+                                    >
+                                        {{ t("modpacks.show.update") }}
+                                    </Button>
                                     <Button
                                         v-if="
                                             item.curseforge_mod_id &&
@@ -746,6 +789,331 @@
                 </div>
             </div>
         </Modal>
+
+        <!-- Update Mod Modal -->
+        <Modal
+            v-model:show="showUpdateModModal"
+            :title="t('modpacks.show.update_modal.title')"
+            size="large"
+            @close="closeUpdateModModal"
+        >
+            <!-- Step 1: Search for Mod (pre-filled with current mod) -->
+            <div v-if="updateModStep === 'search'" class="add-mod-step">
+                <FormGroup
+                    :label="t('modpacks.show.add_modal.search')"
+                    input-id="update-mod-search"
+                >
+                    <div class="search-input-wrapper">
+                        <Input
+                            id="update-mod-search"
+                            v-model="updateModSearchQuery"
+                            type="text"
+                            :placeholder="
+                                t('modpacks.show.add_modal.search_placeholder')
+                            "
+                            @input="debouncedUpdateSearch"
+                            @paste="handleUpdatePaste"
+                        />
+                        <div v-if="isUpdateSearching" class="search-loading">
+                            {{ t("modpacks.show.add_modal.searching") }}
+                        </div>
+                    </div>
+                </FormGroup>
+
+                <div
+                    v-if="updateModSearchResults.length > 0"
+                    class="search-results"
+                >
+                    <div class="search-results-header">
+                        <p class="search-results-count">
+                            {{
+                                t("modpacks.show.add_modal.found", {
+                                    count: updateModSearchResults.length,
+                                })
+                            }}
+                        </p>
+                    </div>
+                    <div class="mod-results-list">
+                        <div
+                            v-for="mod in updateModSearchResults"
+                            :key="mod.id"
+                            class="mod-result-item"
+                            @click="selectUpdateMod(mod)"
+                        >
+                            <div class="mod-result-content">
+                                <div class="mod-result-name">
+                                    {{ mod.name }}
+                                    <a
+                                        v-if="mod.slug"
+                                        :href="getCurseForgeUrl(mod.slug)"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="curseforge-link"
+                                        @click.stop
+                                    >
+                                        <svg
+                                            class="curseforge-icon"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            width="16"
+                                            height="16"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                        >
+                                            <path
+                                                d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                                            ></path>
+                                            <polyline
+                                                points="15 3 21 3 21 9"
+                                            ></polyline>
+                                            <line
+                                                x1="10"
+                                                y1="14"
+                                                x2="21"
+                                                y2="3"
+                                            ></line>
+                                        </svg>
+                                    </a>
+                                </div>
+                                <div class="mod-result-meta">
+                                    <span class="mod-result-slug">
+                                        {{ mod.slug }}
+                                    </span>
+                                    <span
+                                        v-if="mod.downloadCount"
+                                        class="mod-result-downloads"
+                                    >
+                                        {{ formatDownloads(mod.downloadCount) }}
+                                        downloads
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="mod-result-arrow">→</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    v-if="
+                        updateModSearchQuery &&
+                        !isUpdateSearching &&
+                        updateModSearchResults.length === 0 &&
+                        updateSearchPerformed
+                    "
+                    class="search-no-results"
+                >
+                    <p>{{ t("modpacks.show.add_modal.no_results") }}</p>
+                </div>
+
+                <div class="modal-footer">
+                    <Button variant="secondary" @click="closeUpdateModModal">
+                        {{ t("modpacks.show.edit_modal.cancel") }}
+                    </Button>
+                </div>
+            </div>
+
+            <!-- Step 2: Select Version -->
+            <div v-if="updateModStep === 'selectVersion'" class="add-mod-step">
+                <div class="selected-mod-info">
+                    <h3 class="selected-mod-name">
+                        {{ updateSelectedMod.name }}
+                        <a
+                            v-if="updateSelectedMod.slug"
+                            :href="getCurseForgeUrl(updateSelectedMod.slug)"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="curseforge-link"
+                            @click.stop
+                        >
+                            <svg
+                                class="curseforge-icon"
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <path
+                                    d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                                ></path>
+                                <polyline points="15 3 21 3 21 9"></polyline>
+                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                            </svg>
+                        </a>
+                    </h3>
+                    <p class="selected-mod-slug">
+                        {{ updateSelectedMod.slug }}
+                    </p>
+                </div>
+
+                <div v-if="isLoadingUpdateFiles" class="loading-files">
+                    <p>{{ t("modpacks.show.add_modal.loading") }}</p>
+                </div>
+
+                <div v-else-if="updateModFiles.length > 0" class="files-list">
+                    <div class="files-list-header">
+                        <p>
+                            {{
+                                t("modpacks.show.add_modal.select_version", {
+                                    version: modPack.minecraft_version,
+                                    software: modPack.software,
+                                })
+                            }}
+                        </p>
+                    </div>
+                    <div class="files-list-items">
+                        <div
+                            v-for="file in updateModFiles"
+                            :key="file.id"
+                            class="file-item"
+                            :class="{
+                                'file-item-selected':
+                                    updateSelectedFile?.id === file.id,
+                            }"
+                            @click="selectUpdateFile(file)"
+                        >
+                            <div class="file-item-content">
+                                <div class="file-item-name">
+                                    {{ file.displayName || file.fileName }}
+                                </div>
+                                <div class="file-item-meta">
+                                    <span class="file-item-date">
+                                        {{ formatDate(file.fileDate) }}
+                                    </span>
+                                    <span
+                                        v-if="file.fileLength"
+                                        class="file-item-size"
+                                    >
+                                        {{ formatFileSize(file.fileLength) }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div
+                                v-if="updateSelectedFile?.id === file.id"
+                                class="file-item-check"
+                            >
+                                ✓
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-else class="no-files">
+                    <p>
+                        {{
+                            t("modpacks.show.add_modal.no_compatible", {
+                                version: modPack.minecraft_version,
+                                software: modPack.software,
+                            })
+                        }}
+                    </p>
+                </div>
+
+                <div v-if="updateModError" class="error-message">
+                    <p>{{ updateModError }}</p>
+                </div>
+
+                <div class="modal-footer">
+                    <Button
+                        variant="secondary"
+                        @click="updateModStep = 'search'"
+                    >
+                        {{ t("modpacks.show.add_modal.back") }}
+                    </Button>
+                    <Button :disabled="!updateSelectedFile" @click="updateMod">
+                        {{ t("modpacks.show.update_modal.update") }}
+                    </Button>
+                </div>
+            </div>
+        </Modal>
+
+        <!-- Update Preview Modal -->
+        <Modal
+            v-model:show="showUpdatePreviewModal"
+            :title="t('modpacks.show.update_preview_modal.title')"
+            size="large"
+            @close="closeUpdatePreviewModal"
+        >
+            <div v-if="isPreviewLoading" class="loading-preview">
+                <p>{{ t("modpacks.show.update_preview_modal.loading") }}</p>
+            </div>
+            <div v-else>
+                <p class="preview-description">
+                    {{
+                        t("modpacks.show.update_preview_modal.description", {
+                            count: updatePreview.length,
+                        })
+                    }}
+                </p>
+                <div class="preview-list">
+                    <div
+                        v-for="update in updatePreview"
+                        :key="update.item_id"
+                        class="preview-item"
+                    >
+                        <div class="preview-item-content">
+                            <div class="preview-item-name">
+                                {{ update.mod_name }}
+                            </div>
+                            <div class="preview-item-versions">
+                                <span class="preview-current-version">
+                                    {{
+                                        t(
+                                            "modpacks.show.update_preview_modal.current",
+                                        )
+                                    }}:
+                                    {{ update.current_version }}
+                                </span>
+                                <span class="preview-arrow">→</span>
+                                <span class="preview-latest-version">
+                                    {{
+                                        t(
+                                            "modpacks.show.update_preview_modal.latest",
+                                        )
+                                    }}:
+                                    {{ update.latest_version }}
+                                </span>
+                            </div>
+                            <div
+                                v-if="update.file_date"
+                                class="preview-item-date"
+                            >
+                                {{ formatDate(update.file_date) }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <template #footer>
+                <Button
+                    variant="secondary"
+                    :disabled="isUpdatingAll || isUpdatingBulk"
+                    @click="closeUpdatePreviewModal"
+                >
+                    {{ t("modpacks.show.edit_modal.cancel") }}
+                </Button>
+                <Button
+                    variant="primary"
+                    :disabled="isUpdatingAll || isUpdatingBulk"
+                    :class="{ 'btn-loading': isUpdatingAll || isUpdatingBulk }"
+                    @click="confirmUpdatePreview"
+                >
+                    <span v-if="!isUpdatingAll && !isUpdatingBulk">{{
+                        t("modpacks.show.update_preview_modal.confirm")
+                    }}</span>
+                    <span v-else class="loading-text">{{
+                        t("modpacks.show.updating")
+                    }}</span>
+                </Button>
+            </template>
+        </Modal>
     </AppLayout>
 </template>
 
@@ -777,12 +1145,22 @@ const props = defineProps({
 
 const showEditModal = ref(false);
 const showAddModModal = ref(false);
+const showUpdateModModal = ref(false);
 const showChangeVersionModal = ref(false);
 const showShareModal = ref(false);
+const showUpdatePreviewModal = ref(false);
 const addModStep = ref("search"); // 'search' or 'selectVersion'
+const updateModStep = ref("search"); // 'search' or 'selectVersion'
 const shareUrl = ref("");
 const isCopying = ref(false);
 const isRegenerating = ref(false);
+const isUpdatingAll = ref(false);
+const isUpdatingBulk = ref(false);
+const currentUpdateItem = ref(null);
+const updatePreview = ref([]);
+const isPreviewLoading = ref(false);
+const pendingUpdateType = ref(null); // 'all' or 'bulk'
+const pendingItemIds = ref([]);
 
 const editForm = useForm({
     name: props.modPack.name,
@@ -909,7 +1287,19 @@ const selectedItems = ref(new Set());
 const isDownloadingBulk = ref(false);
 const isDeletingBulk = ref(false);
 
+// Update mod modal state
+const updateModSearchQuery = ref("");
+const updateModSearchResults = ref([]);
+const isUpdateSearching = ref(false);
+const updateSearchPerformed = ref(false);
+const updateSelectedMod = ref(null);
+const updateModFiles = ref([]);
+const isLoadingUpdateFiles = ref(false);
+const updateSelectedFile = ref(null);
+const updateModError = ref("");
+
 let searchTimeout = null;
+let updateSearchTimeout = null;
 
 // Filter mods based on search query
 const filteredMods = computed(() => {
@@ -1129,6 +1519,366 @@ const deleteModItem = (itemId) => {
                 selectedItems.value.delete(itemId);
             },
         });
+    }
+};
+
+const openUpdateModModal = async (item) => {
+    currentUpdateItem.value = item;
+    showUpdateModModal.value = true;
+    updateModStep.value = "selectVersion";
+    updateModError.value = "";
+
+    // Pre-fill the mod info
+    if (item.curseforge_mod_id) {
+        updateSelectedMod.value = {
+            id: item.curseforge_mod_id,
+            name: item.mod_name,
+            slug: item.curseforge_slug,
+        };
+        updateModSearchQuery.value = item.mod_name;
+
+        // Load files for this mod
+        isLoadingUpdateFiles.value = true;
+        updateModFiles.value = [];
+        updateSelectedFile.value = null;
+
+        try {
+            const response = await axios.get(
+                `/mod-packs/${props.modPack.id}/mod-files`,
+                {
+                    params: {
+                        mod_id: item.curseforge_mod_id,
+                    },
+                },
+            );
+
+            updateModFiles.value = response.data.data || [];
+
+            // Auto-select the latest file if available
+            if (updateModFiles.value.length > 0) {
+                updateSelectedFile.value = updateModFiles.value[0];
+            }
+        } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error("Error loading mod files:", error);
+            updateModFiles.value = [];
+        } finally {
+            isLoadingUpdateFiles.value = false;
+        }
+    } else {
+        // If no curseforge_mod_id, start with search
+        updateModStep.value = "search";
+        updateSelectedMod.value = null;
+        updateModSearchQuery.value = item.mod_name;
+    }
+};
+
+const closeUpdateModModal = () => {
+    showUpdateModModal.value = false;
+    updateModStep.value = "search";
+    updateModSearchQuery.value = "";
+    updateModSearchResults.value = [];
+    updateSearchPerformed.value = false;
+    updateSelectedMod.value = null;
+    updateModFiles.value = [];
+    updateSelectedFile.value = null;
+    updateModError.value = "";
+    currentUpdateItem.value = null;
+};
+
+const debouncedUpdateSearch = () => {
+    if (updateSearchTimeout) {
+        clearTimeout(updateSearchTimeout);
+    }
+
+    if (updateModSearchQuery.value.length < 2) {
+        updateModSearchResults.value = [];
+        updateSearchPerformed.value = false;
+        return;
+    }
+
+    updateSearchTimeout = setTimeout(() => {
+        searchUpdateMods();
+    }, 500);
+};
+
+watch(updateModSearchQuery, () => {
+    debouncedUpdateSearch();
+});
+
+const handleUpdatePaste = () => {
+    // The watcher on updateModSearchQuery will handle triggering the search
+    // after the v-model updates from the paste event
+};
+
+const searchUpdateMods = async () => {
+    if (updateModSearchQuery.value.length < 2) {
+        return;
+    }
+
+    isUpdateSearching.value = true;
+    updateSearchPerformed.value = true;
+
+    try {
+        const response = await axios.get(
+            `/mod-packs/${props.modPack.id}/search-mods`,
+            {
+                params: {
+                    query: updateModSearchQuery.value,
+                },
+            },
+        );
+
+        updateModSearchResults.value = response.data.data || [];
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error searching mods:", error);
+        updateModSearchResults.value = [];
+    } finally {
+        isUpdateSearching.value = false;
+    }
+};
+
+const selectUpdateMod = async (mod) => {
+    updateSelectedMod.value = mod;
+    updateModStep.value = "selectVersion";
+    isLoadingUpdateFiles.value = true;
+    updateModFiles.value = [];
+    updateSelectedFile.value = null;
+    updateModError.value = "";
+
+    try {
+        const response = await axios.get(
+            `/mod-packs/${props.modPack.id}/mod-files`,
+            {
+                params: {
+                    mod_id: mod.id,
+                },
+            },
+        );
+
+        updateModFiles.value = response.data.data || [];
+
+        // Auto-select the latest file if available
+        if (updateModFiles.value.length > 0) {
+            updateSelectedFile.value = updateModFiles.value[0];
+        }
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error loading mod files:", error);
+        updateModFiles.value = [];
+    } finally {
+        isLoadingUpdateFiles.value = false;
+    }
+};
+
+const selectUpdateFile = (file) => {
+    updateSelectedFile.value = file;
+};
+
+const updateMod = () => {
+    if (!updateSelectedMod.value || !updateSelectedFile.value) {
+        return;
+    }
+
+    // Clear any previous errors
+    updateModError.value = "";
+
+    if (!currentUpdateItem.value) {
+        updateModError.value = t("modpacks.show.update_failed");
+        return;
+    }
+
+    const form = useForm({
+        mod_name: updateSelectedMod.value.name,
+        mod_version:
+            updateSelectedFile.value.displayName ||
+            updateSelectedFile.value.fileName,
+        curseforge_mod_id: updateSelectedMod.value.id,
+        curseforge_file_id: updateSelectedFile.value.id,
+        curseforge_slug: updateSelectedMod.value.slug,
+    });
+
+    form.put(
+        `/mod-packs/${props.modPack.id}/items/${currentUpdateItem.value.id}`,
+        {
+            onSuccess: () => {
+                closeUpdateModModal();
+            },
+            onError: (errors) => {
+                // Handle backend validation errors
+                if (errors.curseforge_mod_id) {
+                    updateModError.value = errors.curseforge_mod_id;
+                } else {
+                    updateModError.value = t("modpacks.show.update_failed");
+                }
+            },
+        },
+    );
+};
+
+const updateBulkToLatest = async () => {
+    if (selectedItems.value.size === 0) {
+        return;
+    }
+
+    const itemIds = Array.from(selectedItems.value);
+    const selectedMods = filteredMods.value.filter((item) =>
+        itemIds.includes(item.id),
+    );
+
+    // Filter to only mods with curseforge_mod_id
+    const modsToUpdate = selectedMods.filter(
+        (item) => item.curseforge_mod_id && item.curseforge_file_id,
+    );
+
+    if (modsToUpdate.length === 0) {
+        alert(t("modpacks.show.no_mods_to_update"));
+        return;
+    }
+
+    // Show preview first
+    isUpdatingBulk.value = true;
+    isPreviewLoading.value = true;
+    pendingUpdateType.value = "bulk";
+    pendingItemIds.value = modsToUpdate.map((item) => item.id);
+
+    try {
+        const response = await axios.post(
+            `/mod-packs/${props.modPack.id}/items/preview-bulk-to-latest`,
+            {
+                item_ids: pendingItemIds.value,
+            },
+        );
+
+        updatePreview.value = response.data.updates || [];
+
+        if (updatePreview.value.length === 0) {
+            alert(t("modpacks.show.no_updates_available"));
+            isUpdatingBulk.value = false;
+            isPreviewLoading.value = false;
+            return;
+        }
+
+        // Reset loading state after preview is loaded (before showing modal)
+        isUpdatingBulk.value = false;
+        showUpdatePreviewModal.value = true;
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error previewing updates:", error);
+        alert(t("modpacks.show.preview_failed"));
+        isUpdatingBulk.value = false;
+    } finally {
+        isPreviewLoading.value = false;
+    }
+};
+
+const updateAllToLatest = async () => {
+    if (props.modPack.items.length === 0) {
+        return;
+    }
+
+    // Filter to only mods with curseforge_mod_id
+    const modsToUpdate = props.modPack.items.filter(
+        (item) => item.curseforge_mod_id && item.curseforge_file_id,
+    );
+
+    if (modsToUpdate.length === 0) {
+        alert(t("modpacks.show.no_mods_to_update"));
+        return;
+    }
+
+    // Show preview first
+    isUpdatingAll.value = true;
+    isPreviewLoading.value = true;
+    pendingUpdateType.value = "all";
+    pendingItemIds.value = [];
+
+    try {
+        const response = await axios.get(
+            `/mod-packs/${props.modPack.id}/items/preview-all-to-latest`,
+        );
+
+        updatePreview.value = response.data.updates || [];
+
+        if (updatePreview.value.length === 0) {
+            alert(t("modpacks.show.no_updates_available"));
+            isUpdatingAll.value = false;
+            isPreviewLoading.value = false;
+            return;
+        }
+
+        // Reset loading state after preview is loaded (before showing modal)
+        isUpdatingAll.value = false;
+        showUpdatePreviewModal.value = true;
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error previewing updates:", error);
+        alert(t("modpacks.show.preview_failed"));
+        isUpdatingAll.value = false;
+    } finally {
+        isPreviewLoading.value = false;
+    }
+};
+
+const closeUpdatePreviewModal = () => {
+    showUpdatePreviewModal.value = false;
+    updatePreview.value = [];
+    pendingUpdateType.value = null;
+    pendingItemIds.value = [];
+    // Reset all loading states when modal is closed
+    isUpdatingAll.value = false;
+    isUpdatingBulk.value = false;
+    isPreviewLoading.value = false;
+};
+
+const confirmUpdatePreview = async () => {
+    if (pendingUpdateType.value === "all") {
+        isUpdatingAll.value = true;
+        try {
+            const response = await axios.post(
+                `/mod-packs/${props.modPack.id}/items/update-all-to-latest`,
+            );
+
+            if (response.data.success) {
+                closeUpdatePreviewModal();
+                // Reload the page to show updated mods
+                router.reload();
+            } else {
+                alert(t("modpacks.show.update_all_failed"));
+            }
+        } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error("Error updating all mods:", error);
+            alert(t("modpacks.show.update_all_failed"));
+        } finally {
+            isUpdatingAll.value = false;
+        }
+    } else if (pendingUpdateType.value === "bulk") {
+        isUpdatingBulk.value = true;
+        try {
+            const response = await axios.post(
+                `/mod-packs/${props.modPack.id}/bulk-items/update-to-latest`,
+                {
+                    item_ids: pendingItemIds.value,
+                },
+            );
+
+            if (response.data.success) {
+                closeUpdatePreviewModal();
+                clearSelection();
+                // Reload the page to show updated mods
+                router.reload();
+            } else {
+                alert(t("modpacks.show.bulk_update_failed"));
+            }
+        } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error("Error updating mods:", error);
+            alert(t("modpacks.show.bulk_update_failed"));
+        } finally {
+            isUpdatingBulk.value = false;
+        }
     }
 };
 

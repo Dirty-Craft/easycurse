@@ -39,7 +39,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/mod-packs/{id}/search-mods', [\App\Http\Controllers\ModPackController::class, 'searchMods'])->name('mod-packs.search-mods');
     Route::get('/mod-packs/{id}/mod-files', [\App\Http\Controllers\ModPackController::class, 'getModFiles'])->name('mod-packs.mod-files');
     Route::post('/mod-packs/{id}/items', [\App\Http\Controllers\ModPackController::class, 'storeItem'])->name('mod-packs.items.store');
+    Route::put('/mod-packs/{id}/items/{itemId}', [\App\Http\Controllers\ModPackController::class, 'updateItem'])->name('mod-packs.items.update');
     Route::delete('/mod-packs/{id}/items/{itemId}', [\App\Http\Controllers\ModPackController::class, 'destroyItem'])->name('mod-packs.items.destroy');
+    Route::get('/mod-packs/{id}/items/preview-all-to-latest', [\App\Http\Controllers\ModPackController::class, 'previewAllItemsToLatest'])->name('mod-packs.items.preview-all-to-latest');
+    Route::post('/mod-packs/{id}/items/preview-bulk-to-latest', [\App\Http\Controllers\ModPackController::class, 'previewBulkItemsToLatest'])->name('mod-packs.items.preview-bulk-to-latest');
+    Route::post('/mod-packs/{id}/items/update-all-to-latest', [\App\Http\Controllers\ModPackController::class, 'updateAllItemsToLatest'])->name('mod-packs.items.update-all-to-latest');
+    Route::post('/mod-packs/{id}/bulk-items/update-to-latest', [\App\Http\Controllers\ModPackController::class, 'updateBulkItemsToLatest'])->name('mod-packs.bulk-items.update-to-latest');
     Route::get('/mod-packs/{id}/download-links', [\App\Http\Controllers\ModPackController::class, 'getDownloadLinks'])->name('mod-packs.download-links');
     Route::post('/mod-packs/{id}/bulk-download-links', [\App\Http\Controllers\ModPackController::class, 'getBulkDownloadLinks'])->name('mod-packs.bulk-download-links');
     Route::get('/mod-packs/{id}/items/{itemId}/download-link', [\App\Http\Controllers\ModPackController::class, 'getItemDownloadLink'])->name('mod-packs.items.download-link');
