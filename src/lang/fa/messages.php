@@ -24,6 +24,7 @@ return [
     'modpack.proxy_download_failed' => 'دانلود از طریق پراکسی ناموفق بود: :error',
     'modpack.no_download_info' => 'این ماد اطلاعات دانلود از CurseForge ندارد.',
     'modpack.unable_to_retrieve_download' => 'امکان دریافت اطلاعات دانلود این ماد وجود ندارد.',
+    'modpack.invalid_item_ids' => 'یک یا چند مورد انتخاب شده متعلق به این مودپک نیست.',
 
     // Landing page
     'landing.title' => 'همراه مدیریت مادهای شما',
@@ -236,6 +237,12 @@ return [
     'modpacks.show.no_successful_downloads' => 'هیچ مادی با موفقیت دانلود نشد.',
     'modpacks.show.zip_failed' => 'ساخت فایل ZIP ناموفق بود',
     'modpacks.show.download_pack_failed' => 'دانلود مودپک ناموفق بود: :error',
+    'modpacks.show.selected_count' => ':count مورد انتخاب شده',
+    'modpacks.show.download_selected' => '📦 دانلود موارد انتخاب شده',
+    'modpacks.show.delete_selected' => '🗑️ حذف موارد انتخاب شده',
+    'modpacks.show.clear_selection' => 'پاک کردن انتخاب',
+    'modpacks.show.bulk_delete_confirm' => 'آیا مطمئن هستید که می‌خواهید :count ماد انتخاب شده را حذف کنید؟',
+    'modpacks.show.bulk_delete_failed' => 'حذف مادهای انتخاب شده ناموفق بود. لطفاً دوباره امتحان کنید.',
     'modpacks.shared.back' => '→ بازگشت به خانه',
     'modpacks.shared.by' => 'توسط :name',
     'modpacks.shared.view_collection' => 'مشاهده در کالکشن من',

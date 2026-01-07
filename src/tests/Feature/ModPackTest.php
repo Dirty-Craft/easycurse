@@ -2477,6 +2477,197 @@ class ModPackTest extends TestCase
     }
 
     /**
+     * Test that user can get bulk download links for selected items.
+     */
+    public function test_user_can_get_bulk_download_links(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        // Create items with CurseForge data
+        $item1 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'JEI',
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 4638256,
+        ]);
+
+        $item2 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Applied Energistics 2',
+            'curseforge_mod_id' => 223794,
+            'curseforge_file_id' => 4639210,
+        ]);
+
+        // Item without CurseForge data (should be skipped)
+        $item3 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Custom Mod',
+            'curseforge_mod_id' => null,
+            'curseforge_file_id' => null,
+        ]);
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/238222/files/4638256*' => Http::response([
+                'data' => [
+                    'downloadUrl' => 'https://mediafilez.forgecdn.net/files/4638/256/jei-1.20.1-forge-12.3.0.15.jar',
+                ],
+            ]),
+            'api.curseforge.com/v1/mods/223794/files/4639210*' => Http::response([
+                'data' => [
+                    'downloadUrl' => 'https://mediafilez.forgecdn.net/files/4639/210/appliedenergistics2-forge-15.0.7.jar',
+                ],
+            ]),
+        ]);
+
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/bulk-download-links", [
+            'item_ids' => [$item1->id, $item2->id, $item3->id],
+        ]);
+
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(2, $data); // Only items with CurseForge data
+
+        // Verify downloads_count was incremented
+        $modPack->refresh();
+        $this->assertEquals(1, $modPack->downloads_count);
+    }
+
+    /**
+     * Test that bulk download links requires authentication.
+     */
+    public function test_bulk_download_links_requires_authentication(): void
+    {
+        $modPack = ModPack::factory()->create();
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+
+        $response = $this->post("/mod-packs/{$modPack->id}/bulk-download-links", [
+            'item_ids' => [$item->id],
+        ]);
+
+        $response->assertRedirect('/login');
+    }
+
+    /**
+     * Test that user cannot get bulk download links for other user's mod pack.
+     */
+    public function test_user_cannot_get_bulk_download_links_for_other_user_mod_pack(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $otherUser->id]);
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/bulk-download-links", [
+            'item_ids' => [$item->id],
+        ]);
+
+        $response->assertNotFound();
+    }
+
+    /**
+     * Test that bulk download links validates item_ids belong to mod pack.
+     */
+    public function test_bulk_download_links_validates_item_ownership(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+        $otherModPack = ModPack::factory()->create(['user_id' => $user->id]);
+        $item1 = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+        $item2 = ModPackItem::factory()->create(['mod_pack_id' => $otherModPack->id]);
+
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/bulk-download-links", [
+            'item_ids' => [$item1->id, $item2->id],
+        ]);
+
+        $response->assertStatus(400);
+        $response->assertJson([
+            'error' => 'One or more selected items do not belong to this mod pack.',
+        ]);
+    }
+
+    /**
+     * Test that user can delete multiple mod items in bulk.
+     */
+    public function test_user_can_delete_bulk_items(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        $item1 = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+        $item2 = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+        $item3 = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/bulk-items/delete", [
+            'item_ids' => [$item1->id, $item2->id],
+        ]);
+
+        $response->assertRedirect("/mod-packs/{$modPack->id}");
+
+        // Verify items were deleted
+        $this->assertDatabaseMissing('mod_pack_items', ['id' => $item1->id]);
+        $this->assertDatabaseMissing('mod_pack_items', ['id' => $item2->id]);
+        $this->assertDatabaseHas('mod_pack_items', ['id' => $item3->id]);
+    }
+
+    /**
+     * Test that bulk delete requires authentication.
+     */
+    public function test_bulk_delete_requires_authentication(): void
+    {
+        $modPack = ModPack::factory()->create();
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+
+        $response = $this->post("/mod-packs/{$modPack->id}/bulk-items/delete", [
+            'item_ids' => [$item->id],
+        ]);
+
+        $response->assertRedirect('/login');
+    }
+
+    /**
+     * Test that user cannot delete bulk items from other user's mod pack.
+     */
+    public function test_user_cannot_delete_bulk_items_from_other_user_mod_pack(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $otherUser->id]);
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/bulk-items/delete", [
+            'item_ids' => [$item->id],
+        ]);
+
+        $response->assertNotFound();
+    }
+
+    /**
+     * Test that bulk delete validates item_ids belong to mod pack.
+     */
+    public function test_bulk_delete_validates_item_ownership(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+        $otherModPack = ModPack::factory()->create(['user_id' => $user->id]);
+        $item1 = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+        $item2 = ModPackItem::factory()->create(['mod_pack_id' => $otherModPack->id]);
+
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/bulk-items/delete", [
+            'item_ids' => [$item1->id, $item2->id],
+        ]);
+
+        $response->assertStatus(400);
+        $response->assertJson([
+            'error' => 'One or more selected items do not belong to this mod pack.',
+        ]);
+
+        // Verify no items were deleted
+        $this->assertDatabaseHas('mod_pack_items', ['id' => $item1->id]);
+        $this->assertDatabaseHas('mod_pack_items', ['id' => $item2->id]);
+    }
+
+    /**
      * Test that proxy download accepts edge.forgecdn.net domain.
      */
     public function test_proxy_download_accepts_edge_forgecdn_net(): void
@@ -3793,6 +3984,134 @@ class ModPackTest extends TestCase
         $response->assertJson([
             'error' => 'This mod item does not have CurseForge download information.',
         ]);
+    }
+
+    /**
+     * Test that user can get bulk download links for selected items in shared modpack.
+     */
+    public function test_user_can_get_bulk_download_links_for_shared_modpack(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        // Create items with CurseForge data
+        $item1 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'JEI',
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 4638256,
+        ]);
+
+        $item2 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Applied Energistics 2',
+            'curseforge_mod_id' => 223794,
+            'curseforge_file_id' => 4639210,
+        ]);
+
+        // Item without CurseForge data (should be skipped)
+        $item3 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Custom Mod',
+            'curseforge_mod_id' => null,
+            'curseforge_file_id' => null,
+        ]);
+
+        $token = $modPack->generateShareToken();
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/238222/files/4638256*' => Http::response([
+                'data' => [
+                    'downloadUrl' => 'https://mediafilez.forgecdn.net/files/4638/256/jei-1.20.1-forge-12.3.0.15.jar',
+                ],
+            ]),
+            'api.curseforge.com/v1/mods/223794/files/4639210*' => Http::response([
+                'data' => [
+                    'downloadUrl' => 'https://mediafilez.forgecdn.net/files/4639/210/appliedenergistics2-forge-15.0.7.jar',
+                ],
+            ]),
+        ]);
+
+        $response = $this->post("/shared/{$token}/bulk-download-links", [
+            'item_ids' => [$item1->id, $item2->id, $item3->id],
+        ]);
+
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(2, $data); // Only items with CurseForge data
+
+        // Verify downloads_count was incremented
+        $modPack->refresh();
+        $this->assertEquals(1, $modPack->downloads_count);
+    }
+
+    /**
+     * Test that bulk download links for shared modpack validates item ownership.
+     */
+    public function test_bulk_download_links_for_shared_modpack_validates_item_ownership(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+        $otherModPack = ModPack::factory()->create(['user_id' => $user->id]);
+        $item1 = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+        $item2 = ModPackItem::factory()->create(['mod_pack_id' => $otherModPack->id]);
+        $token = $modPack->generateShareToken();
+
+        $response = $this->post("/shared/{$token}/bulk-download-links", [
+            'item_ids' => [$item1->id, $item2->id],
+        ]);
+
+        $response->assertStatus(400);
+        $response->assertJson([
+            'error' => 'One or more selected items do not belong to this mod pack.',
+        ]);
+    }
+
+    /**
+     * Test that bulk download links for shared modpack works without authentication.
+     */
+    public function test_bulk_download_links_for_shared_modpack_works_without_authentication(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        $item1 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'JEI',
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 4638256,
+        ]);
+
+        $token = $modPack->generateShareToken();
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/238222/files/4638256*' => Http::response([
+                'data' => [
+                    'downloadUrl' => 'https://mediafilez.forgecdn.net/files/4638/256/jei-1.20.1-forge-12.3.0.15.jar',
+                ],
+            ]),
+        ]);
+
+        // Make request without authentication
+        $response = $this->post("/shared/{$token}/bulk-download-links", [
+            'item_ids' => [$item1->id],
+        ]);
+
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(1, $data);
+    }
+
+    /**
+     * Test that invalid share token for bulk download links returns 404.
+     */
+    public function test_invalid_share_token_for_bulk_download_links_returns_404(): void
+    {
+        $response = $this->post('/shared/invalid-token-12345/bulk-download-links', [
+            'item_ids' => [1, 2, 3],
+        ]);
+
+        $response->assertNotFound();
     }
 
     /**

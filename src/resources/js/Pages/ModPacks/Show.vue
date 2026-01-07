@@ -145,6 +145,52 @@
                         </div>
 
                         <div
+                            v-if="selectedItems.size > 0"
+                            class="bulk-actions-bar"
+                        >
+                            <div class="bulk-actions-info">
+                                {{
+                                    t("modpacks.show.selected_count", {
+                                        count: selectedItems.size,
+                                    })
+                                }}
+                            </div>
+                            <div class="bulk-actions-buttons">
+                                <Button
+                                    variant="success"
+                                    size="sm"
+                                    :disabled="isDownloadingBulk"
+                                    :class="{
+                                        'btn-loading': isDownloadingBulk,
+                                    }"
+                                    @click="downloadBulkSelected"
+                                >
+                                    <span v-if="!isDownloadingBulk">{{
+                                        t("modpacks.show.download_selected")
+                                    }}</span>
+                                    <span v-else class="loading-text">{{
+                                        t("modpacks.show.downloading")
+                                    }}</span>
+                                </Button>
+                                <Button
+                                    variant="danger"
+                                    size="sm"
+                                    :disabled="isDeletingBulk"
+                                    @click="deleteBulkSelected"
+                                >
+                                    {{ t("modpacks.show.delete_selected") }}
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    @click="clearSelection"
+                                >
+                                    {{ t("modpacks.show.clear_selection") }}
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div
                             v-if="filteredMods.length === 0"
                             class="empty-state"
                         >
@@ -158,8 +204,24 @@
                                 v-for="(item, index) in filteredMods"
                                 :key="item.id"
                                 class="mod-item"
+                                :class="{
+                                    'mod-item-selected': selectedItems.has(
+                                        item.id,
+                                    ),
+                                }"
                             >
                                 <div class="mod-item-content">
+                                    <div class="mod-item-checkbox">
+                                        <input
+                                            type="checkbox"
+                                            :checked="
+                                                selectedItems.has(item.id)
+                                            "
+                                            @change="
+                                                toggleItemSelection(item.id)
+                                            "
+                                        />
+                                    </div>
                                     <div class="mod-item-number">
                                         {{ index + 1 }}
                                     </div>
@@ -843,6 +905,9 @@ const isDownloadingAll = ref(false);
 const downloadingItems = ref(new Set());
 const addModError = ref("");
 const modsSearchQuery = ref("");
+const selectedItems = ref(new Set());
+const isDownloadingBulk = ref(false);
+const isDeletingBulk = ref(false);
 
 let searchTimeout = null;
 
@@ -1058,7 +1123,12 @@ const deleteModPack = () => {
 
 const deleteModItem = (itemId) => {
     if (confirm(t("modpacks.show.remove_confirm"))) {
-        router.delete(`/mod-packs/${props.modPack.id}/items/${itemId}`);
+        router.delete(`/mod-packs/${props.modPack.id}/items/${itemId}`, {
+            onSuccess: () => {
+                // Remove from selected items if it was selected
+                selectedItems.value.delete(itemId);
+            },
+        });
     }
 };
 
@@ -1170,6 +1240,206 @@ const downloadFileViaProxy = async (url) => {
 
     const blob = await response.blob();
     return blob;
+};
+
+const toggleItemSelection = (itemId) => {
+    if (selectedItems.value.has(itemId)) {
+        selectedItems.value.delete(itemId);
+    } else {
+        selectedItems.value.add(itemId);
+    }
+};
+
+const clearSelection = () => {
+    selectedItems.value.clear();
+};
+
+const downloadBulkSelected = async () => {
+    if (selectedItems.value.size === 0) {
+        return;
+    }
+
+    const itemIds = Array.from(selectedItems.value);
+    const selectedMods = filteredMods.value.filter((item) =>
+        itemIds.includes(item.id),
+    );
+
+    if (selectedMods.length === 0) {
+        return;
+    }
+
+    try {
+        isDownloadingBulk.value = true;
+
+        // Get download links for selected items
+        const response = await axios.post(
+            `/mod-packs/${props.modPack.id}/bulk-download-links`,
+            {
+                item_ids: itemIds,
+            },
+        );
+
+        if (!response.data || !response.data.data) {
+            throw new Error("Invalid response from server");
+        }
+
+        const downloadLinks = response.data.data;
+        if (downloadLinks.length === 0) {
+            alert(t("modpacks.show.no_download_info"));
+            isDownloadingBulk.value = false;
+            return;
+        }
+
+        // Download all files in parallel
+        const files = await Promise.all(
+            downloadLinks.map(async (link) => {
+                try {
+                    if (!link.download_url || !link.mod_name) {
+                        throw new Error("Missing download URL or mod name");
+                    }
+
+                    const blob = await downloadFileViaProxy(link.download_url);
+
+                    if (blob.size === 0) {
+                        throw new Error(`Downloaded file is empty`);
+                    }
+
+                    // Check if the blob is actually an error page (HTML response)
+                    const slice = blob.slice(0, 1024);
+                    const sliceText = await slice.text();
+                    if (
+                        sliceText.trim().startsWith("<") ||
+                        sliceText.includes("<!DOCTYPE") ||
+                        sliceText.includes("<html")
+                    ) {
+                        throw new Error(
+                            `Received HTML instead of file (likely an error page)`,
+                        );
+                    }
+
+                    return {
+                        name: link.filename || `${link.mod_name}.jar`,
+                        input: blob,
+                    };
+                } catch (error) {
+                    // Return error file
+                    return {
+                        name: `${link.mod_name}_ERROR.txt`,
+                        input: new Blob(
+                            [
+                                `Error: Failed to download ${link.mod_name}\n${error.message}\n\nURL: ${link.download_url || "N/A"}`,
+                            ],
+                            { type: "text/plain" },
+                        ),
+                    };
+                }
+            }),
+        );
+
+        // Check if all files failed
+        const errorFiles = files.filter((f) => f.name.endsWith("_ERROR.txt"));
+        if (errorFiles.length === files.length && errorFiles.length > 0) {
+            alert(t("modpacks.show.download_error"));
+            isDownloadingBulk.value = false;
+            return;
+        }
+
+        // Warn if some files failed
+        if (errorFiles.length > 0) {
+            const successCount = files.length - errorFiles.length;
+            const failCount = errorFiles.length;
+            if (
+                !confirm(
+                    t("modpacks.show.download_partial_confirm", {
+                        failCount,
+                        successCount,
+                    }),
+                )
+            ) {
+                isDownloadingBulk.value = false;
+                return;
+            }
+        }
+
+        // Filter out error files if user chose to continue
+        const successfulFiles = files.filter(
+            (f) => !f.name.endsWith("_ERROR.txt"),
+        );
+
+        if (successfulFiles.length === 0) {
+            alert(t("modpacks.show.no_successful_downloads"));
+            isDownloadingBulk.value = false;
+            return;
+        }
+
+        // Create ZIP file
+        const zipBlob = await downloadZip(successfulFiles).blob();
+
+        if (!zipBlob || zipBlob.size === 0) {
+            throw new Error("Failed to create ZIP file");
+        }
+
+        // Trigger download
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${props.modPack.name.replace(/[^a-z0-9]/gi, "_")}_selected_mods.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        // Clear selection after successful download
+        clearSelection();
+    } catch (error) {
+        console.error("Error downloading selected mods:", error);
+        const errorMessage =
+            error?.message || error?.toString() || "Unknown error";
+        alert(t("modpacks.show.download_pack_failed", { error: errorMessage }));
+    } finally {
+        isDownloadingBulk.value = false;
+    }
+};
+
+const deleteBulkSelected = () => {
+    if (selectedItems.value.size === 0) {
+        return;
+    }
+
+    const itemIds = Array.from(selectedItems.value);
+    const count = itemIds.length;
+
+    if (
+        !confirm(
+            t("modpacks.show.bulk_delete_confirm", {
+                count,
+            }),
+        )
+    ) {
+        return;
+    }
+
+    isDeletingBulk.value = true;
+
+    router.post(
+        `/mod-packs/${props.modPack.id}/bulk-items/delete`,
+        {
+            item_ids: itemIds,
+        },
+        {
+            onSuccess: () => {
+                // Clear selection after successful delete
+                clearSelection();
+            },
+            onError: (errors) => {
+                console.error("Error deleting selected mods:", errors);
+                alert(t("modpacks.show.bulk_delete_failed"));
+            },
+            onFinish: () => {
+                isDeletingBulk.value = false;
+            },
+        },
+    );
 };
 
 const downloadAllAsZip = async () => {
