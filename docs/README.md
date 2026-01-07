@@ -6,6 +6,7 @@
 - [Database](database.md)
 - [CurseForge Integration](curseforge.md)
 - [Modrinth Integration](modrinth.md)
+- [Mod Update Reminders](reminders.md)
 - [Linter](linter.md)
 - [Styles](styles.md)
 - [Localization](localization.md)
