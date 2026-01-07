@@ -2,6 +2,18 @@
 
 This project integrates with the Modrinth API to enable mod search and version selection for mod packs. The application supports both CurseForge and Modrinth, allowing users to load mods from either platform.
 
+## Unified Mod Service
+
+The application uses a unified `ModService` class (`src/app/Services/ModService.php`) that acts as an interface for both `CurseForgeService` and `ModrinthService`. This eliminates the need for conditional service usage throughout the codebase.
+
+**For most use cases, you should use `ModService` instead of directly instantiating `CurseForgeService` or `ModrinthService`.**
+
+The `ModService` automatically:
+- Merges results from both platforms when searching mods
+- Combines game versions and mod loaders from both sources
+- Handles source detection and routing to the appropriate service
+- Normalizes data structures between platforms (e.g., `title` → `name`, `project_id` → `id`)
+
 ## Service Class
 
 The `ModrinthService` class (`src/app/Services/ModrinthService.php`) handles all interactions with the Modrinth API. It provides methods for:
@@ -39,16 +51,16 @@ When adding mods to a mod pack, users can:
    - For CurseForge: mod ID, file ID, and slug
 5. The `source` field tracks which platform the mod comes from (`curseforge` or `modrinth`)
 
-The integration ensures version compatibility by automatically filtering versions based on the mod pack's configuration. Both platforms are searched simultaneously, and results are merged and deduplicated.
+The integration ensures version compatibility by automatically filtering versions based on the mod pack's configuration. Both platforms are searched simultaneously, and results are merged and deduplicated. The `ModService` handles this merging automatically.
 
 ## API Endpoints
 
 The following endpoints support both CurseForge and Modrinth:
 
-- `GET /mod-packs/{id}/search-mods?query={query}` - Search for mods (searches both platforms)
-- `GET /mod-packs/{id}/mod-files?mod_id={mod_id}&source={curseforge|modrinth}` - Get available files/versions for a mod
+- `GET /mod-packs/{id}/search-mods?query={query}` - Search for mods (searches both platforms via `ModService`)
+- `GET /mod-packs/{id}/mod-files?mod_id={mod_id}&source={curseforge|modrinth}` - Get available files/versions for a mod (requires `source` parameter)
 
-**Note:** The `mod-files` endpoint requires a `source` parameter to specify which platform to query (`curseforge` or `modrinth`).
+**Note:** The `mod-files` endpoint requires a `source` parameter to specify which platform to query (`curseforge` or `modrinth`). The `ModService` routes the request to the appropriate underlying service.
 
 ## Database Schema
 
@@ -102,14 +114,14 @@ These are automatically merged with CurseForge's loader list when displaying opt
 
 ## Game Versions
 
-Game versions from Modrinth are automatically merged with CurseForge versions. The application:
+Game versions from Modrinth are automatically merged with CurseForge versions. The `ModService` handles this merging:
 
-1. Fetches versions from both APIs
+1. Fetches versions from both APIs via the underlying services
 2. Removes duplicates (by version name)
 3. Sorts versions (newest first)
-4. Displays a unified list to users
+4. Returns a unified list
 
-Only release versions are included from Modrinth (snapshots and betas are filtered out for consistency).
+Only release versions are included from Modrinth (snapshots and betas are filtered out for consistency). When using `ModService::getGameVersions()`, you get the merged list automatically.
 
 ## Download URLs
 
@@ -153,5 +165,5 @@ Key differences between Modrinth and CurseForge integration:
 4. **Response Format**: Modrinth returns different JSON structures (e.g., `hits` array for search vs CurseForge's `data` array)
 5. **Version Filtering**: Modrinth uses `game_versions` and `loaders` query parameters (JSON arrays), while CurseForge uses `gameVersion` and `modLoaderType` (single values)
 
-The service abstracts these differences, providing a consistent interface for the application.
+The service abstracts these differences, providing a consistent interface for the application. The `ModService` further unifies both services, allowing the application to work with mods from either platform without conditional logic.
 
