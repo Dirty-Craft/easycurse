@@ -282,6 +282,40 @@ class ModPackController extends Controller
     }
 
     /**
+     * Duplicate a mod pack with all its items.
+     */
+    public function duplicate(string $id)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())
+            ->with('items')
+            ->findOrFail($id);
+
+        // Create new mod pack with same data but add " (Clone)" to the name
+        $newModPack = ModPack::create([
+            'user_id' => Auth::id(),
+            'name' => $modPack->name.' (Clone)',
+            'minecraft_version' => $modPack->minecraft_version,
+            'software' => $modPack->software,
+            'description' => $modPack->description,
+        ]);
+
+        // Copy all items from the original mod pack
+        foreach ($modPack->items as $item) {
+            ModPackItem::create([
+                'mod_pack_id' => $newModPack->id,
+                'mod_name' => $item->mod_name,
+                'mod_version' => $item->mod_version,
+                'curseforge_mod_id' => $item->curseforge_mod_id,
+                'curseforge_file_id' => $item->curseforge_file_id,
+                'curseforge_slug' => $item->curseforge_slug,
+                'sort_order' => $item->sort_order,
+            ]);
+        }
+
+        return redirect()->route('mod-packs.show', $newModPack->id);
+    }
+
+    /**
      * Get download links for all mod items in a mod pack.
      */
     public function getDownloadLinks(string $id)
