@@ -1225,4 +1225,40 @@ class ModPackController extends Controller
             'failed_count' => $failedCount,
         ]);
     }
+
+    /**
+     * Reorder mod items in a mod pack.
+     */
+    public function reorderItems(Request $request, string $id)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())->findOrFail($id);
+
+        $validated = $request->validate([
+            'item_ids' => ['required', 'array', 'min:1'],
+            'item_ids.*' => ['required', 'integer', 'exists:mod_pack_items,id'],
+        ]);
+
+        // Verify all items belong to this mod pack
+        $itemIds = $validated['item_ids'];
+        $items = ModPackItem::where('mod_pack_id', $modPack->id)
+            ->whereIn('id', $itemIds)
+            ->get();
+
+        if ($items->count() !== count($itemIds)) {
+            return response()->json([
+                'error' => __('messages.modpack.invalid_item_ids'),
+            ], 400);
+        }
+
+        // Update sort_order for each item based on the new order
+        foreach ($itemIds as $index => $itemId) {
+            ModPackItem::where('id', $itemId)
+                ->where('mod_pack_id', $modPack->id)
+                ->update(['sort_order' => $index + 1]);
+        }
+
+        return response()->json([
+            'success' => true,
+        ]);
+    }
 }

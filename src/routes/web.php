@@ -53,5 +53,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/mod-packs/{id}/change-version', [\App\Http\Controllers\ModPackController::class, 'changeVersion'])->name('mod-packs.change-version');
     Route::post('/mod-packs/{id}/share', [\App\Http\Controllers\ModPackController::class, 'generateShareToken'])->name('mod-packs.share');
     Route::post('/mod-packs/{id}/duplicate', [\App\Http\Controllers\ModPackController::class, 'duplicate'])->name('mod-packs.duplicate');
+    Route::post('/mod-packs/{id}/items/reorder', [\App\Http\Controllers\ModPackController::class, 'reorderItems'])->name('mod-packs.items.reorder');
     Route::post('/shared/{token}/add-to-collection', [\App\Http\Controllers\ModPackController::class, 'addToCollection'])->name('mod-packs.shared.add-to-collection');
 });
