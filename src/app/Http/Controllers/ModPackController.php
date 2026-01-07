@@ -270,6 +270,27 @@ class ModPackController extends Controller
     }
 
     /**
+     * Update a mod item in a mod pack.
+     */
+    public function updateItem(Request $request, string $id, string $itemId)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())->findOrFail($id);
+        $item = ModPackItem::where('mod_pack_id', $modPack->id)->findOrFail($itemId);
+
+        $validated = $request->validate([
+            'mod_name' => ['required', 'string', 'max:255'],
+            'mod_version' => ['required', 'string', 'max:255'],
+            'curseforge_mod_id' => ['nullable', 'integer'],
+            'curseforge_file_id' => ['nullable', 'integer'],
+            'curseforge_slug' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $item->update($validated);
+
+        return redirect()->route('mod-packs.show', $modPack->id);
+    }
+
+    /**
      * Remove a mod item from a mod pack.
      */
     public function destroyItem(string $id, string $itemId)
@@ -985,5 +1006,223 @@ class ModPackController extends Controller
                 'error' => __('messages.modpack.proxy_download_failed', ['error' => $e->getMessage()]),
             ], 500);
         }
+    }
+
+    /**
+     * Preview available updates for all mod items in a mod pack.
+     */
+    public function previewAllItemsToLatest(string $id)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())
+            ->with('items')
+            ->findOrFail($id);
+
+        $curseForgeService = new CurseForgeService;
+        $updates = [];
+
+        foreach ($modPack->items as $item) {
+            if (! $item->curseforge_mod_id) {
+                // Skip items without CurseForge mod ID
+                continue;
+            }
+
+            $latestFile = $curseForgeService->getLatestModFile(
+                $item->curseforge_mod_id,
+                $modPack->minecraft_version,
+                $modPack->software
+            );
+
+            if ($latestFile) {
+                $latestVersion = $latestFile['displayName'] ?? $latestFile['fileName'] ?? null;
+                $currentVersion = $item->mod_version;
+
+                // Only include if there's an update available
+                if ($latestVersion && $latestVersion !== $currentVersion) {
+                    $updates[] = [
+                        'item_id' => $item->id,
+                        'mod_name' => $item->mod_name,
+                        'current_version' => $currentVersion,
+                        'latest_version' => $latestVersion,
+                        'latest_file_id' => $latestFile['id'],
+                        'file_date' => $latestFile['fileDate'] ?? null,
+                    ];
+                }
+            }
+        }
+
+        return response()->json([
+            'updates' => $updates,
+            'total_count' => count($updates),
+        ]);
+    }
+
+    /**
+     * Preview available updates for selected mod items.
+     */
+    public function previewBulkItemsToLatest(Request $request, string $id)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())
+            ->with('items')
+            ->findOrFail($id);
+
+        $validated = $request->validate([
+            'item_ids' => ['required', 'array', 'min:1'],
+            'item_ids.*' => ['required', 'integer', 'exists:mod_pack_items,id'],
+        ]);
+
+        // Verify all items belong to this mod pack
+        $itemIds = $validated['item_ids'];
+        $items = ModPackItem::where('mod_pack_id', $modPack->id)
+            ->whereIn('id', $itemIds)
+            ->get();
+
+        if ($items->count() !== count($itemIds)) {
+            return response()->json([
+                'error' => __('messages.modpack.invalid_item_ids'),
+            ], 400);
+        }
+
+        $curseForgeService = new CurseForgeService;
+        $updates = [];
+
+        foreach ($items as $item) {
+            if (! $item->curseforge_mod_id) {
+                // Skip items without CurseForge mod ID
+                continue;
+            }
+
+            $latestFile = $curseForgeService->getLatestModFile(
+                $item->curseforge_mod_id,
+                $modPack->minecraft_version,
+                $modPack->software
+            );
+
+            if ($latestFile) {
+                $latestVersion = $latestFile['displayName'] ?? $latestFile['fileName'] ?? null;
+                $currentVersion = $item->mod_version;
+
+                // Only include if there's an update available
+                if ($latestVersion && $latestVersion !== $currentVersion) {
+                    $updates[] = [
+                        'item_id' => $item->id,
+                        'mod_name' => $item->mod_name,
+                        'current_version' => $currentVersion,
+                        'latest_version' => $latestVersion,
+                        'latest_file_id' => $latestFile['id'],
+                        'file_date' => $latestFile['fileDate'] ?? null,
+                    ];
+                }
+            }
+        }
+
+        return response()->json([
+            'updates' => $updates,
+            'total_count' => count($updates),
+        ]);
+    }
+
+    /**
+     * Update all mod items in a mod pack to their latest versions.
+     */
+    public function updateAllItemsToLatest(string $id)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())
+            ->with('items')
+            ->findOrFail($id);
+
+        $curseForgeService = new CurseForgeService;
+        $updatedCount = 0;
+        $failedCount = 0;
+
+        foreach ($modPack->items as $item) {
+            if (! $item->curseforge_mod_id) {
+                // Skip items without CurseForge mod ID
+                continue;
+            }
+
+            $latestFile = $curseForgeService->getLatestModFile(
+                $item->curseforge_mod_id,
+                $modPack->minecraft_version,
+                $modPack->software
+            );
+
+            if ($latestFile) {
+                $item->update([
+                    'mod_version' => $latestFile['displayName'] ?? $latestFile['fileName'] ?? $item->mod_version,
+                    'curseforge_file_id' => $latestFile['id'],
+                ]);
+                $updatedCount++;
+            } else {
+                $failedCount++;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'updated_count' => $updatedCount,
+            'failed_count' => $failedCount,
+        ]);
+    }
+
+    /**
+     * Update selected mod items to their latest versions.
+     */
+    public function updateBulkItemsToLatest(Request $request, string $id)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())
+            ->with('items')
+            ->findOrFail($id);
+
+        $validated = $request->validate([
+            'item_ids' => ['required', 'array', 'min:1'],
+            'item_ids.*' => ['required', 'integer', 'exists:mod_pack_items,id'],
+        ]);
+
+        // Verify all items belong to this mod pack
+        $itemIds = $validated['item_ids'];
+        $items = ModPackItem::where('mod_pack_id', $modPack->id)
+            ->whereIn('id', $itemIds)
+            ->get();
+
+        if ($items->count() !== count($itemIds)) {
+            return response()->json([
+                'error' => __('messages.modpack.invalid_item_ids'),
+            ], 400);
+        }
+
+        $curseForgeService = new CurseForgeService;
+        $updatedCount = 0;
+        $failedCount = 0;
+
+        foreach ($items as $item) {
+            if (! $item->curseforge_mod_id) {
+                // Skip items without CurseForge mod ID
+                $failedCount++;
+
+                continue;
+            }
+
+            $latestFile = $curseForgeService->getLatestModFile(
+                $item->curseforge_mod_id,
+                $modPack->minecraft_version,
+                $modPack->software
+            );
+
+            if ($latestFile) {
+                $item->update([
+                    'mod_version' => $latestFile['displayName'] ?? $latestFile['fileName'] ?? $item->mod_version,
+                    'curseforge_file_id' => $latestFile['id'],
+                ]);
+                $updatedCount++;
+            } else {
+                $failedCount++;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'updated_count' => $updatedCount,
+            'failed_count' => $failedCount,
+        ]);
     }
 }

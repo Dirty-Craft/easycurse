@@ -4462,4 +4462,503 @@ class ModPackTest extends TestCase
         $existingModPack->refresh();
         $this->assertEquals($collidingToken, $existingModPack->share_token);
     }
+
+    /**
+     * Test that user can update a mod item.
+     */
+    public function test_user_can_update_mod_item(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'forge',
+        ]);
+        $item = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'JEI',
+            'mod_version' => '1.20.1-11.6.0.1015',
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 123456,
+            'curseforge_slug' => 'jei',
+        ]);
+
+        $response = $this->actingAs($user)->put("/mod-packs/{$modPack->id}/items/{$item->id}", [
+            'mod_name' => 'JEI Updated',
+            'mod_version' => '1.20.1-11.6.0.1016',
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 123457,
+            'curseforge_slug' => 'jei',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('mod_pack_items', [
+            'id' => $item->id,
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'JEI Updated',
+            'mod_version' => '1.20.1-11.6.0.1016',
+            'curseforge_file_id' => 123457,
+        ]);
+    }
+
+    /**
+     * Test that updating mod item requires authentication.
+     */
+    public function test_updating_mod_item_requires_authentication(): void
+    {
+        $modPack = ModPack::factory()->create();
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+
+        $response = $this->put("/mod-packs/{$modPack->id}/items/{$item->id}", [
+            'mod_name' => 'JEI Updated',
+            'mod_version' => '1.20.1-11.6.0.1016',
+        ]);
+
+        $response->assertRedirect('/login');
+    }
+
+    /**
+     * Test that user cannot update mod item in other user's mod pack.
+     */
+    public function test_user_cannot_update_mod_item_in_other_user_mod_pack(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $otherUser->id]);
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+
+        $response = $this->actingAs($user)->put("/mod-packs/{$modPack->id}/items/{$item->id}", [
+            'mod_name' => 'JEI Updated',
+            'mod_version' => '1.20.1-11.6.0.1016',
+        ]);
+
+        $response->assertNotFound();
+    }
+
+    /**
+     * Test that updating mod item requires mod name.
+     */
+    public function test_updating_mod_item_requires_mod_name(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+
+        $response = $this->actingAs($user)->put("/mod-packs/{$modPack->id}/items/{$item->id}", [
+            'mod_version' => '1.20.1-11.6.0.1016',
+        ]);
+
+        $response->assertSessionHasErrors('mod_name');
+    }
+
+    /**
+     * Test that updating mod item requires mod version.
+     */
+    public function test_updating_mod_item_requires_mod_version(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+
+        $response = $this->actingAs($user)->put("/mod-packs/{$modPack->id}/items/{$item->id}", [
+            'mod_name' => 'JEI Updated',
+        ]);
+
+        $response->assertSessionHasErrors('mod_version');
+    }
+
+    /**
+     * Test that user can preview updates for all mod items.
+     */
+    public function test_user_can_preview_all_items_to_latest(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'forge',
+        ]);
+
+        $item1 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 123456,
+            'mod_version' => '1.20.1-11.5.0.1000',
+        ]);
+
+        $item2 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 123456,
+            'mod_version' => '1.20.1-11.5.0.1000',
+        ]);
+
+        // Mock CurseForge API responses
+        Http::fake([
+            'api.curseforge.com/v1/mods/*/files*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 999999,
+                        'displayName' => '1.20.1-11.6.0.1017',
+                        'fileName' => 'jei-1.20.1-11.6.0.1017.jar',
+                        'fileDate' => '2024-01-01T00:00:00Z',
+                        'fileLength' => 1000000,
+                        'gameVersions' => ['1.20.1'],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->get(
+            "/mod-packs/{$modPack->id}/items/preview-all-to-latest"
+        );
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'updates',
+            'total_count',
+        ]);
+        $this->assertIsArray($response->json('updates'));
+        $this->assertGreaterThan(0, $response->json('total_count'));
+    }
+
+    /**
+     * Test that previewing all items requires authentication.
+     */
+    public function test_previewing_all_items_requires_authentication(): void
+    {
+        $modPack = ModPack::factory()->create();
+
+        $response = $this->get(
+            "/mod-packs/{$modPack->id}/items/preview-all-to-latest"
+        );
+
+        $response->assertRedirect('/login');
+    }
+
+    /**
+     * Test that user can preview updates for bulk items.
+     */
+    public function test_user_can_preview_bulk_items_to_latest(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'forge',
+        ]);
+
+        $item1 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 123456,
+            'mod_version' => '1.20.1-11.5.0.1000',
+        ]);
+
+        $item2 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 123456,
+            'mod_version' => '1.20.1-11.5.0.1000',
+        ]);
+
+        // Mock CurseForge API responses
+        Http::fake([
+            'api.curseforge.com/v1/mods/*/files*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 999999,
+                        'displayName' => '1.20.1-11.6.0.1017',
+                        'fileName' => 'jei-1.20.1-11.6.0.1017.jar',
+                        'fileDate' => '2024-01-01T00:00:00Z',
+                        'fileLength' => 1000000,
+                        'gameVersions' => ['1.20.1'],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->post(
+            "/mod-packs/{$modPack->id}/items/preview-bulk-to-latest",
+            [
+                'item_ids' => [$item1->id, $item2->id],
+            ]
+        );
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'updates',
+            'total_count',
+        ]);
+        $this->assertIsArray($response->json('updates'));
+    }
+
+    /**
+     * Test that previewing bulk items requires authentication.
+     */
+    public function test_previewing_bulk_items_requires_authentication(): void
+    {
+        $modPack = ModPack::factory()->create();
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+
+        $response = $this->post(
+            "/mod-packs/{$modPack->id}/items/preview-bulk-to-latest",
+            [
+                'item_ids' => [$item->id],
+            ]
+        );
+
+        $response->assertRedirect('/login');
+    }
+
+    /**
+     * Test that user can update all mod items to latest version.
+     */
+    public function test_user_can_update_all_items_to_latest(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'forge',
+        ]);
+
+        $item1 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 123456,
+        ]);
+
+        $item2 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 123456,
+        ]);
+
+        // Mock CurseForge API responses
+        Http::fake([
+            'api.curseforge.com/v1/mods/*/files*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 999999,
+                        'displayName' => '1.20.1-11.6.0.1017',
+                        'fileName' => 'jei-1.20.1-11.6.0.1017.jar',
+                        'fileDate' => '2024-01-01T00:00:00Z',
+                        'fileLength' => 1000000,
+                        'gameVersions' => ['1.20.1'],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->post(
+            "/mod-packs/{$modPack->id}/items/update-all-to-latest"
+        );
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+        ]);
+        $this->assertArrayHasKey('updated_count', $response->json());
+        $this->assertArrayHasKey('failed_count', $response->json());
+    }
+
+    /**
+     * Test that updating all items requires authentication.
+     */
+    public function test_updating_all_items_requires_authentication(): void
+    {
+        $modPack = ModPack::factory()->create();
+
+        $response = $this->post(
+            "/mod-packs/{$modPack->id}/items/update-all-to-latest"
+        );
+
+        $response->assertRedirect('/login');
+    }
+
+    /**
+     * Test that user cannot update all items in other user's mod pack.
+     */
+    public function test_user_cannot_update_all_items_in_other_user_mod_pack(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $otherUser->id]);
+
+        $response = $this->actingAs($user)->post(
+            "/mod-packs/{$modPack->id}/items/update-all-to-latest"
+        );
+
+        $response->assertNotFound();
+    }
+
+    /**
+     * Test that user can update bulk items to latest version.
+     */
+    public function test_user_can_update_bulk_items_to_latest(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'forge',
+        ]);
+
+        $item1 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 123456,
+        ]);
+
+        $item2 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 123456,
+        ]);
+
+        // Mock CurseForge API responses
+        Http::fake([
+            'api.curseforge.com/v1/mods/*/files*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 999999,
+                        'displayName' => '1.20.1-11.6.0.1017',
+                        'fileName' => 'jei-1.20.1-11.6.0.1017.jar',
+                        'fileDate' => '2024-01-01T00:00:00Z',
+                        'fileLength' => 1000000,
+                        'gameVersions' => ['1.20.1'],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->post(
+            "/mod-packs/{$modPack->id}/bulk-items/update-to-latest",
+            [
+                'item_ids' => [$item1->id, $item2->id],
+            ]
+        );
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+        ]);
+        $this->assertArrayHasKey('updated_count', $response->json());
+        $this->assertArrayHasKey('failed_count', $response->json());
+    }
+
+    /**
+     * Test that updating bulk items requires authentication.
+     */
+    public function test_updating_bulk_items_requires_authentication(): void
+    {
+        $modPack = ModPack::factory()->create();
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+
+        $response = $this->post(
+            "/mod-packs/{$modPack->id}/bulk-items/update-to-latest",
+            [
+                'item_ids' => [$item->id],
+            ]
+        );
+
+        $response->assertRedirect('/login');
+    }
+
+    /**
+     * Test that user cannot update bulk items in other user's mod pack.
+     */
+    public function test_user_cannot_update_bulk_items_in_other_user_mod_pack(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $otherUser->id]);
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+
+        $response = $this->actingAs($user)->post(
+            "/mod-packs/{$modPack->id}/bulk-items/update-to-latest",
+            [
+                'item_ids' => [$item->id],
+            ]
+        );
+
+        $response->assertNotFound();
+    }
+
+    /**
+     * Test that updating bulk items validates item ownership.
+     */
+    public function test_updating_bulk_items_validates_item_ownership(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+        $otherModPack = ModPack::factory()->create(['user_id' => $otherUser->id]);
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $otherModPack->id]);
+
+        $response = $this->actingAs($user)->post(
+            "/mod-packs/{$modPack->id}/bulk-items/update-to-latest",
+            [
+                'item_ids' => [$item->id],
+            ]
+        );
+
+        $response->assertStatus(400);
+        $response->assertJson([
+            'error' => __('messages.modpack.invalid_item_ids'),
+        ]);
+    }
+
+    /**
+     * Test that updating all items skips items without curseforge_mod_id.
+     */
+    public function test_updating_all_items_skips_items_without_curseforge_mod_id(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'forge',
+        ]);
+
+        $item1 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 123456,
+        ]);
+
+        $item2 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'curseforge_mod_id' => null,
+            'curseforge_file_id' => null,
+        ]);
+
+        // Mock CurseForge API responses
+        Http::fake([
+            'api.curseforge.com/v1/mods/*/files*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 999999,
+                        'displayName' => '1.20.1-11.6.0.1017',
+                        'fileName' => 'jei-1.20.1-11.6.0.1017.jar',
+                        'fileDate' => '2024-01-01T00:00:00Z',
+                        'fileLength' => 1000000,
+                        'gameVersions' => ['1.20.1'],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->post(
+            "/mod-packs/{$modPack->id}/items/update-all-to-latest"
+        );
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+        ]);
+        // Should update 1 item (the one with curseforge_mod_id)
+        $this->assertEquals(1, $response->json('updated_count'));
+    }
 }
