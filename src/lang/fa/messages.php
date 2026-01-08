@@ -314,6 +314,7 @@ return [
     'layout.footer.tagline' => 'همراه مدیریت مادهای شما. بدون آپدیت دستی.',
     'layout.footer.info' => 'اطلاعات',
     'layout.footer.about' => 'درباره ما',
+    'layout.footer.advertisement' => 'تبلیغات',
     'layout.footer.donate' => 'حمایت مالی',
     'layout.footer.github' => 'گیت‌هاب',
     'layout.footer.my_account' => 'حساب کاربری',
@@ -321,4 +322,22 @@ return [
     'layout.footer.change_password' => 'تغییر رمز عبور',
     'layout.footer.copyright' => '© :year EasyCurse. تحت لایسنس',
     'layout.footer.mit' => 'MIT',
+
+    // Advertisement
+    'advertisement.text' => 'تبلیغ خود را اینجا قرار دهید',
+    'advertisement.url' => '/ads',
+
+    // Ads Page
+    'ads.title' => 'تبلیغ در EasyCurse',
+    'ads.hero.title' => 'تبلیغ در EasyCurse',
+    'ads.hero.subtitle' => 'به هزاران سازنده و علاقه‌مند مودپک Minecraft دسترسی پیدا کنید',
+    'ads.how.title' => 'نحوه تبلیغ',
+    'ads.how.p1' => 'ما فضای تبلیغاتی پریمیوم در پلتفرم خود ارائه می‌دهیم تا به شما کمک کنیم به جامعه در حال رشد سازندگان و کاربران مودپک Minecraft دسترسی پیدا کنید.',
+    'ads.how.p2' => 'بنر تبلیغاتی ما در بالای تمام صفحات (به جز صفحه اصلی و درباره ما) نمایش داده می‌شود و حداکثر دید را برای برند شما فراهم می‌کند.',
+    'ads.how.p3' => 'برای قرار دادن تبلیغ، لطفاً با ما در :link تماس بگیرید و ما به شما کمک می‌کنیم شروع کنید.',
+    'ads.benefits.title' => 'چرا با ما تبلیغ کنید',
+    'ads.benefits.p1' => 'پلتفرم ما به جامعه اختصاصی سازندگان مودپک Minecraft خدمت می‌کند که به طور فعال به دنبال ابزارها و خدمات برای بهبود تجربه مودینگ خود هستند.',
+    'ads.benefits.p2' => 'با هزاران کاربر که مودپک ایجاد و به اشتراک می‌گذارند، تبلیغ شما به مخاطبانی علاقه‌مند به مودینگ Minecraft دسترسی پیدا می‌کند.',
+    'ads.contact.title' => 'شروع کنید',
+    'ads.contact.p1' => 'آماده تبلیغ در EasyCurse هستید؟ برای ما ایمیل بفرستید و ما در مورد قیمت‌گذاری، قرارگیری و نحوه کمک به تبلیغ برند شما صحبت خواهیم کرد.',
 ];

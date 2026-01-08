@@ -6,11 +6,13 @@
 @import url("./components/modal.css");
 @import url("./components/theme-switcher.css");
 @import url("./components/language-switcher.css");
+@import url("./components/advertisement.css");
 @import url("./layouts/app-layout.css");
 @import url("./landing.css");
 @import url("./auth.css");
 @import url("./modpacks.css");
 @import url("./about.css");
+@import url("./ads.css");
 
 /* Base Styles */
 * {

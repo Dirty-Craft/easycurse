@@ -1,0 +1,291 @@
+.advertisement {
+    width: 100%;
+    margin-top: 120px;
+    padding: 0 var(--spacing-xl);
+    text-align: center;
+    position: relative;
+}
+
+@media (width >= 768px) {
+    .advertisement {
+        padding: 0 var(--spacing-2xl);
+    }
+}
+
+.advertisement-link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 80px;
+    padding: var(--spacing-xl) var(--spacing-2xl);
+    background: linear-gradient(135deg, 
+        color-mix(in srgb, var(--color-primary) 12%, var(--color-surface) 88%) 0%,
+        color-mix(in srgb, var(--color-secondary) 8%, var(--color-surface) 92%) 50%,
+        color-mix(in srgb, var(--color-primary) 10%, var(--color-surface) 90%) 100%);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 25%, transparent);
+    border-radius: var(--radius-xl);
+    text-decoration: none;
+    color: var(--color-text-primary);
+    transition: all var(--transition-slow);
+    cursor: pointer;
+    box-shadow: 
+        inset 0 1px 0 rgb(255 255 255 / 5%),
+        0 4px 16px rgb(0 0 0 / 20%),
+        0 0 0 1px rgb(0 217 255 / 10%);
+    overflow: hidden;
+}
+
+.advertisement-background-pattern {
+    position: absolute;
+    inset: 0;
+    opacity: 0.03;
+    background-image: 
+        radial-gradient(circle at 20% 50%, var(--color-primary) 0%, transparent 50%),
+        radial-gradient(circle at 80% 50%, var(--color-secondary) 0%, transparent 50%),
+        linear-gradient(45deg, transparent 30%, rgb(0 217 255 / 5%) 50%, transparent 70%);
+    background-size: 200% 200%, 200% 200%, 100% 100%;
+    animation: patternMove 20s ease-in-out infinite;
+    pointer-events: none;
+}
+
+.advertisement-gradient-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg,
+        rgb(0 217 255 / 5%) 0%,
+        transparent 50%,
+        rgb(16 185 129 / 5%) 100%);
+    opacity: 0;
+    transition: opacity var(--transition-base);
+    pointer-events: none;
+}
+
+.advertisement-link:hover .advertisement-gradient-overlay {
+    opacity: 1;
+}
+
+.advertisement-link::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent 0%,
+        rgb(255 255 255 / 8%) 50%,
+        transparent 100%);
+    transition: left 0.8s ease;
+}
+
+.advertisement-link:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 60%, transparent);
+    box-shadow: 
+        inset 0 1px 0 rgb(255 255 255 / 10%),
+        0 8px 32px rgb(0 0 0 / 30%),
+        0 0 0 1px rgb(0 217 255 / 20%),
+        0 0 40px rgb(0 217 255 / 15%);
+    transform: translateY(-1px);
+    background: linear-gradient(135deg, 
+        color-mix(in srgb, var(--color-primary) 18%, var(--color-surface) 82%) 0%,
+        color-mix(in srgb, var(--color-secondary) 12%, var(--color-surface) 88%) 50%,
+        color-mix(in srgb, var(--color-primary) 15%, var(--color-surface) 85%) 100%);
+}
+
+.advertisement-link:hover::before {
+    left: 100%;
+}
+
+.advertisement-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(ellipse at center,
+        rgb(0 217 255 / 10%) 0%,
+        transparent 70%);
+    opacity: 0;
+    transition: opacity var(--transition-base);
+    pointer-events: none;
+    filter: blur(20px);
+}
+
+.advertisement-link:hover .advertisement-glow {
+    opacity: 1;
+}
+
+.advertisement-content {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-lg);
+    z-index: 2;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.advertisement-icon {
+    font-size: 1.5rem;
+    line-height: 1;
+    animation: pulse 2.5s ease-in-out infinite;
+    filter: drop-shadow(0 0 8px rgb(0 217 255 / 60%));
+    transition: transform var(--transition-base);
+    flex-shrink: 0;
+}
+
+.advertisement-link:hover .advertisement-icon {
+    transform: scale(1.15) rotate(10deg);
+    filter: drop-shadow(0 0 12px rgb(0 217 255 / 80%));
+}
+
+.advertisement-text {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    line-height: 1.5;
+    background: linear-gradient(135deg, 
+        var(--color-text-primary) 0%,
+        color-mix(in srgb, var(--color-primary) 70%, var(--color-text-primary) 30%) 50%,
+        var(--color-text-primary) 100%);
+    background-size: 200% 100%;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 0.02em;
+    animation: textGradient 3s ease-in-out infinite;
+    transition: all var(--transition-base);
+}
+
+.advertisement-link:hover .advertisement-text {
+    background-size: 200% 100%;
+    background-position: 100% 0;
+}
+
+.advertisement-arrow {
+    font-size: 1.125rem;
+    line-height: 1;
+    color: var(--color-primary);
+    transition: all var(--transition-base);
+    opacity: 0.85;
+    filter: drop-shadow(0 0 4px rgb(0 217 255 / 40%));
+    flex-shrink: 0;
+}
+
+.advertisement-link:hover .advertisement-arrow {
+    transform: translateX(4px);
+    opacity: 1;
+}
+
+[dir="rtl"] .advertisement-link:hover .advertisement-arrow {
+    transform: translateX(-4px);
+}
+
+.advertisement-shimmer {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgb(0 217 255 / 10%) 50%,
+        transparent 100%);
+    animation: shimmer 3s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.15);
+        opacity: 0.85;
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        left: -100%;
+    }
+
+    50%, 100% {
+        left: 100%;
+    }
+}
+
+@keyframes patternMove {
+    0%, 100% {
+        background-position: 0% 50%, 100% 50%, 0% 0%;
+    }
+
+    50% {
+        background-position: 100% 50%, 0% 50%, 100% 0%;
+    }
+}
+
+@keyframes textGradient {
+    0%, 100% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
+@media (width >= 768px) {
+    .advertisement-link {
+        padding: var(--spacing-xl) var(--spacing-3xl);
+        min-height: 90px;
+    }
+    
+    .advertisement-content {
+        gap: var(--spacing-xl);
+    }
+    
+    .advertisement-text {
+        font-size: 1.125rem;
+    }
+    
+    .advertisement-icon {
+        font-size: 1.75rem;
+    }
+    
+    .advertisement-arrow {
+        font-size: 1.25rem;
+    }
+}
+
+@media (width <= 640px) {
+    .advertisement-link {
+        padding: var(--spacing-lg) var(--spacing-xl);
+        min-height: 70px;
+    }
+    
+    .advertisement-content {
+        gap: var(--spacing-md);
+        flex-wrap: wrap;
+    }
+    
+    .advertisement-text {
+        font-size: 0.9375rem;
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .advertisement-icon {
+        font-size: 1.25rem;
+    }
+    
+    .advertisement-arrow {
+        font-size: 1rem;
+    }
+}
+

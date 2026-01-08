@@ -76,6 +76,8 @@ class HandleInertiaRequests extends Middleware
             'translations' => function () {
                 return __('messages');
             },
+            'adText' => env('AD_TEXT'),
+            'adLink' => env('AD_LINK'),
         ];
     }
 }

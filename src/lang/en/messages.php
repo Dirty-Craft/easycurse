@@ -314,6 +314,7 @@ return [
     'layout.footer.tagline' => 'Your mod management companion. Never manually update mods again.',
     'layout.footer.info' => 'Info',
     'layout.footer.about' => 'About Us',
+    'layout.footer.advertisement' => 'Advertisement',
     'layout.footer.donate' => 'Donate',
     'layout.footer.github' => 'GitHub',
     'layout.footer.my_account' => 'My Account',
@@ -321,4 +322,22 @@ return [
     'layout.footer.change_password' => 'Change Password',
     'layout.footer.copyright' => '© :year EasyCurse. Licensed under',
     'layout.footer.mit' => 'MIT License',
+
+    // Advertisement
+    'advertisement.text' => 'Place your advertisement here',
+    'advertisement.url' => '/ads',
+
+    // Ads Page
+    'ads.title' => 'Advertise with EasyCurse',
+    'ads.hero.title' => 'Advertise with EasyCurse',
+    'ads.hero.subtitle' => 'Reach thousands of Minecraft mod pack creators and enthusiasts',
+    'ads.how.title' => 'How to Advertise',
+    'ads.how.p1' => 'We offer premium advertising space on our platform to help you reach our growing community of Minecraft mod pack creators and users.',
+    'ads.how.p2' => 'Our advertisement banner appears at the top of all pages (except the landing and about pages), giving your brand maximum visibility.',
+    'ads.how.p3' => 'To place an advertisement, please contact us at :link and we\'ll help you get started.',
+    'ads.benefits.title' => 'Why Advertise with Us',
+    'ads.benefits.p1' => 'Our platform serves a dedicated community of Minecraft mod pack creators who are actively looking for tools and services to enhance their modding experience.',
+    'ads.benefits.p2' => 'With thousands of users creating and sharing mod packs, your advertisement will reach an engaged audience interested in Minecraft modding.',
+    'ads.contact.title' => 'Get Started',
+    'ads.contact.p1' => 'Ready to advertise with EasyCurse? Send us an email and we\'ll discuss pricing, placement, and how we can help promote your brand.',
 ];
