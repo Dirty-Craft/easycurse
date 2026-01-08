@@ -231,6 +231,61 @@
     gap: var(--spacing-sm);
 }
 
+.reminder-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: rgb(59 130 246 / 10%);
+    border: 1px solid rgb(59 130 246 / 30%);
+    border-radius: var(--radius-md);
+    margin-top: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.reminder-content {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex: 1;
+    min-width: 0;
+}
+
+.reminder-icon {
+    flex-shrink: 0;
+    color: rgb(59 130 246);
+    width: 16px;
+    height: 16px;
+}
+
+.reminder-text {
+    color: var(--color-text-primary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    overflow-wrap: break-word;
+}
+
+.reminder-cancel-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+@media (width <= 640px) {
+    .reminder-info {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--spacing-sm);
+    }
+
+    .reminder-content {
+        width: 100%;
+    }
+
+    .reminder-cancel-btn {
+        width: 100%;
+    }
+}
+
 .btn-change-version {
     padding: var(--spacing-xs) var(--spacing-sm);
     background: var(--color-background-light);
@@ -872,6 +927,12 @@
 
 .error-message p {
     margin: 0;
+    margin-bottom: var(--spacing-sm);
+}
+
+.error-message .reminder-button {
+    width: 100%;
+    margin-top: var(--spacing-sm);
 }
 
 .version-change-notice {

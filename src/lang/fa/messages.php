@@ -17,6 +17,13 @@ return [
     // Mod pack messages
     'modpack.mod_already_added' => 'این ماد قبلاً به مودپک اضافه شده است.',
     'modpack.mods_without_version' => 'مادهای زیر نسخه‌ای برای :version (:software) ندارند: :mods',
+    'modpack.remind_me_once_available' => 'وقتی در دسترس بود به من یادآوری کن',
+    'modpack.reminder_set' => 'یادآوری تنظیم شد! وقتی همه مادها برای این نسخه در دسترس باشند به شما اطلاع داده می‌شود.',
+    'modpack.reminder_set_failed' => 'تنظیم یادآوری ناموفق بود. لطفاً دوباره تلاش کنید.',
+    'modpack.reminder_active' => 'یادآوری فعال: وقتی همه مادها برای :version (:software) در دسترس باشند به شما اطلاع داده می‌شود',
+    'modpack.cancel_reminder' => 'لغو یادآوری',
+    'modpack.reminder_cancelled' => 'یادآوری با موفقیت لغو شد.',
+    'modpack.reminder_cancel_failed' => 'لغو یادآوری ناموفق بود. لطفاً دوباره تلاش کنید.',
     'modpack.added_to_collection' => 'مودپک به کالکشن شما اضافه شد!',
     'modpack.invalid_download_url' => 'لینک دانلود نامعتبر است',
     'modpack.download_failed' => 'دانلود فایل از CDN ناموفق بود',

@@ -22,6 +22,59 @@
                                     {{ t("modpacks.show.change") }}
                                 </Button>
                             </p>
+                            <div
+                                v-if="
+                                    modPack.minecraft_update_reminder_version &&
+                                    modPack.minecraft_update_reminder_software
+                                "
+                                class="reminder-info"
+                            >
+                                <div class="reminder-content">
+                                    <svg
+                                        class="reminder-icon"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="16"
+                                        height="16"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                    >
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <polyline
+                                            points="12 6 12 12 16 14"
+                                        ></polyline>
+                                    </svg>
+                                    <span class="reminder-text">
+                                        {{
+                                            t("modpack.reminder_active", {
+                                                version:
+                                                    modPack.minecraft_update_reminder_version,
+                                                software:
+                                                    modPack.minecraft_update_reminder_software,
+                                            })
+                                        }}
+                                    </span>
+                                </div>
+                                <Button
+                                    variant="danger"
+                                    size="sm"
+                                    :disabled="isCancellingReminder"
+                                    :class="{
+                                        'btn-loading': isCancellingReminder,
+                                    }"
+                                    class="reminder-cancel-btn"
+                                    @click="cancelReminder"
+                                >
+                                    {{
+                                        isCancellingReminder
+                                            ? t("modpacks.show.updating")
+                                            : t("modpack.cancel_reminder")
+                                    }}
+                                </Button>
+                            </div>
                             <p
                                 v-if="modPack.description"
                                 class="description-text"
@@ -481,6 +534,21 @@
                     class="error-message"
                 >
                     <p>{{ versionForm.errors.version_change }}</p>
+                    <Button
+                        v-if="versionForm.errors.mods_without_version"
+                        variant="secondary"
+                        size="sm"
+                        :disabled="isSettingReminder"
+                        :class="{ 'btn-loading': isSettingReminder }"
+                        class="reminder-button"
+                        @click="setReminder"
+                    >
+                        {{
+                            isSettingReminder
+                                ? t("modpacks.show.updating")
+                                : t("modpack.remind_me_once_available")
+                        }}
+                    </Button>
                 </div>
                 <FormGroup
                     :label="t('modpacks.index.create_modal.minecraft_version')"
@@ -1306,6 +1374,8 @@ const updatePreview = ref([]);
 const isPreviewLoading = ref(false);
 const pendingUpdateType = ref(null); // 'all' or 'bulk'
 const pendingItemIds = ref([]);
+const isSettingReminder = ref(false);
+const isCancellingReminder = ref(false);
 
 const editForm = useForm({
     name: props.modPack.name,
@@ -1718,6 +1788,117 @@ const updateModPackVersion = () => {
             console.error("Error changing version:", errors);
         },
     });
+};
+
+const setReminder = async () => {
+    if (!versionForm.minecraft_version || !versionForm.software) {
+        return;
+    }
+
+    isSettingReminder.value = true;
+    try {
+        const response = await axios.post(
+            `/mod-packs/${props.modPack.id}/set-reminder`,
+            {
+                minecraft_version: versionForm.minecraft_version,
+                software: versionForm.software,
+            },
+        );
+
+        if (response.data && response.data.message) {
+            alert(t("modpack.reminder_set"));
+            showChangeVersionModal.value = false;
+            versionForm.clearErrors();
+            // Reload the page to show the reminder info
+            router.reload();
+        }
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error setting reminder:", error);
+
+        // Check if it's a validation error
+        if (
+            error.response &&
+            error.response.data &&
+            error.response.data.errors
+        ) {
+            const errors = error.response.data.errors;
+            const errorMessage = Object.values(errors).flat().join(", ");
+            alert(`${t("modpack.reminder_set_failed")}: ${errorMessage}`);
+        } else if (
+            error.response &&
+            error.response.data &&
+            error.response.data.message
+        ) {
+            alert(
+                `${t("modpack.reminder_set_failed")}: ${error.response.data.message}`,
+            );
+        } else {
+            alert(t("modpack.reminder_set_failed"));
+        }
+    } finally {
+        isSettingReminder.value = false;
+    }
+};
+
+const cancelReminder = async () => {
+    if (!confirm(t("modpack.cancel_reminder") + "?")) {
+        return;
+    }
+
+    isCancellingReminder.value = true;
+    try {
+        const response = await axios.post(
+            `/mod-packs/${props.modPack.id}/cancel-reminder`,
+        );
+
+        // eslint-disable-next-line no-console
+        console.log("Cancel reminder response:", response);
+
+        // If we get here, the request was successful
+        alert(t("modpack.reminder_cancelled"));
+
+        // Reload the page to update the UI
+        router.reload({ only: ["modPack"] });
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error cancelling reminder:", error);
+        // eslint-disable-next-line no-console
+        console.error("Error response:", error.response);
+        // eslint-disable-next-line no-console
+        console.error("Error status:", error.response?.status);
+        // eslint-disable-next-line no-console
+        console.error("Error data:", error.response?.data);
+
+        // Check if it's a validation error
+        if (
+            error.response &&
+            error.response.data &&
+            error.response.data.errors
+        ) {
+            const errors = error.response.data.errors;
+            const errorMessage = Object.values(errors).flat().join(", ");
+            alert(`${t("modpack.reminder_cancel_failed")}: ${errorMessage}`);
+        } else if (
+            error.response &&
+            error.response.data &&
+            error.response.data.message
+        ) {
+            alert(
+                `${t("modpack.reminder_cancel_failed")}: ${error.response.data.message}`,
+            );
+        } else if (error.response) {
+            alert(
+                `${t("modpack.reminder_cancel_failed")}: ${error.response.status} ${error.response.statusText}`,
+            );
+        } else if (error.message) {
+            alert(`${t("modpack.reminder_cancel_failed")}: ${error.message}`);
+        } else {
+            alert(t("modpack.reminder_cancel_failed"));
+        }
+    } finally {
+        isCancellingReminder.value = false;
+    }
 };
 
 const duplicateModPack = () => {

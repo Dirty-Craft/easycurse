@@ -1,12 +1,17 @@
 # Mod Update Reminders
 
-This project includes an automated reminder system that emails mod pack owners when a newer *compatible* version of a mod is available for their mod pack's Minecraft version and loader.
+This project includes two automated reminder systems:
 
-## Overview
+1. **Mod Update Reminders**: Emails mod pack owners when a newer *compatible* version of a mod is available for their mod pack's Minecraft version and loader.
+2. **Minecraft Version Update Reminders**: Emails mod pack owners when all mods in their mod pack become available for a target Minecraft version and loader.
 
-The reminder system is implemented as a scheduled console command that:
+## Mod Update Reminders
 
-- Builds a distinct “what to check” set from `mod_pack_items` joined with `mod_packs`
+### Overview
+
+The mod update reminder system is implemented as a scheduled console command that:
+
+- Builds a distinct "what to check" set from `mod_pack_items` joined with `mod_packs`
 - Checks the latest compatible version via `ModService`
 - Notifies owners of affected mod packs by email
 
@@ -55,17 +60,40 @@ This ensures users receive at most one reminder per month for each mod in their 
 
 The command is scheduled in `src/routes/console.php`:
 
-```php
-Schedule::command('mods:check-updates')
-    ->daily()
-    ->at('02:00')
-    ->timezone('UTC');
-```
+## Minecraft Version Update Reminders
 
-## Testing
+### Overview
 
-Feature test: `src/tests/Feature/CheckModUpdatesCommandTest.php`
+The Minecraft version update reminder system allows users to set reminders when attempting to change a mod pack's Minecraft version. If some mods don't have compatible versions available, users can click "Remind me once available" to be notified when all mods become compatible.
 
-```shell
-docker compose exec app php artisan test --filter CheckModUpdatesCommandTest
-```
+### How it works
+
+1. **Setting a reminder**: When a user attempts to change a mod pack's Minecraft version and some mods don't have compatible versions, an error message is shown with a "Remind me once available" button.
+2. **Storing the reminder**: Clicking the button saves the target Minecraft version and software (loader) to the `mod_packs` table in the `minecraft_update_reminder_version` and `minecraft_update_reminder_software` fields.
+3. **Checking for updates**: A scheduled command runs daily to check all mod packs with reminders set.
+4. **Notification**: When ALL mods in a mod pack have compatible versions for the target version/software, an email notification is sent to the user and the reminder fields are cleared.
+
+### Command
+
+- **Command**: `docker compose exec app php artisan minecraft:check-version-updates`
+- **Implementation**: `src/app/Console/Commands/CheckMinecraftVersionUpdates.php`
+
+### Update detection
+
+For each mod pack with a reminder set, the command:
+
+- Loads all mod items in the mod pack
+- Checks each mod for compatible versions using `ModService::getModFiles()` with the target Minecraft version and software
+- If ALL mods have compatible versions, sends a notification and clears the reminder fields
+- If any mods are still incompatible, the reminder remains active
+
+### Notifications
+
+- **Notification class**: `src/app/Notifications/MinecraftVersionUpdateAvailable.php`
+- **Channel**: mail (`via()` returns `['mail']`)
+
+Emails include a message indicating that all mods in the mod pack now have compatible versions for the target Minecraft version and loader, with a link to view the mod pack.
+
+### Scheduling
+
+The command is scheduled in `src/routes/console.php`:

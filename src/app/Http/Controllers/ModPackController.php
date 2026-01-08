@@ -680,6 +680,45 @@ class ModPackController extends Controller
     }
 
     /**
+     * Set a reminder for when all mods become available for a target Minecraft version.
+     */
+    public function setReminder(Request $request, string $id)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())->findOrFail($id);
+
+        $validated = $request->validate([
+            'minecraft_version' => ['required', 'string', 'max:255'],
+            'software' => ['required', 'string', 'in:forge,fabric,quilt,neoforge'],
+        ]);
+
+        $modPack->update([
+            'minecraft_update_reminder_version' => $validated['minecraft_version'],
+            'minecraft_update_reminder_software' => $validated['software'],
+        ]);
+
+        return response()->json([
+            'message' => 'Reminder set successfully',
+        ]);
+    }
+
+    /**
+     * Cancel a reminder for Minecraft version update.
+     */
+    public function cancelReminder(Request $request, string $id)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())->findOrFail($id);
+
+        $modPack->update([
+            'minecraft_update_reminder_version' => null,
+            'minecraft_update_reminder_software' => null,
+        ]);
+
+        return response()->json([
+            'message' => 'Reminder cancelled successfully',
+        ]);
+    }
+
+    /**
      * Proxy endpoint to download mod files (bypasses CORS).
      * This is a simple pass-through proxy - no server-side zip generation.
      * The client still creates the ZIP file.
