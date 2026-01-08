@@ -24,6 +24,8 @@ class ModPack extends Model
         'description',
         'share_token',
         'downloads_count',
+        'minecraft_update_reminder_version',
+        'minecraft_update_reminder_software',
     ];
 
     /**
