@@ -14,6 +14,7 @@ In `src/.env`, add CurseForge API key:
 
 ```
 CURSEFORGE_API_KEY=...
+DONATE_WALLET_ADDRESS=... # For donate page
 ```
 
 Now, the portal will be accessible at http://localhost:9090.

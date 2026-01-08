@@ -25,4 +25,11 @@ class LandingController extends Controller
     {
         return Inertia::render('About');
     }
+
+    public function donate()
+    {
+        return Inertia::render('Donate', [
+            'walletAddress' => env('DONATE_WALLET_ADDRESS'),
+        ]);
+    }
 }

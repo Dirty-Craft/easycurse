@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', [LandingController::class, 'index']);
 Route::get('/about', [LandingController::class, 'about'])->name('about');
+Route::get('/donate', [LandingController::class, 'donate'])->name('donate');
 
 // Public shared modpack routes
 Route::get('/shared/{token}', [\App\Http\Controllers\ModPackController::class, 'showShared'])->name('mod-packs.shared.show');

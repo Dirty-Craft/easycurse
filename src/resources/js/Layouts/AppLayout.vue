@@ -60,6 +60,9 @@
                             <Link href="/about" class="footer-link">
                                 {{ t("layout.footer.about") }}
                             </Link>
+                            <Link href="/donate" class="footer-link">
+                                {{ t("layout.footer.donate") }}
+                            </Link>
                             <a
                                 href="https://github.com/Dirty-Craft/easycurse"
                                 target="_blank"

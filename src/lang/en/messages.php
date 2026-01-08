@@ -106,6 +106,11 @@ return [
     'landing.cta.subtitle' => 'Join EasyCurse today and never manually update mods again. Start managing your mod collection the smart way.',
     'landing.cta.feature1' => 'Completely free',
     'landing.cta.feature3' => 'Setup in minutes',
+    'landing.donate.badge' => 'Support Us',
+    'landing.donate.title' => 'Love EasyCurse?',
+    'landing.donate.subtitle' => 'Help us keep EasyCurse free and continue improving the platform for everyone.',
+    'landing.donate.description' => 'EasyCurse is completely free to use and will always remain free. However, maintaining servers, developing new features, and supporting the community requires resources. If you find EasyCurse useful, please consider making a donation to help us continue providing this service.',
+    'landing.donate.button' => 'Support EasyCurse',
 
     // About page
     'about.title' => 'About Us',
@@ -121,6 +126,28 @@ return [
     'about.opensource.p1' => 'EasyCurse is an open-source project developed by :link. We believe in transparency and community collaboration.',
     'about.opensource.p2' => 'You can find our source code on :link, contribute to the project, report issues, or suggest new features. We welcome all contributions!',
     'about.opensource.p3' => 'This project is licensed under the :link.',
+    'about.support.title' => 'Support EasyCurse',
+    'about.support.p1' => 'EasyCurse is completely free to use and will always remain free. However, maintaining and improving the platform requires resources. If you find EasyCurse useful and want to help us continue providing this service, please consider supporting us.',
+    'about.support.p2' => 'You can :link to help us maintain servers, develop new features, and continue improving EasyCurse for everyone. Every contribution, no matter how small, makes a difference and helps us keep EasyCurse free and accessible to all.',
+    'about.support.link_text' => 'donate',
+
+    // Donate page
+    'donate.title' => 'Donate',
+    'donate.hero.title' => 'Support EasyCurse',
+    'donate.hero.subtitle' => 'Help us keep EasyCurse free and continue improving the platform. Your donations help us maintain servers, develop new features, and support the community.',
+    'donate.support.title' => 'Why Donate?',
+    'donate.support.p1' => 'EasyCurse is completely free to use, and we want to keep it that way. However, running and maintaining the platform requires server costs, development time, and ongoing support. Your donations help us cover these costs and continue improving EasyCurse for everyone.',
+    'donate.support.p2' => 'Every contribution, no matter how small, makes a difference. Your support allows us to keep EasyCurse free and accessible to all Minecraft players, while continuously adding new features and improvements.',
+    'donate.wallet.title' => 'Donate with Tether (USDT)',
+    'donate.wallet.description' => 'We accept donations in Tether (USDT), a stablecoin pegged to the US Dollar. This allows for fast, secure, and low-cost transactions.',
+    'donate.wallet.address_label' => 'Wallet Address:',
+    'donate.wallet.address_missing' => 'Wallet address is not configured. Please contact the administrator.',
+    'donate.wallet.copy' => 'Copy',
+    'donate.wallet.copied' => 'Copied!',
+    'donate.wallet.note' => 'Please make sure to send USDT to the correct address above. Double-check the address before sending any funds. Thank you for your support!',
+    'donate.thank_you.title' => 'Thank You!',
+    'donate.thank_you.p1' => 'We are incredibly grateful for your support. Every donation helps us maintain and improve EasyCurse for the entire community.',
+    'donate.thank_you.p2' => 'Your contribution enables us to continue providing free access to EasyCurse while adding new features, improving performance, and supporting more Minecraft versions and mods. Thank you for being part of the EasyCurse community!',
 
     // Auth pages
     'auth.login.title' => 'Login',
@@ -287,6 +314,7 @@ return [
     'layout.footer.tagline' => 'Your mod management companion. Never manually update mods again.',
     'layout.footer.info' => 'Info',
     'layout.footer.about' => 'About Us',
+    'layout.footer.donate' => 'Donate',
     'layout.footer.github' => 'GitHub',
     'layout.footer.my_account' => 'My Account',
     'layout.footer.profile' => 'My Profile',
