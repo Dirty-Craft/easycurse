@@ -128,10 +128,15 @@ import { useDirection } from "../composables/useDirection";
 const { t } = useTranslations();
 const page = usePage();
 
-// Show advertisement on all pages except landing (/), about (/about), and ads (/ads)
+// Show advertisement on all pages except landing (/), about (/about), ads (/ads), and donate (/donate)
 const shouldShowAdvertisement = computed(() => {
     const url = page.url;
-    return url !== "/" && !url.startsWith("/about") && !url.startsWith("/ads");
+    return (
+        url !== "/" &&
+        !url.startsWith("/about") &&
+        !url.startsWith("/ads") &&
+        url !== "/donate"
+    );
 });
 
 // Initialize font and direction when layout mounts
