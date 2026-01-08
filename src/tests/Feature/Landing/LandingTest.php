@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Landing;
 
 use App\Models\ModPack;
 use App\Models\User;
