@@ -37,6 +37,9 @@
             </div>
         </nav>
 
+        <!-- Advertisement -->
+        <Advertisement v-if="shouldShowAdvertisement" />
+
         <!-- Main Content -->
         <main class="main-content">
             <slot />
@@ -59,6 +62,9 @@
                             </h3>
                             <Link href="/about" class="footer-link">
                                 {{ t("layout.footer.about") }}
+                            </Link>
+                            <Link href="/ads" class="footer-link">
+                                {{ t("layout.footer.advertisement") }}
                             </Link>
                             <a
                                 href="https://github.com/Dirty-Craft/easycurse"
@@ -105,17 +111,25 @@
 </template>
 
 <script setup>
-import { Link, router } from "@inertiajs/vue3";
-import { onMounted } from "vue";
+import { Link, router, usePage } from "@inertiajs/vue3";
+import { computed, onMounted } from "vue";
 import Button from "../Components/Button.vue";
 import LanguageSwitcher from "../Components/LanguageSwitcher.vue";
 import ThemeSwitcher from "../Components/ThemeSwitcher.vue";
+import Advertisement from "../Components/Advertisement.vue";
 import { useTheme } from "../composables/useTheme";
 import { useTranslations } from "../composables/useTranslations";
 import { useFont } from "../composables/useFont";
 import { useDirection } from "../composables/useDirection";
 
 const { t } = useTranslations();
+const page = usePage();
+
+// Show advertisement on all pages except landing (/), about (/about), and ads (/ads)
+const shouldShowAdvertisement = computed(() => {
+    const url = page.url;
+    return url !== "/" && !url.startsWith("/about") && !url.startsWith("/ads");
+});
 
 // Initialize font and direction when layout mounts
 useFont();

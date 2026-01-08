@@ -25,4 +25,9 @@ class LandingController extends Controller
     {
         return Inertia::render('About');
     }
+
+    public function ads()
+    {
+        return Inertia::render('Ads');
+    }
 }

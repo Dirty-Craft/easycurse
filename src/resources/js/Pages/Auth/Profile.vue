@@ -60,14 +60,6 @@
                             }}
                         </Button>
                     </form>
-
-                    <div class="auth-footer">
-                        <p>
-                            <Link href="/mod-packs" class="auth-link">{{
-                                t("auth.change.back")
-                            }}</Link>
-                        </p>
-                    </div>
                 </div>
             </div>
         </div>
@@ -75,7 +67,7 @@
 </template>
 
 <script setup>
-import { Head, Link, useForm, usePage } from "@inertiajs/vue3";
+import { Head, useForm, usePage } from "@inertiajs/vue3";
 import { computed } from "vue";
 import AppLayout from "../../Layouts/AppLayout.vue";
 import Button from "../../Components/Button.vue";
