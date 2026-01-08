@@ -9,7 +9,6 @@
             <div class="advertisement-background-pattern"></div>
             <div class="advertisement-gradient-overlay"></div>
             <div class="advertisement-content">
-                <span class="advertisement-icon">✨</span>
                 <span class="advertisement-text">{{ adText }}</span>
                 <span class="advertisement-arrow">{{ arrow }}</span>
             </div>
@@ -21,18 +20,28 @@
 
 <script setup>
 import { computed } from "vue";
+import { usePage } from "@inertiajs/vue3";
 import { useTranslations } from "../composables/useTranslations";
 
 const { t, translations } = useTranslations();
+const page = usePage();
 
-// You can customize these props or make them configurable
+// Use AD_TEXT and AD_LINK from environment variables if available, otherwise use translations
 const adText = computed(() => {
-    // Try to get from translations, fallback to default
-    return t("advertisement.text") || "Check out our amazing products!";
+    // First try environment variable
+    if (page.props.adText) {
+        return page.props.adText;
+    }
+    // Fallback to translations
+    return t("advertisement.text") || "Place your advertisement here";
 });
 
 const adUrl = computed(() => {
-    // Try to get from translations, fallback to default
+    // First try environment variable
+    if (page.props.adLink) {
+        return page.props.adLink;
+    }
+    // Fallback to translations
     return t("advertisement.url") || "/ads";
 });
 

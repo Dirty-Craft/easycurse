@@ -15,6 +15,9 @@ In `src/.env`, add CurseForge API key:
 ```
 CURSEFORGE_API_KEY=...
 DONATE_WALLET_ADDRESS=... # For donate page
+# Set these two when you want advertisement to be shown in the ad box
+AD_TEXT=
+AD_LINK=
 ```
 
 Now, the portal will be accessible at http://localhost:9090.
