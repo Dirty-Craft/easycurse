@@ -1140,6 +1140,30 @@ html[lang="en"] .hero-title {
     gap: var(--spacing-sm);
 }
 
+/* Donate Section */
+.donate {
+    background: var(--color-background-light);
+}
+
+.donate-content {
+    max-width: 700px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.donate-description {
+    font-size: clamp(1rem, 2vw, 1.125rem);
+    color: var(--color-text-secondary);
+    line-height: 1.7;
+    margin-bottom: var(--spacing-2xl);
+}
+
+.donate-actions {
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-md);
+}
+
 /* Footer */
 .footer {
     background: var(--color-background-light);

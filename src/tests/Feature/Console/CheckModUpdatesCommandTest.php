@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Console;
 
 use App\Models\ModPack;
 use App\Models\ModPackItem;

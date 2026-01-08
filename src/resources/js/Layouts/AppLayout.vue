@@ -66,6 +66,9 @@
                             <Link href="/ads" class="footer-link">
                                 {{ t("layout.footer.advertisement") }}
                             </Link>
+                            <Link href="/donate" class="footer-link">
+                                {{ t("layout.footer.donate") }}
+                            </Link>
                             <a
                                 href="https://github.com/Dirty-Craft/easycurse"
                                 target="_blank"

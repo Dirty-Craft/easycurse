@@ -541,6 +541,38 @@
                     <div class="cta-orb"></div>
                 </div>
             </section>
+
+            <!-- Donate Section -->
+            <section class="section donate">
+                <div class="container">
+                    <div class="section-header">
+                        <div class="section-badge">
+                            {{ t("landing.donate.badge") }}
+                        </div>
+                        <h2 class="section-title">
+                            {{ t("landing.donate.title") }}
+                        </h2>
+                        <p class="section-subtitle">
+                            {{ t("landing.donate.subtitle") }}
+                        </p>
+                    </div>
+                    <div class="donate-content">
+                        <p class="donate-description">
+                            {{ t("landing.donate.description") }}
+                        </p>
+                        <div class="donate-actions">
+                            <Button
+                                tag="Link"
+                                href="/donate"
+                                variant="secondary"
+                                size="large"
+                            >
+                                {{ t("landing.donate.button") }}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
     </AppLayout>
 </template>
