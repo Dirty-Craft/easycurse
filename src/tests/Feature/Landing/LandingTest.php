@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\Feature\Landing;
 
 use App\Models\ModPack;
 use App\Models\User;
@@ -19,17 +19,6 @@ class LandingTest extends TestCase
         $response = $this->get('/');
 
         $response->assertStatus(200);
-    }
-
-    /**
-     * Test that about page is accessible.
-     */
-    public function test_about_page_is_accessible(): void
-    {
-        $response = $this->get('/about');
-
-        $response->assertStatus(200);
-        $response->assertInertia(fn ($page) => $page->component('About'));
     }
 
     /**
