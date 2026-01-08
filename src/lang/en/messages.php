@@ -17,6 +17,13 @@ return [
     // Mod pack messages
     'modpack.mod_already_added' => 'This mod is already added to the mod pack.',
     'modpack.mods_without_version' => 'The following mods do not have a version available for :version (:software): :mods',
+    'modpack.remind_me_once_available' => 'Remind me once available',
+    'modpack.reminder_set' => 'Reminder set! You will be notified when all mods become available for this version.',
+    'modpack.reminder_set_failed' => 'Failed to set reminder. Please try again.',
+    'modpack.reminder_active' => 'Reminder active: You will be notified when all mods become available for :version (:software)',
+    'modpack.cancel_reminder' => 'Cancel Reminder',
+    'modpack.reminder_cancelled' => 'Reminder cancelled successfully.',
+    'modpack.reminder_cancel_failed' => 'Failed to cancel reminder. Please try again.',
     'modpack.added_to_collection' => 'Mod pack added to your collection!',
     'modpack.invalid_download_url' => 'Invalid download URL',
     'modpack.download_failed' => 'Failed to download file from CDN',
