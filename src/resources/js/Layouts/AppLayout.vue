@@ -130,7 +130,10 @@ const page = usePage();
 
 // Show advertisement on all pages except landing (/), about (/about), ads (/ads), and donate (/donate)
 const shouldShowAdvertisement = computed(() => {
-    const url = page.url;
+    // Normalize URL: remove query parameters and normalize trailing slashes
+    let url = page.url.split("?")[0]; // Remove query parameters
+    url = url.replace(/\/+$/, "") || "/"; // Remove trailing slashes, but keep "/" for root
+
     return (
         url !== "/" &&
         !url.startsWith("/about") &&
