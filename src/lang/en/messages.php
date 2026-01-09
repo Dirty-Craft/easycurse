@@ -130,6 +130,8 @@ return [
     'about.support.p1' => 'EasyCurse is completely free to use and will always remain free. However, maintaining and improving the platform requires resources. If you find EasyCurse useful and want to help us continue providing this service, please consider supporting us.',
     'about.support.p2' => 'You can :link to help us maintain servers, develop new features, and continue improving EasyCurse for everyone. Every contribution, no matter how small, makes a difference and helps us keep EasyCurse free and accessible to all.',
     'about.support.link_text' => 'donate',
+    'about.contact.title' => 'Contact Us',
+    'about.contact.p1' => 'Have questions, feedback, or suggestions? We\'d love to hear from you!',
 
     // Donate page
     'donate.title' => 'Donate',

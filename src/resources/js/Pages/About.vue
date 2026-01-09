@@ -133,6 +133,24 @@
                     </div>
                 </div>
             </section>
+
+            <section class="about-section">
+                <div class="container">
+                    <div class="about-text">
+                        <h2 class="section-title">
+                            {{ t("about.contact.title") }}
+                        </h2>
+                        <p>
+                            {{ t("about.contact.p1") }}
+                        </p>
+                        <p>
+                            <a href="mailto:contact@easycurse.com" class="link">
+                                contact@easycurse.com
+                            </a>
+                        </p>
+                    </div>
+                </div>
+            </section>
         </div>
     </AppLayout>
 </template>
