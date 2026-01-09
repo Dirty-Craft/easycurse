@@ -15,9 +15,14 @@ In `src/.env`, add CurseForge API key:
 ```
 CURSEFORGE_API_KEY=...
 DONATE_WALLET_ADDRESS=... # For donate page
-# Set these two when you want advertisement to be shown in the ad box
-AD_TEXT=
-AD_LINK=
+# Set these when you want advertisement to be shown in the ad box
+# Use language-specific variables: AD_<LOCALE>_TEXT and AD_<LOCALE>_LINK
+# For example: AD_EN_TEXT, AD_EN_LINK, AD_FA_TEXT, AD_FA_LINK
+# The locale is automatically determined from the user's language preference
+AD_EN_TEXT=
+AD_EN_LINK=
+AD_FA_TEXT=
+AD_FA_LINK=
 ```
 
 Now, the portal will be accessible at http://localhost:9090.

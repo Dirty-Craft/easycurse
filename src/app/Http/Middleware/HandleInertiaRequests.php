@@ -62,6 +62,7 @@ class HandleInertiaRequests extends Middleware
         }
 
         $currentLocale = app()->getLocale();
+        $localeUpper = strtoupper($currentLocale);
 
         return [
             ...$shared,
@@ -76,8 +77,8 @@ class HandleInertiaRequests extends Middleware
             'translations' => function () {
                 return __('messages');
             },
-            'adText' => env('AD_TEXT'),
-            'adLink' => env('AD_LINK'),
+            'adText' => env("AD_{$localeUpper}_TEXT"),
+            'adLink' => env("AD_{$localeUpper}_LINK"),
         ];
     }
 }

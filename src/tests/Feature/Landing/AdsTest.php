@@ -54,11 +54,9 @@ class AdsTest extends TestCase
      */
     public function test_ad_box_props_from_environment_variables(): void
     {
-        // Set environment variables for ad text and link
-        config(['app.ad_text' => 'Test Ad Text']);
-        config(['app.ad_link' => 'https://example.com']);
-
-        // Note: In actual implementation, these come from env() in HandleInertiaRequests
+        // Note: In actual implementation, these come from language-specific env() vars
+        // in HandleInertiaRequests: AD_<LOCALE>_TEXT and AD_<LOCALE>_LINK
+        // For example: AD_EN_TEXT, AD_EN_LINK, AD_FA_TEXT, AD_FA_LINK
         // For testing, we need to check if they're available in the response
         $response = $this->get('/login');
 
@@ -135,6 +133,32 @@ class AdsTest extends TestCase
         // Verify that adText and adLink props are available
         $response->assertInertia(fn ($page) => $page
             ->component('ModPacks/Index')
+            ->has('adText')
+            ->has('adLink')
+        );
+    }
+
+    /**
+     * Test that language-specific ad variables work correctly.
+     */
+    public function test_language_specific_ad_variables(): void
+    {
+        // Test English locale
+        $response = $this->get('/login?lang=en');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->component('Auth/Login')
+            ->has('adText')
+            ->has('adLink')
+        );
+
+        // Test Farsi locale
+        $response = $this->get('/login?lang=fa');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->component('Auth/Login')
             ->has('adText')
             ->has('adLink')
         );
