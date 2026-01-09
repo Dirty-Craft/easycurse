@@ -67,20 +67,75 @@
                             {{ t("modpacks.show.mods") }}
                         </h3>
                         <div class="section-actions">
-                            <Button
+                            <div
                                 v-if="modPack.items.length > 0"
-                                variant="success"
-                                :class="{ 'btn-loading': isDownloadingAll }"
-                                :disabled="isDownloadingAll"
-                                @click="downloadAllAsZip"
+                                class="export-dropdown"
                             >
-                                <span v-if="!isDownloadingAll">{{
-                                    t("modpacks.show.download_all")
-                                }}</span>
-                                <span v-else class="loading-text">{{
-                                    t("modpacks.show.downloading")
-                                }}</span>
-                            </Button>
+                                <Button
+                                    variant="success"
+                                    :class="{ 'btn-loading': isExporting }"
+                                    :disabled="isExporting || showExportMenu"
+                                    @click="showExportMenu = !showExportMenu"
+                                >
+                                    <span v-if="!isExporting"
+                                        >📦
+                                        {{ t("modpacks.show.download") }}</span
+                                    >
+                                    <span v-else class="loading-text">{{
+                                        t("modpacks.show.downloading")
+                                    }}</span>
+                                    <span class="dropdown-arrow">▼</span>
+                                </Button>
+                                <div
+                                    v-if="showExportMenu"
+                                    class="export-menu"
+                                    @click.stop
+                                >
+                                    <button
+                                        class="export-menu-item"
+                                        @click="
+                                            () => {
+                                                downloadAllAsZip();
+                                                showExportMenu = false;
+                                            }
+                                        "
+                                    >
+                                        {{ t("modpacks.show.export_zip") }}
+                                    </button>
+                                    <button
+                                        class="export-menu-item"
+                                        @click="exportModpack('curseforge')"
+                                    >
+                                        {{
+                                            t("modpacks.show.export_curseforge")
+                                        }}
+                                    </button>
+                                    <button
+                                        class="export-menu-item"
+                                        @click="exportModpack('multimc')"
+                                    >
+                                        {{ t("modpacks.show.export_multimc") }}
+                                    </button>
+                                    <button
+                                        class="export-menu-item"
+                                        @click="exportModpack('modrinth')"
+                                    >
+                                        {{ t("modpacks.show.export_modrinth") }}
+                                    </button>
+                                    <button
+                                        class="export-menu-item"
+                                        @click="exportModpack('text')"
+                                    >
+                                        {{ t("modpacks.show.export_text") }}
+                                    </button>
+                                    <button
+                                        class="export-menu-item"
+                                        @click="exportModpack('csv')"
+                                    >
+                                        {{ t("modpacks.show.export_csv") }}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -101,22 +156,95 @@
                                 }}
                             </div>
                             <div class="bulk-actions-buttons">
-                                <Button
-                                    variant="success"
-                                    size="sm"
-                                    :disabled="isDownloadingBulk"
-                                    :class="{
-                                        'btn-loading': isDownloadingBulk,
-                                    }"
-                                    @click="downloadBulkSelected"
-                                >
-                                    <span v-if="!isDownloadingBulk">{{
-                                        t("modpacks.show.download_selected")
-                                    }}</span>
-                                    <span v-else class="loading-text">{{
-                                        t("modpacks.show.downloading")
-                                    }}</span>
-                                </Button>
+                                <div class="export-dropdown">
+                                    <Button
+                                        variant="success"
+                                        size="sm"
+                                        :disabled="
+                                            isExporting || showBulkExportMenu
+                                        "
+                                        :class="{
+                                            'btn-loading': isExporting,
+                                        }"
+                                        @click="
+                                            showBulkExportMenu =
+                                                !showBulkExportMenu
+                                        "
+                                    >
+                                        <span v-if="!isExporting">{{
+                                            t("modpacks.show.download_selected")
+                                        }}</span>
+                                        <span v-else class="loading-text">{{
+                                            t("modpacks.show.downloading")
+                                        }}</span>
+                                        <span class="dropdown-arrow">▼</span>
+                                    </Button>
+                                    <div
+                                        v-if="showBulkExportMenu"
+                                        class="export-menu"
+                                        @click.stop
+                                    >
+                                        <button
+                                            class="export-menu-item"
+                                            @click="
+                                                () => {
+                                                    downloadBulkSelected();
+                                                    showBulkExportMenu = false;
+                                                }
+                                            "
+                                        >
+                                            {{ t("modpacks.show.export_zip") }}
+                                        </button>
+                                        <button
+                                            class="export-menu-item"
+                                            @click="
+                                                exportBulkModpack('curseforge')
+                                            "
+                                        >
+                                            {{
+                                                t(
+                                                    "modpacks.show.export_curseforge",
+                                                )
+                                            }}
+                                        </button>
+                                        <button
+                                            class="export-menu-item"
+                                            @click="
+                                                exportBulkModpack('multimc')
+                                            "
+                                        >
+                                            {{
+                                                t(
+                                                    "modpacks.show.export_multimc",
+                                                )
+                                            }}
+                                        </button>
+                                        <button
+                                            class="export-menu-item"
+                                            @click="
+                                                exportBulkModpack('modrinth')
+                                            "
+                                        >
+                                            {{
+                                                t(
+                                                    "modpacks.show.export_modrinth",
+                                                )
+                                            }}
+                                        </button>
+                                        <button
+                                            class="export-menu-item"
+                                            @click="exportBulkModpack('text')"
+                                        >
+                                            {{ t("modpacks.show.export_text") }}
+                                        </button>
+                                        <button
+                                            class="export-menu-item"
+                                            @click="exportBulkModpack('csv')"
+                                        >
+                                            {{ t("modpacks.show.export_csv") }}
+                                        </button>
+                                    </div>
+                                </div>
                                 <Button
                                     variant="secondary"
                                     size="sm"
@@ -202,8 +330,10 @@
                                 <div class="mod-item-actions">
                                     <Button
                                         v-if="
-                                            item.curseforge_mod_id &&
-                                            item.curseforge_file_id
+                                            (item.curseforge_mod_id &&
+                                                item.curseforge_file_id) ||
+                                            (item.modrinth_project_id &&
+                                                item.modrinth_version_id)
                                         "
                                         size="sm"
                                         variant="success"
@@ -230,7 +360,7 @@
 
 <script setup>
 import { Head, Link, router, usePage } from "@inertiajs/vue3";
-import { ref, computed } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import AppLayout from "../../Layouts/AppLayout.vue";
 import Button from "../../Components/Button.vue";
 import axios from "axios";
@@ -269,6 +399,9 @@ const isDownloadingAll = ref(false);
 const downloadingItems = ref(new Set());
 const selectedItems = ref(new Set());
 const isDownloadingBulk = ref(false);
+const isExporting = ref(false);
+const showExportMenu = ref(false);
+const showBulkExportMenu = ref(false);
 
 const addToCollection = () => {
     if (!isAuthenticated.value) {
@@ -301,7 +434,10 @@ const addToCollection = () => {
 };
 
 const downloadModItem = async (item) => {
-    if (!item.curseforge_mod_id || !item.curseforge_file_id) {
+    const isCurseForge = item.curseforge_mod_id && item.curseforge_file_id;
+    const isModrinth = item.modrinth_project_id && item.modrinth_version_id;
+
+    if (!isCurseForge && !isModrinth) {
         alert(t("modpacks.show.download_info_missing"));
         return;
     }
@@ -696,4 +832,85 @@ const getItemModUrl = (item) => {
 
     return null;
 };
+
+const exportModpack = async (format) => {
+    try {
+        if (
+            !props.modPack ||
+            !props.modPack.items ||
+            props.modPack.items.length === 0
+        ) {
+            return;
+        }
+
+        isExporting.value = true;
+        showExportMenu.value = false;
+
+        const url = `/shared/${props.modPack.share_token}/export/${format}`;
+
+        // Use window.location for downloads (better browser compatibility)
+        window.location.href = url;
+
+        // Wait a bit for the download to start
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error exporting modpack:", error);
+        const errorMessage =
+            error?.message || error?.toString() || "Unknown error";
+        alert(t("modpacks.show.export_failed", { error: errorMessage }));
+    } finally {
+        isExporting.value = false;
+    }
+};
+
+const exportBulkModpack = async (format) => {
+    try {
+        if (
+            !props.modPack ||
+            !props.modPack.items ||
+            props.modPack.items.length === 0
+        ) {
+            return;
+        }
+
+        isExporting.value = true;
+        showBulkExportMenu.value = false;
+
+        // Note: Backend export endpoints export the full modpack
+        // For bulk operations, we export the full pack (selected items can't be filtered at backend level yet)
+        const url = `/shared/${props.modPack.share_token}/export/${format}`;
+
+        // Use window.location for downloads (better browser compatibility)
+        window.location.href = url;
+
+        // Wait a bit for the download to start
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error exporting modpack:", error);
+        const errorMessage =
+            error?.message || error?.toString() || "Unknown error";
+        alert(t("modpacks.show.export_failed", { error: errorMessage }));
+    } finally {
+        isExporting.value = false;
+    }
+};
+
+// Close export menu when clicking outside
+const handleClickOutside = (event) => {
+    if (!event.target.closest(".export-dropdown")) {
+        showExportMenu.value = false;
+        showBulkExportMenu.value = false;
+    }
+};
+
+// Attach click outside listener
+onMounted(() => {
+    document.addEventListener("click", handleClickOutside);
+});
+
+onBeforeUnmount(() => {
+    document.removeEventListener("click", handleClickOutside);
+});
 </script>

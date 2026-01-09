@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ModPack;
 use App\Models\ModPackItem;
+use App\Services\ModPackExportService;
 use App\Services\ModService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -1458,5 +1459,204 @@ class ModPackController extends Controller
         }
 
         return $modService->getLatestModFile($modId, $gameVersion, $software, $source);
+    }
+
+    /**
+     * Export modpack in various formats.
+     */
+    public function export(Request $request, string $id, string $format)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())
+            ->with(['items', 'user'])
+            ->findOrFail($id);
+
+        $exportService = new ModPackExportService(new ModService);
+
+        try {
+            switch (strtolower($format)) {
+                case 'curseforge':
+                    $filePath = $exportService->exportAsCurseForge($modPack);
+                    $filename = $this->sanitizeFilename($modPack->name).'-curseforge.zip';
+                    $mimeType = 'application/zip';
+
+                    break;
+                case 'multimc':
+                    $filePath = $exportService->exportAsMultiMC($modPack);
+                    $filename = $this->sanitizeFilename($modPack->name).'-multimc.zip';
+                    $mimeType = 'application/zip';
+
+                    break;
+                case 'modrinth':
+                    $filePath = $exportService->exportAsModrinth($modPack);
+                    $filename = $this->sanitizeFilename($modPack->name).'.mrpack';
+                    $mimeType = 'application/x-modrinth-modpack+zip';
+
+                    break;
+                case 'text':
+                    $content = $exportService->exportAsText($modPack);
+                    $filename = $this->sanitizeFilename($modPack->name).'.txt';
+                    $mimeType = 'text/plain';
+
+                    // Increment downloads count
+                    $modPack->increment('downloads_count');
+
+                    return response($content, 200, [
+                        'Content-Type' => $mimeType,
+                        'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+                    ]);
+                case 'csv':
+                    $content = $exportService->exportAsCsv($modPack);
+                    $filename = $this->sanitizeFilename($modPack->name).'.csv';
+                    $mimeType = 'text/csv';
+
+                    // Increment downloads count
+                    $modPack->increment('downloads_count');
+
+                    return response($content, 200, [
+                        'Content-Type' => $mimeType,
+                        'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+                    ]);
+                default:
+                    return response()->json([
+                        'error' => __('messages.modpack.unsupported_export_format'),
+                    ], 400);
+            }
+
+            // For ZIP-based exports
+            if (file_exists($filePath)) {
+                // Increment downloads count
+                $modPack->increment('downloads_count');
+
+                return response()->download($filePath, $filename, [
+                    'Content-Type' => $mimeType,
+                ])->deleteFileAfterSend(true);
+            } else {
+                return response()->json([
+                    'error' => __('messages.modpack.export_failed'),
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Export failed', [
+                'mod_pack_id' => $modPack->id,
+                'format' => $format,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'error' => __('messages.modpack.export_failed').': '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Export shared modpack in various formats.
+     */
+    public function exportShared(Request $request, string $token, string $format)
+    {
+        $modPack = ModPack::where('share_token', $token)
+            ->with(['items', 'user'])
+            ->firstOrFail();
+
+        $exportService = new ModPackExportService(new ModService);
+
+        try {
+            switch (strtolower($format)) {
+                case 'curseforge':
+                    $filePath = $exportService->exportAsCurseForge($modPack);
+                    $filename = $this->sanitizeFilename($modPack->name).'-curseforge.zip';
+                    $mimeType = 'application/zip';
+
+                    break;
+                case 'multimc':
+                    $filePath = $exportService->exportAsMultiMC($modPack);
+                    $filename = $this->sanitizeFilename($modPack->name).'-multimc.zip';
+                    $mimeType = 'application/zip';
+
+                    break;
+                case 'modrinth':
+                    $filePath = $exportService->exportAsModrinth($modPack);
+                    $filename = $this->sanitizeFilename($modPack->name).'.mrpack';
+                    $mimeType = 'application/x-modrinth-modpack+zip';
+
+                    break;
+                case 'text':
+                    $content = $exportService->exportAsText($modPack);
+                    $filename = $this->sanitizeFilename($modPack->name).'.txt';
+                    $mimeType = 'text/plain';
+
+                    // Increment downloads count
+                    $modPack->increment('downloads_count');
+
+                    return response($content, 200, [
+                        'Content-Type' => $mimeType,
+                        'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+                    ]);
+                case 'csv':
+                    $content = $exportService->exportAsCsv($modPack);
+                    $filename = $this->sanitizeFilename($modPack->name).'.csv';
+                    $mimeType = 'text/csv';
+
+                    // Increment downloads count
+                    $modPack->increment('downloads_count');
+
+                    return response($content, 200, [
+                        'Content-Type' => $mimeType,
+                        'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+                    ]);
+                default:
+                    return response()->json([
+                        'error' => __('messages.modpack.unsupported_export_format'),
+                    ], 400);
+            }
+
+            // For ZIP-based exports
+            if (file_exists($filePath)) {
+                // Increment downloads count
+                $modPack->increment('downloads_count');
+
+                return response()->download($filePath, $filename, [
+                    'Content-Type' => $mimeType,
+                ])->deleteFileAfterSend(true);
+            } else {
+                return response()->json([
+                    'error' => __('messages.modpack.export_failed'),
+                ], 500);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Shared export failed', [
+                'share_token' => $token,
+                'format' => $format,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'error' => __('messages.modpack.export_failed').': '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Sanitize filename for safe downloads.
+     */
+    private function sanitizeFilename(string $filename): string
+    {
+        // Remove or replace invalid filename characters
+        $filename = preg_replace('/[^a-zA-Z0-9._-]/', '_', $filename);
+        $filename = preg_replace('/_{2,}/', '_', $filename); // Replace multiple underscores with single
+        $filename = trim($filename, '_'); // Remove leading/trailing underscores
+
+        // Ensure filename is not empty
+        if (empty($filename)) {
+            $filename = 'modpack';
+        }
+
+        // Limit length
+        if (strlen($filename) > 100) {
+            $filename = substr($filename, 0, 100);
+        }
+
+        return $filename;
     }
 }

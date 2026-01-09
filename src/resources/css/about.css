@@ -76,6 +76,47 @@
     text-decoration: underline;
 }
 
+/* Donate Page Styles */
+.wallet-address-container {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: stretch;
+    margin: var(--spacing-md) 0;
+}
+
+.wallet-address {
+    font-family: monospace;
+    font-size: 1rem;
+    background: var(--color-background-light);
+    padding: var(--spacing-md);
+    border-radius: 8px;
+    word-break: break-all;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    flex: 1;
+    margin: 0;
+    min-height: fit-content;
+    display: flex;
+    align-items: center;
+    margin-bottom: 0 !important;
+}
+
+.copy-button {
+    flex-shrink: 0;
+    white-space: nowrap;
+    align-self: stretch;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    border-width: 1px !important;
+}
+
+.wallet-address-missing {
+    color: var(--color-text-secondary);
+    font-style: italic;
+    padding: var(--spacing-md);
+}
+
 @media (width <= 768px) {
     .about-hero {
         padding: calc(var(--spacing-2xl) + 60px) var(--spacing-md)
@@ -84,6 +125,14 @@
 
     .about-section {
         padding: var(--spacing-2xl) 0;
+    }
+
+    .wallet-address-container {
+        flex-direction: column;
+    }
+
+    .copy-button {
+        width: 100%;
     }
 }
 
