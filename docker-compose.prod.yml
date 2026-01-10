@@ -111,6 +111,17 @@ services:
       - easycurse-network
     environment:
       DOCKER_TLS_CERTDIR: ""
+    command: >
+      sh -c "
+        dockerd-entrypoint.sh &
+        echo 'Waiting for Docker daemon to start...'
+        while ! docker info > /dev/null 2>&1; do
+          sleep 1
+        done
+        echo 'Docker daemon is ready, starting runner.sh...'
+        chmod +x /shared/virtual/runner.sh
+        exec /shared/virtual/runner.sh
+      "
   roundcube:
     image: roundcube/roundcubemail:latest
     container_name: easycurse-roundcube
