@@ -14,6 +14,7 @@ services:
       - ./src/:/var/www/
       - ./docs/:/var/www/docs
       - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+      - ./docker/virtual:/shared/virtual
     networks:
       - easycurse-network
     depends_on:
@@ -110,9 +111,22 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+  virtual:
+    image: docker:dind
+    container_name: easycurse-virtual
+    restart: unless-stopped
+    privileged: true
+    volumes:
+      - virtual_data:/var/lib/docker
+      - ./docker/virtual:/shared/virtual
+    networks:
+      - easycurse-network
+    environment:
+      DOCKER_TLS_CERTDIR: ""
 volumes:
   db_data:
   redis_data:
+  virtual_data:
 networks:
   easycurse-network:
     driver: bridge
