@@ -15,6 +15,7 @@ Route::get('/shared/{token}/download-links', [\App\Http\Controllers\ModPackContr
 Route::post('/shared/{token}/bulk-download-links', [\App\Http\Controllers\ModPackController::class, 'getSharedBulkDownloadLinks'])->name('mod-packs.shared.bulk-download-links');
 Route::get('/shared/{token}/items/{itemId}/download-link', [\App\Http\Controllers\ModPackController::class, 'getSharedItemDownloadLink'])->name('mod-packs.shared.items.download-link');
 Route::get('/shared/{token}/proxy-download', [\App\Http\Controllers\ModPackController::class, 'sharedProxyDownload'])->name('mod-packs.shared.proxy-download');
+Route::get('/shared/{token}/export/{format}', [\App\Http\Controllers\ModPackController::class, 'exportShared'])->name('mod-packs.shared.export');
 
 // Authentication routes
 Route::middleware('guest')->group(function () {
@@ -59,4 +60,5 @@ Route::middleware('auth')->group(function () {
     Route::post('/mod-packs/{id}/duplicate', [\App\Http\Controllers\ModPackController::class, 'duplicate'])->name('mod-packs.duplicate');
     Route::post('/mod-packs/{id}/items/reorder', [\App\Http\Controllers\ModPackController::class, 'reorderItems'])->name('mod-packs.items.reorder');
     Route::post('/shared/{token}/add-to-collection', [\App\Http\Controllers\ModPackController::class, 'addToCollection'])->name('mod-packs.shared.add-to-collection');
+    Route::get('/mod-packs/{id}/export/{format}', [\App\Http\Controllers\ModPackController::class, 'export'])->name('mod-packs.export');
 });

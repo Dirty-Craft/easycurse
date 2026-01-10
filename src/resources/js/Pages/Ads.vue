@@ -26,6 +26,9 @@
                             {{ t("ads.how.p2") }}
                         </p>
                         <p>
+                            {{ t("ads.how.p3") }}
+                        </p>
+                        <p>
                             <template
                                 v-for="(part, index) in contactParts"
                                 :key="index"
@@ -70,6 +73,9 @@
                             {{ t("ads.contact.p1") }}
                         </p>
                         <p>
+                            {{ t("ads.contact.p2") }}
+                        </p>
+                        <p>
                             <a href="mailto:ads@easycurse.com" class="link">
                                 ads@easycurse.com
                             </a>
@@ -95,5 +101,5 @@ const splitWithLink = (text) => {
 };
 
 // Computed property for contact paragraph with link
-const contactParts = computed(() => splitWithLink(t("ads.how.p3")));
+const contactParts = computed(() => splitWithLink(t("ads.how.p4")));
 </script>

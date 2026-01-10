@@ -121,20 +121,75 @@
                                     t("modpacks.show.updating")
                                 }}</span>
                             </Button>
-                            <Button
+                            <div
                                 v-if="modPack.items.length > 0"
-                                variant="success"
-                                :class="{ 'btn-loading': isDownloadingAll }"
-                                :disabled="isDownloadingAll"
-                                @click="downloadAllAsZip"
+                                class="export-dropdown"
                             >
-                                <span v-if="!isDownloadingAll">{{
-                                    t("modpacks.show.download_all")
-                                }}</span>
-                                <span v-else class="loading-text">{{
-                                    t("modpacks.show.downloading")
-                                }}</span>
-                            </Button>
+                                <Button
+                                    variant="success"
+                                    :class="{ 'btn-loading': isExporting }"
+                                    :disabled="isExporting || showExportMenu"
+                                    @click="showExportMenu = !showExportMenu"
+                                >
+                                    <span v-if="!isExporting"
+                                        >📦
+                                        {{ t("modpacks.show.download") }}</span
+                                    >
+                                    <span v-else class="loading-text">{{
+                                        t("modpacks.show.downloading")
+                                    }}</span>
+                                    <span class="dropdown-arrow">▼</span>
+                                </Button>
+                                <div
+                                    v-if="showExportMenu"
+                                    class="export-menu"
+                                    @click.stop
+                                >
+                                    <button
+                                        class="export-menu-item"
+                                        @click="
+                                            () => {
+                                                downloadAllAsZip();
+                                                showExportMenu = false;
+                                            }
+                                        "
+                                    >
+                                        {{ t("modpacks.show.export_zip") }}
+                                    </button>
+                                    <button
+                                        class="export-menu-item"
+                                        @click="exportModpack('curseforge')"
+                                    >
+                                        {{
+                                            t("modpacks.show.export_curseforge")
+                                        }}
+                                    </button>
+                                    <button
+                                        class="export-menu-item"
+                                        @click="exportModpack('multimc')"
+                                    >
+                                        {{ t("modpacks.show.export_multimc") }}
+                                    </button>
+                                    <button
+                                        class="export-menu-item"
+                                        @click="exportModpack('modrinth')"
+                                    >
+                                        {{ t("modpacks.show.export_modrinth") }}
+                                    </button>
+                                    <button
+                                        class="export-menu-item"
+                                        @click="exportModpack('text')"
+                                    >
+                                        {{ t("modpacks.show.export_text") }}
+                                    </button>
+                                    <button
+                                        class="export-menu-item"
+                                        @click="exportModpack('csv')"
+                                    >
+                                        {{ t("modpacks.show.export_csv") }}
+                                    </button>
+                                </div>
+                            </div>
                             <Button @click="showAddModModal = true">
                                 {{ t("modpacks.show.add_mod") }}
                             </Button>
@@ -1332,7 +1387,7 @@
 
 <script setup>
 import { Head, Link, router, useForm } from "@inertiajs/vue3";
-import { ref, watch, computed } from "vue";
+import { ref, watch, computed, onMounted, onBeforeUnmount } from "vue";
 import AppLayout from "../../Layouts/AppLayout.vue";
 import Button from "../../Components/Button.vue";
 import Input from "../../Components/Input.vue";
@@ -1500,6 +1555,8 @@ const addModError = ref("");
 const modsSearchQuery = ref("");
 const selectedItems = ref(new Set());
 const isDownloadingBulk = ref(false);
+const isExporting = ref(false);
+const showExportMenu = ref(false);
 const isDeletingBulk = ref(false);
 
 // Drag & drop state
@@ -2929,6 +2986,53 @@ const downloadAllAsZip = async () => {
         isDownloadingAll.value = false;
     }
 };
+
+const exportModpack = async (format) => {
+    try {
+        if (
+            !props.modPack ||
+            !props.modPack.items ||
+            props.modPack.items.length === 0
+        ) {
+            return;
+        }
+
+        isExporting.value = true;
+        showExportMenu.value = false;
+
+        const url = `/mod-packs/${props.modPack.id}/export/${format}`;
+
+        // Use window.location for downloads (better browser compatibility)
+        window.location.href = url;
+
+        // Wait a bit for the download to start
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error exporting modpack:", error);
+        const errorMessage =
+            error?.message || error?.toString() || "Unknown error";
+        alert(t("modpacks.show.export_failed", { error: errorMessage }));
+    } finally {
+        isExporting.value = false;
+    }
+};
+
+// Close export menu when clicking outside
+const handleClickOutside = (event) => {
+    if (!event.target.closest(".export-dropdown")) {
+        showExportMenu.value = false;
+    }
+};
+
+// Attach click outside listener
+onMounted(() => {
+    document.addEventListener("click", handleClickOutside);
+});
+
+onBeforeUnmount(() => {
+    document.removeEventListener("click", handleClickOutside);
+});
 
 // Drag & drop handlers
 const handleDragStart = (event, itemId, index) => {
