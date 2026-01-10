@@ -90,7 +90,7 @@ return [
     'landing.features.auto.title' => 'تطبیق خودکار نسخه',
     'landing.features.auto.description' => 'با تغییر نسخه ماینکرفت، نسخه سازگار مادها خودکار پیدا می‌شه.',
     'landing.features.download.title' => 'دانلود با یک کلیک',
-    'landing.features.download.description' => 'کل مودپک رو به‌صورت یک فایل ZIP آماده دانلود کن.',
+    'landing.features.download.description' => 'مودپکت رو در فرمت‌های مختلف خروجی بگیر: مودپک CurseForge، نمونه MultiMC، پک Modrinth یا ZIP ساده. دانلود کن و بازی کن—بدون نیاز به لانچر.',
     'landing.features.storage.title' => 'ذخیره‌سازی ابری',
     'landing.features.storage.description' => 'مودپک‌هات روی کلاود ذخیره می‌شن؛ هرجا، هرزمان، هر دستگاه.',
     'landing.features.updated.title' => 'همیشه به‌روز',

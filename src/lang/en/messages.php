@@ -90,7 +90,7 @@ return [
     'landing.features.auto.title' => 'Auto Version Matching',
     'landing.features.auto.description' => 'We automatically find compatible mod versions when you update Minecraft. No more manual searching.',
     'landing.features.download.title' => 'One-Click Download',
-    'landing.features.download.description' => 'Download your entire mod pack as a single zip file, ready to extract and play. It\'s that simple.',
+    'landing.features.download.description' => 'Export your mod pack in multiple formats: CurseForge Modpack, MultiMC Instance, Modrinth Pack, or plain ZIP. Download and play instantly—no launcher required.',
     'landing.features.storage.title' => 'Cloud Storage',
     'landing.features.storage.description' => 'Your mod packs are saved in the cloud. Access them anytime, anywhere, from any device.',
     'landing.features.updated.title' => 'Always Up-to-Date',
