@@ -1182,14 +1182,39 @@ class ModPackController extends Controller
         ]);
 
         // Create directory structure for the run
-        $runDir = '/shared/virtual/'.$run->id;
+        $baseDir = '/shared/virtual';
+        $runDir = $baseDir.'/'.$run->id;
         $modsDir = $runDir.'/mods';
 
-        if (! is_dir($runDir)) {
-            mkdir($runDir, 0755, true);
+        // Verify base directory exists and is writable (should be a Docker volume mount)
+        // We don't try to create it since it's a volume mount - it must exist
+        if (! is_dir($baseDir)) {
+            throw new \RuntimeException(
+                "Base directory does not exist: {$baseDir}. ".
+                'Please ensure the Docker volume mount is configured correctly in docker-compose.yml '.
+                'and that ./docker/virtual directory exists on the host system.'
+            );
         }
+
+        if (! is_writable($baseDir)) {
+            throw new \RuntimeException(
+                "Base directory is not writable: {$baseDir}. ".
+                'Please check permissions on ./docker/virtual on the host system.'
+            );
+        }
+
+        // Create run directory
+        if (! is_dir($runDir)) {
+            if (! @mkdir($runDir, 0755, true) && ! is_dir($runDir)) {
+                throw new \RuntimeException("Failed to create run directory: {$runDir}");
+            }
+        }
+
+        // Create mods directory
         if (! is_dir($modsDir)) {
-            mkdir($modsDir, 0755, true);
+            if (! @mkdir($modsDir, 0755, true) && ! is_dir($modsDir)) {
+                throw new \RuntimeException("Failed to create mods directory: {$modsDir}");
+            }
         }
 
         // Download mod loader from ServerJars
