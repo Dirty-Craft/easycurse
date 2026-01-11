@@ -61,4 +61,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/mod-packs/{id}/items/reorder', [\App\Http\Controllers\ModPackController::class, 'reorderItems'])->name('mod-packs.items.reorder');
     Route::post('/shared/{token}/add-to-collection', [\App\Http\Controllers\ModPackController::class, 'addToCollection'])->name('mod-packs.shared.add-to-collection');
     Route::get('/mod-packs/{id}/export/{format}', [\App\Http\Controllers\ModPackController::class, 'export'])->name('mod-packs.export');
+    Route::post('/mod-packs/{id}/runs', [\App\Http\Controllers\ModPackController::class, 'createRun'])->name('mod-packs.runs.create');
+    Route::get('/mod-packs/{id}/runs', [\App\Http\Controllers\ModPackController::class, 'getRunHistory'])->name('mod-packs.runs.history');
+    Route::get('/mod-packs/{id}/runs/{runId}/logs', [\App\Http\Controllers\ModPackController::class, 'getRunLogs'])->name('mod-packs.runs.logs');
+    Route::post('/mod-packs/{id}/runs/{runId}/stop', [\App\Http\Controllers\ModPackController::class, 'stopRun'])->name('mod-packs.runs.stop');
 });

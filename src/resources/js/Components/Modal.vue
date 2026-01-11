@@ -5,6 +5,7 @@
                 :class="[
                     'modal-content',
                     size === 'large' && 'modal-content-large',
+                    size === 'fullscreen' && 'modal-content-fullscreen',
                 ]"
                 @click.stop
             >
@@ -48,7 +49,8 @@ defineProps({
     size: {
         type: String,
         default: "default",
-        validator: (value) => ["default", "large"].includes(value),
+        validator: (value) =>
+            ["default", "large", "fullscreen"].includes(value),
     },
 });
 

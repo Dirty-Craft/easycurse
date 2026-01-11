@@ -100,6 +100,34 @@
                 </div>
             </div>
 
+            <div class="run-actions-container">
+                <Button
+                    v-if="!currentActiveRun"
+                    class="run-action-button"
+                    variant="success"
+                    :disabled="isCreatingRun"
+                    :class="{ 'btn-loading': isCreatingRun }"
+                    @click="createRun"
+                >
+                    {{ t("modpacks.show.run_virtual_java") }}
+                </Button>
+                <Button
+                    v-else
+                    class="run-action-button"
+                    variant="primary"
+                    @click="openViewRunModal(currentActiveRun)"
+                >
+                    {{ t("modpacks.show.view_run") }}
+                </Button>
+                <Button
+                    class="run-logs-button"
+                    variant="secondary"
+                    @click="openRunLogsModal"
+                >
+                    {{ t("modpacks.show.run_logs") }}
+                </Button>
+            </div>
+
             <div class="modpacks-main">
                 <div class="modpacks-card">
                     <div class="section-header">
@@ -732,6 +760,112 @@
                     <p class="regenerate-warning">
                         {{ t("modpacks.index.share_modal.warning") }}
                     </p>
+                </div>
+            </div>
+        </Modal>
+
+        <!-- View Run Modal -->
+        <Modal
+            v-model:show="showViewRunModal"
+            :title="t('modpacks.show.view_run_modal.title')"
+            size="fullscreen"
+            @close="closeViewRunModal"
+        >
+            <div v-if="selectedRun" class="view-run-modal-content">
+                <div class="run-details-info">
+                    <p>{{ t("modpacks.show.view_run_modal.description") }}</p>
+                    <div class="run-date-info">
+                        <span class="run-date-label"
+                            >{{
+                                t("modpacks.show.view_run_modal.created_at")
+                            }}:</span
+                        >
+                        <span class="run-date-value">{{
+                            new Date(selectedRun.created_at).toLocaleString()
+                        }}</span>
+                    </div>
+                </div>
+                <div ref="runLogsElement" class="run-output-container">
+                    <div v-if="isLoadingRunLogs" class="loading-preview">
+                        <p>{{ t("modpacks.show.run_logs_modal.loading") }}</p>
+                    </div>
+                    <pre
+                        v-else
+                        class="run-output"
+                    >{{
+                        runLogs || t("modpacks.show.view_run_modal.no_output")
+                    }}</pre>
+                </div>
+            </div>
+            <template #footer>
+                <Button
+                    variant="secondary"
+                    :disabled="isStoppingRun"
+                    @click="closeViewRunModal"
+                >
+                    {{ t("modpacks.show.view_run_modal.close") }}
+                </Button>
+                <Button
+                    v-if="selectedRun && !selectedRun.is_completed"
+                    variant="danger"
+                    :disabled="isStoppingRun"
+                    :class="{ 'btn-loading': isStoppingRun }"
+                    @click="stopRun"
+                >
+                    {{
+                        isStoppingRun
+                            ? t("modpacks.show.view_run_modal.stopping")
+                            : t("modpacks.show.view_run_modal.stop")
+                    }}
+                </Button>
+            </template>
+        </Modal>
+
+        <!-- Run Logs Modal -->
+        <Modal
+            v-model:show="showRunLogsModal"
+            :title="t('modpacks.show.run_logs_modal.title')"
+            @close="closeRunLogsModal"
+        >
+            <div v-if="isLoadingRunHistory" class="loading-preview">
+                <p>{{ t("modpacks.show.run_logs_modal.loading") }}</p>
+            </div>
+            <div v-else-if="runHistory.length === 0" class="empty-state">
+                <p>{{ t("modpacks.show.run_logs_modal.empty") }}</p>
+            </div>
+            <div v-else class="run-history-list">
+                <div
+                    v-for="run in runHistory"
+                    :key="run.id"
+                    class="run-history-item"
+                    :class="{
+                        'run-history-item-active': !run.is_completed,
+                    }"
+                    @click="viewRunFromHistory(run)"
+                >
+                    <div class="run-history-content">
+                        <div class="run-history-status">
+                            <span
+                                v-if="!run.is_completed"
+                                class="run-status-badge run-status-active"
+                            >
+                                {{ t("modpacks.show.run_logs_modal.active") }}
+                            </span>
+                            <span
+                                v-else
+                                class="run-status-badge run-status-completed"
+                            >
+                                {{
+                                    t("modpacks.show.run_logs_modal.completed")
+                                }}
+                            </span>
+                        </div>
+                        <div class="run-history-info">
+                            <div class="run-history-date">
+                                {{ new Date(run.created_at).toLocaleString() }}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </Modal>
@@ -1387,7 +1521,7 @@
 
 <script setup>
 import { Head, Link, router, useForm } from "@inertiajs/vue3";
-import { ref, watch, computed, onMounted, onBeforeUnmount } from "vue";
+import { ref, watch, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
 import AppLayout from "../../Layouts/AppLayout.vue";
 import Button from "../../Components/Button.vue";
 import Input from "../../Components/Input.vue";
@@ -1401,6 +1535,10 @@ const { t } = useTranslations();
 
 const props = defineProps({
     modPack: Object,
+    activeRun: {
+        type: Object,
+        default: null,
+    },
     gameVersions: {
         type: Array,
         default: () => [],
@@ -1417,6 +1555,15 @@ const showUpdateModModal = ref(false);
 const showChangeVersionModal = ref(false);
 const showShareModal = ref(false);
 const showUpdatePreviewModal = ref(false);
+const showViewRunModal = ref(false);
+const showRunLogsModal = ref(false);
+const selectedRun = ref(null);
+const runHistory = ref([]);
+const isLoadingRunHistory = ref(false);
+const runLogs = ref("");
+const isLoadingRunLogs = ref(false);
+const logsPollInterval = ref(null);
+const runLogsElement = ref(null);
 const addModStep = ref("search"); // 'search' or 'selectVersion'
 const updateModStep = ref("search"); // 'search' or 'selectVersion'
 const shareUrl = ref("");
@@ -1431,6 +1578,18 @@ const pendingUpdateType = ref(null); // 'all' or 'bulk'
 const pendingItemIds = ref([]);
 const isSettingReminder = ref(false);
 const isCancellingReminder = ref(false);
+const isCreatingRun = ref(false);
+const isStoppingRun = ref(false);
+
+// Computed property to get the current active run (from props or newly created)
+const currentActiveRun = computed(() => {
+    // If there's a selected run that's not completed, use that
+    if (selectedRun.value && !selectedRun.value.is_completed) {
+        return selectedRun.value;
+    }
+    // Otherwise use the activeRun from props
+    return props.activeRun;
+});
 
 const editForm = useForm({
     name: props.modPack.name,
@@ -1459,6 +1618,173 @@ const openShareModal = async () => {
 
 const closeShareModal = () => {
     showShareModal.value = false;
+};
+
+const closeViewRunModal = () => {
+    showViewRunModal.value = false;
+    selectedRun.value = null;
+    runLogs.value = "";
+    stopLogsPolling();
+};
+
+const fetchRunLogs = async (runId, showLoading = true) => {
+    if (!runId) {
+        runLogs.value = "";
+        return;
+    }
+
+    if (showLoading) {
+        isLoadingRunLogs.value = true;
+    }
+    try {
+        const response = await axios.get(
+            `/mod-packs/${props.modPack.id}/runs/${runId}/logs`,
+        );
+        runLogs.value = response.data.data || "";
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error fetching run logs:", error);
+        runLogs.value = "";
+    } finally {
+        if (showLoading) {
+            isLoadingRunLogs.value = false;
+        }
+    }
+};
+
+const startLogsPolling = () => {
+    // Clear any existing interval
+    stopLogsPolling();
+
+    // Only poll if modal is open and run is active (not completed)
+    if (
+        showViewRunModal.value &&
+        selectedRun.value?.id &&
+        !selectedRun.value.is_completed
+    ) {
+        logsPollInterval.value = setInterval(() => {
+            if (
+                showViewRunModal.value &&
+                selectedRun.value?.id &&
+                !selectedRun.value.is_completed
+            ) {
+                // Don't show loading state during polling to avoid flickering
+                fetchRunLogs(selectedRun.value.id, false);
+            } else {
+                stopLogsPolling();
+            }
+        }, 3000); // Poll every 3 seconds
+    }
+};
+
+const stopLogsPolling = () => {
+    if (logsPollInterval.value) {
+        clearInterval(logsPollInterval.value);
+        logsPollInterval.value = null;
+    }
+};
+
+// Auto-scroll logs to bottom when new logs are loaded
+watch(runLogs, async () => {
+    if (runLogsElement.value) {
+        await nextTick();
+        runLogsElement.value.scrollTop = runLogsElement.value.scrollHeight;
+    }
+});
+
+const openViewRunModal = async (run) => {
+    selectedRun.value = run || props.activeRun;
+    showViewRunModal.value = true;
+    // Fetch logs when modal opens
+    if (selectedRun.value?.id) {
+        await fetchRunLogs(selectedRun.value.id);
+        // Start polling for real-time updates if run is active
+        startLogsPolling();
+    }
+};
+
+const openRunLogsModal = async () => {
+    showRunLogsModal.value = true;
+    await fetchRunHistory();
+};
+
+const closeRunLogsModal = () => {
+    showRunLogsModal.value = false;
+};
+
+const fetchRunHistory = async () => {
+    isLoadingRunHistory.value = true;
+    try {
+        const response = await axios.get(`/mod-packs/${props.modPack.id}/runs`);
+        runHistory.value = response.data.data;
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error fetching run history:", error);
+        alert(t("modpacks.show.fetch_run_history_failed"));
+    } finally {
+        isLoadingRunHistory.value = false;
+    }
+};
+
+const viewRunFromHistory = async (run) => {
+    selectedRun.value = run;
+    showRunLogsModal.value = false;
+    showViewRunModal.value = true;
+    // Fetch logs when viewing from history
+    if (run?.id) {
+        await fetchRunLogs(run.id);
+        // Start polling for real-time updates if run is active
+        startLogsPolling();
+    }
+};
+
+const createRun = async () => {
+    isCreatingRun.value = true;
+    try {
+        const response = await axios.post(
+            `/mod-packs/${props.modPack.id}/runs`,
+        );
+        const newRun = response.data.data;
+        // Set the newly created run and open the modal immediately
+        selectedRun.value = newRun;
+        showViewRunModal.value = true;
+        // Fetch logs for the new run (may be empty initially)
+        if (newRun?.id) {
+            await fetchRunLogs(newRun.id);
+            // Start polling for real-time updates (new runs are always active)
+            startLogsPolling();
+        }
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error creating run:", error);
+        alert(t("modpacks.show.create_run_failed"));
+    } finally {
+        isCreatingRun.value = false;
+    }
+};
+
+const stopRun = async () => {
+    const runToStop = selectedRun.value || props.activeRun;
+    if (!runToStop) {
+        return;
+    }
+
+    isStoppingRun.value = true;
+    try {
+        await axios.post(
+            `/mod-packs/${props.modPack.id}/runs/${runToStop.id}/stop`,
+        );
+        showViewRunModal.value = false;
+        selectedRun.value = null;
+        // Reload the page to get updated data
+        router.reload();
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error stopping run:", error);
+        alert(t("modpacks.show.stop_run_failed"));
+    } finally {
+        isStoppingRun.value = false;
+    }
 };
 
 const generateShareToken = async () => {
@@ -3025,6 +3351,30 @@ const handleClickOutside = (event) => {
     }
 };
 
+// Watch modal state to start/stop polling
+watch(showViewRunModal, (isOpen) => {
+    if (isOpen) {
+        // Start polling if run is active
+        startLogsPolling();
+    } else {
+        // Stop polling when modal closes
+        stopLogsPolling();
+    }
+});
+
+// Watch run completion status to stop polling when run completes
+watch(
+    () => selectedRun.value?.is_completed,
+    (isCompleted) => {
+        if (isCompleted) {
+            stopLogsPolling();
+        } else if (showViewRunModal.value && selectedRun.value?.id) {
+            // Restart polling if run becomes active again (unlikely but handle it)
+            startLogsPolling();
+        }
+    },
+);
+
 // Attach click outside listener
 onMounted(() => {
     document.addEventListener("click", handleClickOutside);
@@ -3032,6 +3382,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     document.removeEventListener("click", handleClickOutside);
+    // Clean up polling interval on unmount
+    stopLogsPolling();
 });
 
 // Drag & drop handlers
