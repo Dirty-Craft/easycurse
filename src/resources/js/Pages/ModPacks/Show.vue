@@ -785,9 +785,11 @@
                     </div>
                 </div>
                 <div class="run-output-container">
-                    <pre class="run-output">{{
-                        selectedRun.output ||
-                        t("modpacks.show.view_run_modal.no_output")
+                    <div v-if="isLoadingRunLogs" class="loading-preview">
+                        <p>{{ t("modpacks.show.run_logs_modal.loading") }}</p>
+                    </div>
+                    <pre v-else class="run-output">{{
+                        runLogs || t("modpacks.show.view_run_modal.no_output")
                     }}</pre>
                 </div>
             </div>
@@ -1554,6 +1556,9 @@ const showRunLogsModal = ref(false);
 const selectedRun = ref(null);
 const runHistory = ref([]);
 const isLoadingRunHistory = ref(false);
+const runLogs = ref("");
+const isLoadingRunLogs = ref(false);
+const logsPollInterval = ref(null);
 const addModStep = ref("search"); // 'search' or 'selectVersion'
 const updateModStep = ref("search"); // 'search' or 'selectVersion'
 const shareUrl = ref("");
@@ -1613,11 +1618,76 @@ const closeShareModal = () => {
 const closeViewRunModal = () => {
     showViewRunModal.value = false;
     selectedRun.value = null;
+    runLogs.value = "";
+    stopLogsPolling();
 };
 
-const openViewRunModal = (run) => {
+const fetchRunLogs = async (runId, showLoading = true) => {
+    if (!runId) {
+        runLogs.value = "";
+        return;
+    }
+
+    if (showLoading) {
+        isLoadingRunLogs.value = true;
+    }
+    try {
+        const response = await axios.get(
+            `/mod-packs/${props.modPack.id}/runs/${runId}/logs`,
+        );
+        runLogs.value = response.data.data || "";
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error fetching run logs:", error);
+        runLogs.value = "";
+    } finally {
+        if (showLoading) {
+            isLoadingRunLogs.value = false;
+        }
+    }
+};
+
+const startLogsPolling = () => {
+    // Clear any existing interval
+    stopLogsPolling();
+
+    // Only poll if modal is open and run is active (not completed)
+    if (
+        showViewRunModal.value &&
+        selectedRun.value?.id &&
+        !selectedRun.value.is_completed
+    ) {
+        logsPollInterval.value = setInterval(() => {
+            if (
+                showViewRunModal.value &&
+                selectedRun.value?.id &&
+                !selectedRun.value.is_completed
+            ) {
+                // Don't show loading state during polling to avoid flickering
+                fetchRunLogs(selectedRun.value.id, false);
+            } else {
+                stopLogsPolling();
+            }
+        }, 3000); // Poll every 3 seconds
+    }
+};
+
+const stopLogsPolling = () => {
+    if (logsPollInterval.value) {
+        clearInterval(logsPollInterval.value);
+        logsPollInterval.value = null;
+    }
+};
+
+const openViewRunModal = async (run) => {
     selectedRun.value = run || props.activeRun;
     showViewRunModal.value = true;
+    // Fetch logs when modal opens
+    if (selectedRun.value?.id) {
+        await fetchRunLogs(selectedRun.value.id);
+        // Start polling for real-time updates if run is active
+        startLogsPolling();
+    }
 };
 
 const openRunLogsModal = async () => {
@@ -1643,10 +1713,16 @@ const fetchRunHistory = async () => {
     }
 };
 
-const viewRunFromHistory = (run) => {
+const viewRunFromHistory = async (run) => {
     selectedRun.value = run;
     showRunLogsModal.value = false;
     showViewRunModal.value = true;
+    // Fetch logs when viewing from history
+    if (run?.id) {
+        await fetchRunLogs(run.id);
+        // Start polling for real-time updates if run is active
+        startLogsPolling();
+    }
 };
 
 const createRun = async () => {
@@ -1659,6 +1735,12 @@ const createRun = async () => {
         // Set the newly created run and open the modal immediately
         selectedRun.value = newRun;
         showViewRunModal.value = true;
+        // Fetch logs for the new run (may be empty initially)
+        if (newRun?.id) {
+            await fetchRunLogs(newRun.id);
+            // Start polling for real-time updates (new runs are always active)
+            startLogsPolling();
+        }
     } catch (error) {
         // eslint-disable-next-line no-console
         console.error("Error creating run:", error);
@@ -3256,6 +3338,30 @@ const handleClickOutside = (event) => {
     }
 };
 
+// Watch modal state to start/stop polling
+watch(showViewRunModal, (isOpen) => {
+    if (isOpen) {
+        // Start polling if run is active
+        startLogsPolling();
+    } else {
+        // Stop polling when modal closes
+        stopLogsPolling();
+    }
+});
+
+// Watch run completion status to stop polling when run completes
+watch(
+    () => selectedRun.value?.is_completed,
+    (isCompleted) => {
+        if (isCompleted) {
+            stopLogsPolling();
+        } else if (showViewRunModal.value && selectedRun.value?.id) {
+            // Restart polling if run becomes active again (unlikely but handle it)
+            startLogsPolling();
+        }
+    },
+);
+
 // Attach click outside listener
 onMounted(() => {
     document.addEventListener("click", handleClickOutside);
@@ -3263,6 +3369,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     document.removeEventListener("click", handleClickOutside);
+    // Clean up polling interval on unmount
+    stopLogsPolling();
 });
 
 // Drag & drop handlers

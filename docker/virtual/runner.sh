@@ -6,9 +6,9 @@ while true; do
     for file in $files; do
         if [ -n "$file" ]; then
             echo "Processing: $file"
+            rm "$file"
             parent_dir=$(dirname "$file")
             docker run --rm -v "$parent_dir":/workspace -w /workspace eclipse-temurin:21-jdk sh run.sh
-            rm "$file"
         fi
     done
     sleep 1
