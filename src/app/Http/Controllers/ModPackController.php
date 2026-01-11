@@ -760,6 +760,11 @@ class ModPackController extends Controller
             $modPack->minecraft_version
         );
 
+        // Initialize server JAR download status
+        // For Forge, server JAR is not needed (it's bundled)
+        // For Fabric, Quilt, and NeoForge, we need to download it separately
+        $serverJarDownloaded = ! in_array($modPack->software, ['fabric', 'quilt', 'neoforge']);
+
         if (! $loaderDownloaded) {
             \Log::warning('Failed to download mod loader from ServerJars', [
                 'run_id' => $run->id,
@@ -767,6 +772,25 @@ class ModPackController extends Controller
                 'minecraft_version' => $modPack->minecraft_version,
             ]);
         } else {
+            // For Fabric, the installer will download the server JAR, so we skip the separate download
+            // For Quilt and NeoForge, we need to download the vanilla Minecraft server JAR
+            if (in_array($modPack->software, ['quilt', 'neoforge'])) {
+                $serverJarDownloaded = $this->downloadVanillaServerJar(
+                    $runDir,
+                    $modPack->minecraft_version
+                );
+
+                if (! $serverJarDownloaded) {
+                    \Log::warning('Failed to download vanilla server JAR', [
+                        'run_id' => $run->id,
+                        'minecraft_version' => $modPack->minecraft_version,
+                    ]);
+                }
+            } elseif ($modPack->software === 'fabric') {
+                // For Fabric, the installer handles everything, so server JAR is already handled
+                $serverJarDownloaded = true;
+            }
+
             // Save other required files after mod loader is successfully downloaded
             $filename = $modPack->software.'.jar';
 
@@ -780,18 +804,35 @@ class ModPackController extends Controller
             }
 
             // Write run.sh
-            $runShWritten = file_put_contents($runDir.'/run.sh', 'java -jar '.$filename.' > logs.txt 2>&1');
+            // For Fabric, we need to run the installer first, then run the generated launcher
+            if ($modPack->software === 'fabric' && file_exists($runDir.'/fabric-installer-info.txt')) {
+                $installerInfo = json_decode(file_get_contents($runDir.'/fabric-installer-info.txt'), true);
+                $runShContent = "#!/bin/sh\n";
+                $runShContent .= "# Run Fabric installer to generate server launcher\n";
+                $runShContent .= "java -jar fabric-installer.jar server -mcversion {$installerInfo['minecraft_version']} -loader {$installerInfo['loader_version']} -downloadMinecraft > installer.log 2>&1\n";
+                $runShContent .= "# Run the generated Fabric server launcher\n";
+                $runShContent .= "java -jar fabric-server-launch.jar > logs.txt 2>&1\n";
+            } else {
+                $runShContent = "#!/bin/sh\n";
+                $runShContent .= "java -jar {$filename} > logs.txt 2>&1\n";
+            }
+
+            $runShWritten = file_put_contents($runDir.'/run.sh', $runShContent);
             if ($runShWritten === false) {
                 \Log::error('Failed to write run.sh', [
                     'run_id' => $run->id,
                     'run_dir' => $runDir,
                 ]);
+            } else {
+                // Make run.sh executable
+                chmod($runDir.'/run.sh', 0755);
             }
 
             \Log::info('Mod loader files written successfully', [
                 'run_id' => $run->id,
                 'eula_written' => $eulaWritten !== false,
                 'run_sh_written' => $runShWritten !== false,
+                'server_jar_downloaded' => $serverJarDownloaded,
             ]);
         }
 
@@ -853,8 +894,11 @@ class ModPackController extends Controller
         // Write runner.pick file AFTER all files are ready (mods and mod loader)
         // This signals the runner.sh script that the run is ready to execute
         // Only write runner.pick if mod loader was successfully downloaded
+        // For Fabric/Quilt/NeoForge, also require server JAR to be downloaded
         $runnerPickWritten = false;
-        if ($loaderDownloaded) {
+        $canRun = $loaderDownloaded && $serverJarDownloaded;
+
+        if ($canRun) {
             $runnerPickWritten = file_put_contents($runDir.'/runner.pick', '1');
             if ($runnerPickWritten === false) {
                 \Log::error('Failed to write runner.pick', [
@@ -867,8 +911,10 @@ class ModPackController extends Controller
                 ]);
             }
         } else {
-            \Log::warning('Skipping runner.pick creation - mod loader download failed', [
+            \Log::warning('Skipping runner.pick creation - required downloads failed', [
                 'run_id' => $run->id,
+                'loader_downloaded' => $loaderDownloaded,
+                'server_jar_downloaded' => $serverJarDownloaded ?? null,
             ]);
         }
 
@@ -1870,16 +1916,20 @@ class ModPackController extends Controller
      */
     private function downloadModLoaderFromServerJars(string $runDir, string $software, string $minecraftVersion): bool
     {
-        \Log::info('Attempting to download mod loader from ServerJars', [
+        \Log::info('Attempting to download mod loader', [
             'run_dir' => $runDir,
             'software' => $software,
             'minecraft_version' => $minecraftVersion,
         ]);
 
+        // For Fabric, always use the installer approach
+        if ($software === 'fabric') {
+            return $this->downloadFabricInstaller($runDir, $minecraftVersion);
+        }
+
         // Map software types to ServerJars API types
         $serverJarsTypeMap = [
             'forge' => 'modded/forge',
-            'fabric' => 'modded/fabric',
             'quilt' => 'modded/quilt',
             'neoforge' => 'modded/neoforge',
         ];
@@ -2004,53 +2054,116 @@ class ModPackController extends Controller
                 ]);
 
                 // Try using the direct download URL from the official sources
-                // For Fabric, we can use the Fabric installer API or direct download
+                // For Fabric, we need to use the Fabric installer to create a proper server launcher
                 if ($software === 'fabric') {
-                    // Try Fabric's official API: https://meta.fabricmc.net/v2/versions/loader/{version}
-                    $fabricApiUrl = "https://meta.fabricmc.net/v2/versions/loader/{$minecraftVersion}";
-                    $fabricResponse = Http::timeout(30)->get($fabricApiUrl);
+                    // Use Fabric's installer API to get the installer JAR
+                    // The installer will be run by the Docker container to generate the server launcher
+                    $installerApiUrl = 'https://meta.fabricmc.net/v2/versions/installer';
+                    $installerResponse = Http::timeout(30)->get($installerApiUrl);
 
-                    if ($fabricResponse->successful()) {
-                        $fabricData = $fabricResponse->json();
-                        if (! empty($fabricData) && isset($fabricData[0]['loader'])) {
-                            // Get the latest loader version
-                            $loaderVersion = $fabricData[0]['loader']['version'];
-                            // Fabric loader download from Maven Central
-                            // Format: https://maven.fabricmc.net/net/fabricmc/fabric-loader/{version}/fabric-loader-{version}.jar
-                            $downloadUrl = "https://maven.fabricmc.net/net/fabricmc/fabric-loader/{$loaderVersion}/fabric-loader-{$loaderVersion}.jar";
+                    if ($installerResponse->successful()) {
+                        $installerData = $installerResponse->json();
+                        if (! empty($installerData) && isset($installerData[0]['version'])) {
+                            // Get the latest installer version
+                            $installerVersion = $installerData[0]['version'];
+                            // Fabric installer download from Maven Central
+                            $installerUrl = "https://maven.fabricmc.net/net/fabricmc/fabric-installer/{$installerVersion}/fabric-installer-{$installerVersion}.jar";
 
-                            \Log::info('Using Fabric official download URL', [
-                                'url' => $downloadUrl,
-                                'loader_version' => $loaderVersion,
+                            \Log::info('Downloading Fabric installer', [
+                                'url' => $installerUrl,
+                                'installer_version' => $installerVersion,
                             ]);
 
-                            $downloadResponse = Http::timeout(120)
+                            $installerDownloadResponse = Http::timeout(120)
                                 ->withHeaders([
                                     'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
                                 ])
-                                ->get($downloadUrl);
+                                ->get($installerUrl);
 
-                            if ($downloadResponse->successful()) {
-                                $responseBody = $downloadResponse->body();
+                            if ($installerDownloadResponse->successful()) {
+                                $installerJar = $installerDownloadResponse->body();
+
+                                // Validate installer JAR
+                                if (strlen($installerJar) < 4 || substr($installerJar, 0, 2) !== 'PK') {
+                                    \Log::error('Downloaded Fabric installer does not appear to be a valid JAR file', [
+                                        'file_size' => strlen($installerJar),
+                                        'first_bytes' => bin2hex(substr($installerJar, 0, 10)),
+                                    ]);
+
+                                    return false;
+                                }
+
+                                // Save the installer JAR
+                                $installerPath = $runDir.'/fabric-installer.jar';
+                                $installerWritten = file_put_contents($installerPath, $installerJar);
+
+                                if ($installerWritten === false) {
+                                    \Log::error('Failed to write Fabric installer to disk', [
+                                        'file_path' => $installerPath,
+                                    ]);
+
+                                    return false;
+                                }
+
+                                // Now we need to run the installer to generate the server launcher
+                                // We'll modify run.sh to run the installer first
+                                // The installer command: java -jar fabric-installer.jar server -mcversion {version} -loader {loader_version} -downloadMinecraft
+
+                                // Get the loader version
+                                $loaderApiUrl = "https://meta.fabricmc.net/v2/versions/loader/{$minecraftVersion}";
+                                $loaderResponse = Http::timeout(30)->get($loaderApiUrl);
+
+                                if ($loaderResponse->successful()) {
+                                    $loaderData = $loaderResponse->json();
+                                    if (! empty($loaderData) && isset($loaderData[0]['loader']['version'])) {
+                                        $loaderVersion = $loaderData[0]['loader']['version'];
+
+                                        // We'll need to run the installer, but we can't do that from PHP
+                                        // Instead, we'll save the installer and modify run.sh to run it first
+                                        // For now, return true and we'll handle the installer execution in run.sh
+                                        \Log::info('Fabric installer downloaded, will be executed by run.sh', [
+                                            'installer_path' => $installerPath,
+                                            'loader_version' => $loaderVersion,
+                                            'minecraft_version' => $minecraftVersion,
+                                        ]);
+
+                                        // Store installer info for run.sh
+                                        file_put_contents($runDir.'/fabric-installer-info.txt', json_encode([
+                                            'installer_version' => $installerVersion,
+                                            'loader_version' => $loaderVersion,
+                                            'minecraft_version' => $minecraftVersion,
+                                        ]));
+
+                                        // Return true to indicate we have the installer
+                                        // The actual server launcher will be generated by run.sh
+                                        return true;
+                                    }
+                                }
+
+                                \Log::error('Failed to get Fabric loader version', [
+                                    'url' => $loaderApiUrl,
+                                ]);
+
+                                return false;
                             } else {
-                                \Log::error('Failed to download from Fabric official source', [
-                                    'url' => $downloadUrl,
-                                    'status' => $downloadResponse->status(),
+                                \Log::error('Failed to download Fabric installer', [
+                                    'url' => $installerUrl,
+                                    'status' => $installerDownloadResponse->status(),
                                 ]);
 
                                 return false;
                             }
                         } else {
-                            \Log::error('Invalid response from Fabric API', [
-                                'response' => $fabricData,
+                            \Log::error('Invalid response from Fabric installer API', [
+                                'response' => $installerData,
                             ]);
 
                             return false;
                         }
                     } else {
-                        \Log::error('Failed to fetch Fabric loader info', [
-                            'url' => $fabricApiUrl,
-                            'status' => $fabricResponse->status(),
+                        \Log::error('Failed to fetch Fabric installer info', [
+                            'url' => $installerApiUrl,
+                            'status' => $installerResponse->status(),
                         ]);
 
                         return false;
@@ -2114,6 +2227,302 @@ class ModPackController extends Controller
         } catch (\Exception $e) {
             \Log::error('Error downloading mod loader from ServerJars', [
                 'software' => $software,
+                'minecraft_version' => $minecraftVersion,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Download Fabric installer and set it up for server generation.
+     */
+    private function downloadFabricInstaller(string $runDir, string $minecraftVersion): bool
+    {
+        \Log::info('Downloading Fabric installer', [
+            'run_dir' => $runDir,
+            'minecraft_version' => $minecraftVersion,
+        ]);
+
+        try {
+            // Get the latest installer version
+            $installerApiUrl = 'https://meta.fabricmc.net/v2/versions/installer';
+            $installerResponse = Http::timeout(30)->get($installerApiUrl);
+
+            if (! $installerResponse->successful()) {
+                \Log::error('Failed to fetch Fabric installer version', [
+                    'url' => $installerApiUrl,
+                    'status' => $installerResponse->status(),
+                ]);
+
+                return false;
+            }
+
+            $installerData = $installerResponse->json();
+            if (empty($installerData) || ! isset($installerData[0]['version'])) {
+                \Log::error('Invalid response from Fabric installer API', [
+                    'response' => $installerData,
+                ]);
+
+                return false;
+            }
+
+            $installerVersion = $installerData[0]['version'];
+            $installerUrl = "https://maven.fabricmc.net/net/fabricmc/fabric-installer/{$installerVersion}/fabric-installer-{$installerVersion}.jar";
+
+            \Log::info('Downloading Fabric installer JAR', [
+                'url' => $installerUrl,
+                'installer_version' => $installerVersion,
+            ]);
+
+            $installerDownloadResponse = Http::timeout(120)
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                ])
+                ->get($installerUrl);
+
+            if (! $installerDownloadResponse->successful()) {
+                \Log::error('Failed to download Fabric installer', [
+                    'url' => $installerUrl,
+                    'status' => $installerDownloadResponse->status(),
+                ]);
+
+                return false;
+            }
+
+            $installerJar = $installerDownloadResponse->body();
+
+            // Validate installer JAR
+            if (strlen($installerJar) < 4 || substr($installerJar, 0, 2) !== 'PK') {
+                \Log::error('Downloaded Fabric installer does not appear to be a valid JAR file', [
+                    'file_size' => strlen($installerJar),
+                    'first_bytes' => bin2hex(substr($installerJar, 0, 10)),
+                ]);
+
+                return false;
+            }
+
+            // Save the installer JAR
+            $installerPath = $runDir.'/fabric-installer.jar';
+            $installerWritten = file_put_contents($installerPath, $installerJar);
+
+            if ($installerWritten === false) {
+                \Log::error('Failed to write Fabric installer to disk', [
+                    'file_path' => $installerPath,
+                ]);
+
+                return false;
+            }
+
+            // Get the loader version
+            $loaderApiUrl = "https://meta.fabricmc.net/v2/versions/loader/{$minecraftVersion}";
+            $loaderResponse = Http::timeout(30)->get($loaderApiUrl);
+
+            if (! $loaderResponse->successful()) {
+                \Log::error('Failed to get Fabric loader version', [
+                    'url' => $loaderApiUrl,
+                    'status' => $loaderResponse->status(),
+                ]);
+
+                return false;
+            }
+
+            $loaderData = $loaderResponse->json();
+            if (empty($loaderData) || ! isset($loaderData[0]['loader']['version'])) {
+                \Log::error('Invalid response from Fabric loader API', [
+                    'response' => $loaderData,
+                ]);
+
+                return false;
+            }
+
+            $loaderVersion = $loaderData[0]['loader']['version'];
+
+            // Store installer info for run.sh
+            $installerInfo = [
+                'installer_version' => $installerVersion,
+                'loader_version' => $loaderVersion,
+                'minecraft_version' => $minecraftVersion,
+            ];
+
+            $infoWritten = file_put_contents($runDir.'/fabric-installer-info.txt', json_encode($installerInfo));
+            if ($infoWritten === false) {
+                \Log::error('Failed to write Fabric installer info', [
+                    'file_path' => $runDir.'/fabric-installer-info.txt',
+                ]);
+
+                return false;
+            }
+
+            \Log::info('Fabric installer downloaded successfully', [
+                'installer_path' => $installerPath,
+                'loader_version' => $loaderVersion,
+                'minecraft_version' => $minecraftVersion,
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('Error downloading Fabric installer', [
+                'minecraft_version' => $minecraftVersion,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Download vanilla Minecraft server JAR for a specific version.
+     */
+    private function downloadVanillaServerJar(string $runDir, string $minecraftVersion): bool
+    {
+        \Log::info('Attempting to download vanilla server JAR', [
+            'run_dir' => $runDir,
+            'minecraft_version' => $minecraftVersion,
+        ]);
+
+        try {
+            // First, get the version manifest from Mojang
+            $manifestUrl = 'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json';
+            $manifestResponse = Http::timeout(30)
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                ])
+                ->get($manifestUrl);
+
+            if (! $manifestResponse->successful()) {
+                \Log::error('Failed to fetch Minecraft version manifest', [
+                    'url' => $manifestUrl,
+                    'status' => $manifestResponse->status(),
+                ]);
+
+                return false;
+            }
+
+            $manifestData = $manifestResponse->json();
+            $versions = $manifestData['versions'] ?? [];
+
+            // Find the version entry for the requested Minecraft version
+            $versionEntry = null;
+            foreach ($versions as $version) {
+                if (($version['id'] ?? '') === $minecraftVersion) {
+                    $versionEntry = $version;
+                    break;
+                }
+            }
+
+            if (! $versionEntry) {
+                \Log::error('Minecraft version not found in manifest', [
+                    'minecraft_version' => $minecraftVersion,
+                ]);
+
+                return false;
+            }
+
+            // Get the version details
+            $versionUrl = $versionEntry['url'] ?? null;
+            if (! $versionUrl) {
+                \Log::error('Version URL not found in manifest entry', [
+                    'version_entry' => $versionEntry,
+                ]);
+
+                return false;
+            }
+
+            $versionResponse = Http::timeout(30)
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                ])
+                ->get($versionUrl);
+
+            if (! $versionResponse->successful()) {
+                \Log::error('Failed to fetch version details', [
+                    'url' => $versionUrl,
+                    'status' => $versionResponse->status(),
+                ]);
+
+                return false;
+            }
+
+            $versionData = $versionResponse->json();
+            $serverJarUrl = $versionData['downloads']['server']['url'] ?? null;
+
+            if (! $serverJarUrl) {
+                \Log::error('Server JAR URL not found in version data', [
+                    'version_data' => $versionData,
+                ]);
+
+                return false;
+            }
+
+            // Download the server JAR
+            \Log::debug('Downloading vanilla server JAR', [
+                'url' => $serverJarUrl,
+            ]);
+
+            $jarResponse = Http::timeout(120) // Longer timeout for large files
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                    'Accept' => 'application/java-archive, application/octet-stream, */*',
+                ])
+                ->get($serverJarUrl);
+
+            if (! $jarResponse->successful()) {
+                \Log::error('Failed to download vanilla server JAR', [
+                    'url' => $serverJarUrl,
+                    'status' => $jarResponse->status(),
+                ]);
+
+                return false;
+            }
+
+            $jarContent = $jarResponse->body();
+
+            // Validate that we actually got a JAR file (JAR files are ZIP files, check for ZIP magic bytes)
+            if (strlen($jarContent) < 4 || substr($jarContent, 0, 2) !== 'PK') {
+                \Log::error('Downloaded file does not appear to be a valid JAR file (missing ZIP magic bytes)', [
+                    'file_size' => strlen($jarContent),
+                    'first_bytes' => bin2hex(substr($jarContent, 0, 10)),
+                ]);
+
+                return false;
+            }
+
+            // Save the server JAR
+            $serverJarPath = $runDir.'/server.jar';
+            $bytesWritten = file_put_contents($serverJarPath, $jarContent);
+
+            if ($bytesWritten === false) {
+                \Log::error('Failed to write vanilla server JAR to disk', [
+                    'file_path' => $serverJarPath,
+                    'run_dir' => $runDir,
+                    'directory_exists' => is_dir($runDir),
+                    'directory_writable' => is_writable($runDir),
+                ]);
+
+                return false;
+            }
+
+            \Log::info('Successfully downloaded vanilla server JAR', [
+                'minecraft_version' => $minecraftVersion,
+                'file_path' => $serverJarPath,
+                'file_size' => $bytesWritten,
+                'file_exists' => file_exists($serverJarPath),
+            ]);
+
+            return true;
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            \Log::error('Connection error downloading vanilla server JAR', [
+                'minecraft_version' => $minecraftVersion,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        } catch (\Exception $e) {
+            \Log::error('Error downloading vanilla server JAR', [
                 'minecraft_version' => $minecraftVersion,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
