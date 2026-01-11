@@ -1,15 +1,95 @@
 #!/bin/sh
 
+# Function to monitor logs and kill container when server is done
+monitor_and_kill() {
+    local container_name=$1
+    local logs_file=$2
+    local wait_timeout=60  # Wait up to 60 seconds for log file to appear
+    local monitor_timeout=300  # Monitor for up to 5 minutes
+    local elapsed=0
+    
+    # Wait for log file to be created
+    while [ ! -f "$logs_file" ] && [ $elapsed -lt $wait_timeout ]; do
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+    
+    if [ ! -f "$logs_file" ]; then
+        echo "Warning: Log file not created for $container_name after ${wait_timeout}s, stopping container"
+        docker stop "$container_name" > /dev/null 2>&1
+        return
+    fi
+    
+    # Monitor log file for completion message
+    elapsed=0
+    while [ $elapsed -lt $monitor_timeout ]; do
+        if grep -q "\[Server thread/INFO\]: Done" "$logs_file" 2>/dev/null; then
+            echo "Server initialization complete for $container_name, stopping container..."
+            docker stop "$container_name" > /dev/null 2>&1
+            return
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+    
+    # Timeout reached, kill the container
+    echo "Timeout reached for $container_name (${monitor_timeout}s), stopping container..."
+    docker stop "$container_name" > /dev/null 2>&1
+}
+
+# Function to start a Minecraft server run
+start_server_run() {
+    local parent_dir=$1
+    local dir_name=$(basename "$parent_dir")
+    local timestamp=$(date +%s)
+    local container_name="minecraft-run-${dir_name}-${timestamp}-$$"
+    local logs_file="${parent_dir}/logs.txt"
+    
+    echo "Starting server run: $container_name"
+    
+    # Start container in background
+    docker run --rm --name "$container_name" \
+        -v "$parent_dir":/workspace \
+        -w /workspace \
+        eclipse-temurin:21-jdk sh run.sh > /dev/null 2>&1 &
+    
+    # Give container a moment to start
+    sleep 2
+    
+    # Start monitoring process in background
+    monitor_and_kill "$container_name" "$logs_file" &
+}
+
+# Cleanup function for background processes
+cleanup() {
+    echo "Cleaning up..."
+    # Kill all background monitoring processes
+    for job in $(jobs -p); do
+        kill "$job" 2>/dev/null
+    done
+    exit 0
+}
+
+trap cleanup INT TERM
+
 while true; do
     echo "Checking for new run requests..."
-    files=$(find /shared/virtual -type f -name "runner.pick")
-    for file in $files; do
-        if [ -n "$file" ]; then
-            echo "Processing: $file"
-            rm "$file"
-            parent_dir=$(dirname "$file")
-            docker run --rm -v "$parent_dir":/workspace -w /workspace eclipse-temurin:21-jdk sh run.sh &
-        fi
-    done
+    files=$(find /shared/virtual -type f -name "runner.pick" 2>/dev/null)
+    
+    if [ -n "$files" ]; then
+        for file in $files; do
+            if [ -f "$file" ]; then
+                echo "Processing: $file"
+                parent_dir=$(dirname "$file")
+                
+                # Remove the pick file before starting to avoid reprocessing
+                rm "$file"
+                
+                # Start the server run
+                start_server_run "$parent_dir"
+            fi
+        done
+    fi
+    
     sleep 1
 done
