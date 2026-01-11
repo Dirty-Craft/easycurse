@@ -391,6 +391,9 @@
             <!-- Stats Section -->
             <section class="section stats">
                 <div class="container">
+                    <div class="section-header">
+                        <div class="section-badge">STATS</div>
+                    </div>
                     <div class="stats-grid">
                         <div class="stat-card">
                             <div class="stat-number">
@@ -419,6 +422,16 @@
                                 }}
                             </div>
                             <div class="stat-label">Downloads</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">
+                                {{
+                                    formatNumber(
+                                        $page.props.stats.total_java_runs,
+                                    )
+                                }}
+                            </div>
+                            <div class="stat-label">Java Runs</div>
                         </div>
                     </div>
                 </div>

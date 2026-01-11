@@ -8,6 +8,7 @@ Route::get('/', [LandingController::class, 'index']);
 Route::get('/about', [LandingController::class, 'about'])->name('about');
 Route::get('/ads', [LandingController::class, 'ads'])->name('ads');
 Route::get('/donate', [LandingController::class, 'donate'])->name('donate');
+Route::get('/premium', [LandingController::class, 'premium'])->name('premium');
 
 // Public shared modpack routes
 Route::get('/shared/{token}', [\App\Http\Controllers\ModPackController::class, 'showShared'])->name('mod-packs.shared.show');
