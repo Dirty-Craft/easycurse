@@ -8,7 +8,7 @@ while true; do
             echo "Processing: $file"
             rm "$file"
             parent_dir=$(dirname "$file")
-            docker run --rm -v "$parent_dir":/workspace -w /workspace eclipse-temurin:21-jdk sh run.sh
+            docker run --rm -v "$parent_dir":/workspace -w /workspace eclipse-temurin:21-jdk sh run.sh &
         fi
     done
     sleep 1

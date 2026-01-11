@@ -768,6 +768,7 @@
         <Modal
             v-model:show="showViewRunModal"
             :title="t('modpacks.show.view_run_modal.title')"
+            size="fullscreen"
             @close="closeViewRunModal"
         >
             <div v-if="selectedRun" class="view-run-modal-content">
@@ -784,11 +785,14 @@
                         }}</span>
                     </div>
                 </div>
-                <div class="run-output-container">
+                <div ref="runLogsElement" class="run-output-container">
                     <div v-if="isLoadingRunLogs" class="loading-preview">
                         <p>{{ t("modpacks.show.run_logs_modal.loading") }}</p>
                     </div>
-                    <pre v-else class="run-output">{{
+                    <pre
+                        v-else
+                        class="run-output"
+                    >{{
                         runLogs || t("modpacks.show.view_run_modal.no_output")
                     }}</pre>
                 </div>
@@ -1517,7 +1521,7 @@
 
 <script setup>
 import { Head, Link, router, useForm } from "@inertiajs/vue3";
-import { ref, watch, computed, onMounted, onBeforeUnmount } from "vue";
+import { ref, watch, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
 import AppLayout from "../../Layouts/AppLayout.vue";
 import Button from "../../Components/Button.vue";
 import Input from "../../Components/Input.vue";
@@ -1559,6 +1563,7 @@ const isLoadingRunHistory = ref(false);
 const runLogs = ref("");
 const isLoadingRunLogs = ref(false);
 const logsPollInterval = ref(null);
+const runLogsElement = ref(null);
 const addModStep = ref("search"); // 'search' or 'selectVersion'
 const updateModStep = ref("search"); // 'search' or 'selectVersion'
 const shareUrl = ref("");
@@ -1678,6 +1683,14 @@ const stopLogsPolling = () => {
         logsPollInterval.value = null;
     }
 };
+
+// Auto-scroll logs to bottom when new logs are loaded
+watch(runLogs, async () => {
+    if (runLogsElement.value) {
+        await nextTick();
+        runLogsElement.value.scrollTop = runLogsElement.value.scrollHeight;
+    }
+});
 
 const openViewRunModal = async (run) => {
     selectedRun.value = run || props.activeRun;
