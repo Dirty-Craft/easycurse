@@ -235,6 +235,7 @@ return [
     'modpacks.show.download_all' => '📦 Download All as ZIP',
     'modpacks.show.downloading' => 'Downloading...',
     'modpacks.show.download' => 'Download',
+    'modpacks.show.run_virtual_java' => 'Run in virtual java environment',
     'modpacks.show.export' => 'Export',
     'modpacks.show.exporting' => 'Exporting...',
     'modpacks.show.export_zip' => '📦 ZIP (Plain)',

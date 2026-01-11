@@ -239,6 +239,7 @@ return [
     'modpacks.show.search_mods_placeholder' => 'جستجوی مادها بر اساس نام، نسخه یا slug...',
     'modpacks.show.no_search_results' => 'هیچ مادی مطابق با جستجوی شما پیدا نشد.',
     'modpacks.show.download' => 'دانلود',
+    'modpacks.show.run_virtual_java' => 'اجرا در محیط جاوا مجازی',
     'modpacks.show.remove' => 'حذف',
     'modpacks.show.export' => 'خروجی گیری',
     'modpacks.show.exporting' => 'در حال خروجی گیری...',

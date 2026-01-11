@@ -100,6 +100,12 @@
                 </div>
             </div>
 
+            <div style="margin-bottom: var(--spacing-lg)">
+                <Button :style="{ width: '100%' }" variant="success">
+                    {{ t("modpacks.show.run_virtual_java") }}
+                </Button>
+            </div>
+
             <div class="modpacks-main">
                 <div class="modpacks-card">
                     <div class="section-header">

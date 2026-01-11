@@ -565,7 +565,7 @@
 }
 
 .mod-item-number {
-    font-family: minecraft;
+    font-family: minecraft, monospace;
     width: 32px;
     height: 32px;
     display: flex;
