@@ -72,6 +72,7 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 ...($shared['flash'] ?? []),
                 'status' => $request->session()->get('status'),
+                'error' => $request->session()->get('error'),
             ],
             'locale' => $currentLocale,
             'translations' => function () {

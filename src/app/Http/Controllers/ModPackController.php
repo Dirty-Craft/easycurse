@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ModPack;
 use App\Models\ModPackItem;
+use App\Services\DependencyResolutionService;
 use App\Services\ModPackExportService;
 use App\Services\ModService;
 use Illuminate\Http\Request;
@@ -208,6 +209,170 @@ class ModPackController extends Controller
     }
 
     /**
+     * Get dependencies for a specific mod file/version.
+     */
+    public function getModDependencies(Request $request, string $id)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())
+            ->with('items')
+            ->findOrFail($id);
+
+        $validated = $request->validate([
+            'mod_id' => ['required'],
+            'file_id' => ['required'],
+            'source' => ['required', 'string', 'in:curseforge,modrinth'],
+        ]);
+
+        $dependencyService = new DependencyResolutionService;
+        $tree = $dependencyService->getDependencyTree(
+            $validated['mod_id'],
+            $validated['file_id'],
+            $validated['source'],
+            $modPack->minecraft_version,
+            $modPack->software
+        );
+
+        // Also check for conflicts
+        $conflicts = $dependencyService->checkConflicts(
+            $validated['mod_id'],
+            $validated['file_id'],
+            $validated['source'],
+            $modPack
+        );
+
+        return response()->json([
+            'tree' => $tree,
+            'conflicts' => $conflicts,
+        ]);
+    }
+
+    /**
+     * Add required dependencies for a mod to the mod pack.
+     *
+     * @param  ModPack  $modPack  The mod pack
+     * @param  string|int  $modId  The mod ID
+     * @param  string|int  $fileId  The file/version ID
+     * @param  string  $source  The source platform
+     * @param  array  $visited  Internal: track visited mods to prevent cycles
+     * @return int Number of dependencies added
+     */
+    private function addRequiredDependencies(
+        ModPack $modPack,
+        $modId,
+        $fileId,
+        string $source,
+        array &$visited = []
+    ): int {
+        $visitedKey = "{$source}:{$modId}";
+        if (isset($visited[$visitedKey])) {
+            return 0; // Already processing this mod, prevent cycles
+        }
+        $visited[$visitedKey] = true;
+        $dependencyService = new DependencyResolutionService;
+        $modService = new ModService;
+
+        // Get all required dependencies (flattened list)
+        $requiredDependencies = $dependencyService->getRequiredDependencies(
+            $modId,
+            $fileId,
+            $source,
+            $modPack->minecraft_version,
+            $modPack->software
+        );
+
+        $addedCount = 0;
+        $maxSortOrder = (int) (ModPackItem::where('mod_pack_id', $modPack->id)->max('sort_order') ?? 0);
+
+        foreach ($requiredDependencies as $dep) {
+            $depModId = $dep['mod_id'];
+            $depFileId = $dep['file_id'] ?? null;
+            $depSource = $dep['source'];
+
+            // Skip if dependency is the mod itself (shouldn't happen, but safety check)
+            if ($depSource === $source && $depModId == $modId) {
+                continue;
+            }
+
+            // Check if dependency already exists in mod pack
+            $existingItem = null;
+            if ($depSource === 'curseforge' && is_numeric($depModId)) {
+                $existingItem = ModPackItem::where('mod_pack_id', $modPack->id)
+                    ->where('curseforge_mod_id', $depModId)
+                    ->first();
+            } elseif ($depSource === 'modrinth') {
+                $existingItem = ModPackItem::where('mod_pack_id', $modPack->id)
+                    ->where('modrinth_project_id', $depModId)
+                    ->first();
+            }
+
+            // Skip if already exists
+            if ($existingItem) {
+                continue;
+            }
+
+            // Get mod details
+            $depMod = $modService->getMod($depModId, $depSource);
+            if (! $depMod) {
+                continue;
+            }
+
+            // If file ID not provided, get the latest compatible version
+            if (! $depFileId) {
+                $depFiles = $modService->getModFiles(
+                    $depModId,
+                    $modPack->minecraft_version,
+                    $modPack->software,
+                    $depSource
+                );
+                if (empty($depFiles)) {
+                    continue;
+                }
+                $depFile = $depFiles[0];
+                $depFileId = $depFile['id'];
+            } else {
+                // Get file data to get version string
+                $depFile = $modService->getModFile($depModId, $depFileId, $depSource);
+                if (! $depFile) {
+                    continue;
+                }
+            }
+
+            // Get mod name and version string
+            $depModName = $depMod['name'] ?? $depMod['title'] ?? 'Unknown Mod';
+            $depModSlug = $depMod['slug'] ?? null;
+
+            if ($depSource === 'curseforge') {
+                $depModVersion = $depFile['displayName'] ?? $depFile['fileName'] ?? 'Unknown Version';
+            } else {
+                $depModVersion = $depFile['version_number'] ?? $depFile['name'] ?? $depFile['id'] ?? 'Unknown Version';
+            }
+
+            // Add dependency to mod pack (mark as auto-added)
+            ModPackItem::create([
+                'mod_pack_id' => $modPack->id,
+                'mod_name' => $depModName,
+                'mod_version' => $depModVersion,
+                'curseforge_mod_id' => $depSource === 'curseforge' ? $depModId : null,
+                'curseforge_file_id' => $depSource === 'curseforge' ? $depFileId : null,
+                'curseforge_slug' => ($depSource === 'curseforge' && $depModSlug) ? $depModSlug : null,
+                'modrinth_project_id' => $depSource === 'modrinth' ? $depModId : null,
+                'modrinth_version_id' => $depSource === 'modrinth' ? $depFileId : null,
+                'modrinth_slug' => ($depSource === 'modrinth' && $depModSlug) ? $depModSlug : null,
+                'source' => $depSource,
+                'is_auto_added' => true,
+                'sort_order' => ++$maxSortOrder,
+            ]);
+
+            $addedCount++;
+
+            // Recursively add dependencies of this dependency
+            $addedCount += $this->addRequiredDependencies($modPack, $depModId, $depFileId, $depSource, $visited);
+        }
+
+        return $addedCount;
+    }
+
+    /**
      * Store a new mod item for a mod pack.
      */
     public function storeItem(Request $request, string $id)
@@ -261,6 +426,10 @@ class ModPackController extends Controller
 
         $maxSortOrder = (int) (ModPackItem::where('mod_pack_id', $modPack->id)->max('sort_order') ?? 0);
 
+        // Create the mod item
+        $modId = $source === 'curseforge' ? ($validated['curseforge_mod_id'] ?? null) : ($validated['modrinth_project_id'] ?? null);
+        $fileId = $source === 'curseforge' ? ($validated['curseforge_file_id'] ?? null) : ($validated['modrinth_version_id'] ?? null);
+
         ModPackItem::create([
             'mod_pack_id' => $modPack->id,
             'mod_name' => $validated['mod_name'],
@@ -274,6 +443,11 @@ class ModPackController extends Controller
             'source' => $source,
             'sort_order' => $maxSortOrder + 1,
         ]);
+
+        // Automatically add required dependencies
+        if ($modId && $fileId) {
+            $this->addRequiredDependencies($modPack, $modId, $fileId, $source);
+        }
 
         return redirect()->route('mod-packs.show', $modPack->id);
     }
@@ -300,7 +474,205 @@ class ModPackController extends Controller
 
         $item->update($validated);
 
+        // Determine source and IDs after update
+        $source = $item->source;
+        if (! $source) {
+            if ($item->curseforge_mod_id) {
+                $source = 'curseforge';
+            } elseif ($item->modrinth_project_id) {
+                $source = 'modrinth';
+            }
+        }
+
+        // Automatically add required dependencies if mod ID and file ID are available
+        if ($source) {
+            $modId = $source === 'curseforge' ? $item->curseforge_mod_id : $item->modrinth_project_id;
+            $fileId = $source === 'curseforge' ? $item->curseforge_file_id : $item->modrinth_version_id;
+
+            if ($modId && $fileId) {
+                $this->addRequiredDependencies($modPack, $modId, $fileId, $source);
+            }
+        }
+
         return redirect()->route('mod-packs.show', $modPack->id);
+    }
+
+    /**
+     * Check if a mod is required by any other mod in the mod pack.
+     *
+     * @param  ModPack  $modPack  The mod pack
+     * @param  ModPackItem  $item  The mod item to check
+     * @return array Array with 'is_required' boolean and 'required_by' array of mod names
+     */
+    private function isModRequiredByOthers(ModPack $modPack, ModPackItem $item): array
+    {
+        $modService = new ModService;
+        $requiredBy = [];
+
+        $itemSource = $item->source;
+        if (! $itemSource) {
+            if ($item->curseforge_mod_id) {
+                $itemSource = 'curseforge';
+            } elseif ($item->modrinth_project_id) {
+                $itemSource = 'modrinth';
+            } else {
+                return ['is_required' => false, 'required_by' => []];
+            }
+        }
+
+        $itemModId = $itemSource === 'curseforge' ? $item->curseforge_mod_id : $item->modrinth_project_id;
+
+        if (! $itemModId) {
+            return ['is_required' => false, 'required_by' => []];
+        }
+
+        // Check all other mods in the pack
+        foreach ($modPack->items as $otherItem) {
+            // Skip the mod itself
+            if ($otherItem->id === $item->id) {
+                continue;
+            }
+
+            $otherSource = $otherItem->source;
+            if (! $otherSource) {
+                if ($otherItem->curseforge_mod_id) {
+                    $otherSource = 'curseforge';
+                } elseif ($otherItem->modrinth_project_id) {
+                    $otherSource = 'modrinth';
+                } else {
+                    continue;
+                }
+            }
+
+            $otherModId = $otherSource === 'curseforge' ? $otherItem->curseforge_mod_id : $otherItem->modrinth_project_id;
+            $otherFileId = $otherSource === 'curseforge' ? $otherItem->curseforge_file_id : $otherItem->modrinth_version_id;
+
+            if (! $otherModId || ! $otherFileId) {
+                continue;
+            }
+
+            // Get dependencies for this other mod
+            $fileData = $modService->getModFile($otherModId, $otherFileId, $otherSource);
+            if (! $fileData) {
+                continue;
+            }
+
+            $dependencies = $modService->getFileDependencies($fileData, $otherSource);
+
+            // Check if this other mod depends on the mod being removed
+            foreach ($dependencies['required'] ?? [] as $requiredModId) {
+                if ($otherSource === $itemSource && $requiredModId == $itemModId) {
+                    $requiredBy[] = $otherItem->mod_name;
+                    break;
+                }
+            }
+        }
+
+        return [
+            'is_required' => ! empty($requiredBy),
+            'required_by' => $requiredBy,
+        ];
+    }
+
+    /**
+     * Check and remove orphaned auto-added mods (mods that are no longer needed by any other mod).
+     *
+     * @param  ModPack  $modPack  The mod pack
+     * @return int Number of orphaned mods removed
+     */
+    private function removeOrphanedAutoAddedMods(ModPack $modPack): int
+    {
+        $modService = new ModService;
+        $removedCount = 0;
+        $changed = true;
+
+        // Keep iterating until no more orphaned mods are found
+        while ($changed) {
+            $changed = false;
+
+            // Refresh mod pack to get current items
+            $modPack->load('items');
+
+            // Get all auto-added mods
+            $autoAddedMods = ModPackItem::where('mod_pack_id', $modPack->id)
+                ->where('is_auto_added', true)
+                ->get();
+
+            foreach ($autoAddedMods as $autoAddedMod) {
+                $autoAddedSource = $autoAddedMod->source;
+                if (! $autoAddedSource) {
+                    if ($autoAddedMod->curseforge_mod_id) {
+                        $autoAddedSource = 'curseforge';
+                    } elseif ($autoAddedMod->modrinth_project_id) {
+                        $autoAddedSource = 'modrinth';
+                    } else {
+                        continue;
+                    }
+                }
+
+                $autoAddedModId = $autoAddedSource === 'curseforge'
+                    ? $autoAddedMod->curseforge_mod_id
+                    : $autoAddedMod->modrinth_project_id;
+
+                if (! $autoAddedModId) {
+                    continue;
+                }
+
+                // Check if any remaining mod depends on this auto-added mod
+                $isOrphaned = true;
+                foreach ($modPack->items as $item) {
+                    // Skip the auto-added mod itself
+                    if ($item->id === $autoAddedMod->id) {
+                        continue;
+                    }
+
+                    $itemSource = $item->source;
+                    if (! $itemSource) {
+                        if ($item->curseforge_mod_id) {
+                            $itemSource = 'curseforge';
+                        } elseif ($item->modrinth_project_id) {
+                            $itemSource = 'modrinth';
+                        } else {
+                            continue;
+                        }
+                    }
+
+                    $itemModId = $itemSource === 'curseforge' ? $item->curseforge_mod_id : $item->modrinth_project_id;
+                    $itemFileId = $itemSource === 'curseforge' ? $item->curseforge_file_id : $item->modrinth_version_id;
+
+                    if (! $itemModId || ! $itemFileId) {
+                        continue;
+                    }
+
+                    // Get dependencies for this item
+                    $fileData = $modService->getModFile($itemModId, $itemFileId, $itemSource);
+                    if (! $fileData) {
+                        continue;
+                    }
+
+                    $dependencies = $modService->getFileDependencies($fileData, $itemSource);
+
+                    // Check if this item depends on the auto-added mod
+                    foreach ($dependencies['required'] ?? [] as $requiredModId) {
+                        if ($itemSource === $autoAddedSource && $requiredModId == $autoAddedModId) {
+                            $isOrphaned = false;
+                            break 2; // Break out of both loops
+                        }
+                    }
+                }
+
+                // If orphaned, remove it
+                if ($isOrphaned) {
+                    $autoAddedMod->delete();
+                    $removedCount++;
+                    $changed = true;
+                    // Break to restart the loop and check again
+                    break;
+                }
+            }
+        }
+
+        return $removedCount;
     }
 
     /**
@@ -308,9 +680,27 @@ class ModPackController extends Controller
      */
     public function destroyItem(string $id, string $itemId)
     {
-        $modPack = ModPack::where('user_id', Auth::id())->findOrFail($id);
+        $modPack = ModPack::where('user_id', Auth::id())
+            ->with('items')
+            ->findOrFail($id);
         $item = ModPackItem::where('mod_pack_id', $modPack->id)->findOrFail($itemId);
+
+        // Check if this mod is required by other mods
+        $requiredCheck = $this->isModRequiredByOthers($modPack, $item);
+        if ($requiredCheck['is_required']) {
+            $requiredByNames = implode(', ', $requiredCheck['required_by']);
+
+            return redirect()->route('mod-packs.show', $modPack->id)
+                ->with('error', __('messages.modpack.cannot_remove_required', [
+                    'name' => $item->mod_name,
+                    'required_by' => $requiredByNames,
+                ]));
+        }
+
         $item->delete();
+
+        // Clean up orphaned auto-added mods
+        $this->removeOrphanedAutoAddedMods($modPack);
 
         return redirect()->route('mod-packs.show', $modPack->id);
     }
@@ -452,6 +842,7 @@ class ModPackController extends Controller
 
         // Verify all items belong to this mod pack
         $itemIds = $validated['item_ids'];
+        $modPack->load('items');
         $items = ModPackItem::where('mod_pack_id', $modPack->id)
             ->whereIn('id', $itemIds)
             ->get();
@@ -462,8 +853,56 @@ class ModPackController extends Controller
             ], 400);
         }
 
+        // Check if any of the mods being deleted are required by other mods
+        $requiredMods = [];
+        foreach ($items as $item) {
+            $requiredCheck = $this->isModRequiredByOthers($modPack, $item);
+            if ($requiredCheck['is_required']) {
+                // Only check against mods that are NOT being deleted
+                $requiredBy = [];
+                foreach ($requiredCheck['required_by'] as $requiredByName) {
+                    // Check if the mod requiring this one is also being deleted
+                    $isAlsoBeingDeleted = false;
+                    foreach ($items as $otherItem) {
+                        if ($otherItem->mod_name === $requiredByName && $otherItem->id !== $item->id) {
+                            $isAlsoBeingDeleted = true;
+                            break;
+                        }
+                    }
+                    if (! $isAlsoBeingDeleted) {
+                        $requiredBy[] = $requiredByName;
+                    }
+                }
+                if (! empty($requiredBy)) {
+                    $requiredMods[] = [
+                        'name' => $item->mod_name,
+                        'required_by' => implode(', ', $requiredBy),
+                    ];
+                }
+            }
+        }
+
+        if (! empty($requiredMods)) {
+            $errorMessage = __('messages.modpack.cannot_remove_required_bulk', [
+                'count' => count($requiredMods),
+            ]);
+            $errorMessage .= ' '.implode('; ', array_map(function ($mod) {
+                return __('messages.modpack.cannot_remove_required', [
+                    'name' => $mod['name'],
+                    'required_by' => $mod['required_by'],
+                ]);
+            }, $requiredMods));
+
+            return response()->json([
+                'error' => $errorMessage,
+            ], 400);
+        }
+
         // Delete all items
         ModPackItem::whereIn('id', $itemIds)->delete();
+
+        // Clean up orphaned auto-added mods
+        $this->removeOrphanedAutoAddedMods($modPack);
 
         return redirect()->route('mod-packs.show', $modPack->id);
     }
