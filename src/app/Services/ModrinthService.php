@@ -561,6 +561,7 @@ class ModrinthService
             'required' => [],
             'optional' => [],
             'embedded' => [],
+            'incompatible' => [],
         ];
 
         foreach ($dependencies as $dependency) {
@@ -576,6 +577,7 @@ class ModrinthService
                 'embedded' => $result['embedded'][] = $projectId,
                 'optional' => $result['optional'][] = $projectId,
                 'required' => $result['required'][] = $projectId,
+                'incompatible' => $result['incompatible'][] = $projectId,
                 default => null,
             };
         }

@@ -16,6 +16,8 @@ return [
 
     // Mod pack messages
     'modpack.mod_already_added' => 'This mod is already added to the mod pack.',
+    'modpack.cannot_remove_required' => 'Cannot remove :name because it is required by: :required_by',
+    'modpack.cannot_remove_required_bulk' => 'Cannot remove :count mod(s) because they are required by other mods:',
     'modpack.mods_without_version' => 'The following mods do not have a version available for :version (:software): :mods',
     'modpack.remind_me_once_available' => 'Remind me once available',
     'modpack.reminder_set' => 'Reminder set! You will be notified when all mods become available for this version.',
@@ -268,6 +270,11 @@ return [
     'modpacks.show.add_modal.no_compatible' => 'No compatible versions found for :version (:software).',
     'modpacks.show.add_modal.back' => '← Back',
     'modpacks.show.add_modal.add' => 'Add Mod',
+    'modpacks.show.add_modal.loading_dependencies' => 'Loading dependencies...',
+    'modpacks.show.add_modal.dependencies' => 'Dependencies',
+    'modpacks.show.add_modal.conflicts' => 'Conflicts',
+    'modpacks.show.add_modal.no_dependencies' => 'No dependencies required.',
+    'modpacks.show.add_modal.dependencies_will_be_added' => ':count required dependency/dependencies will be automatically added.',
     'modpacks.show.delete_confirm' => 'Are you sure you want to delete this mod pack?',
     'modpacks.show.duplicate_confirm' => 'Are you sure you want to duplicate this mod pack? A new mod pack will be created with "(Clone)" added to the name.',
     'modpacks.show.remove_confirm' => 'Are you sure you want to remove this mod?',

@@ -366,6 +366,7 @@ class ModService
             'required' => [],
             'optional' => [],
             'embedded' => [],
+            'incompatible' => [],
         ];
     }
 

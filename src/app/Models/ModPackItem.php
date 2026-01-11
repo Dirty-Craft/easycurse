@@ -27,6 +27,7 @@ class ModPackItem extends Model
         'modrinth_version_id',
         'modrinth_slug',
         'source',
+        'is_auto_added',
         'last_update_notified_at',
     ];
 
@@ -45,6 +46,7 @@ class ModPackItem extends Model
     protected function casts(): array
     {
         return [
+            'is_auto_added' => 'boolean',
             'last_update_notified_at' => 'datetime',
         ];
     }
