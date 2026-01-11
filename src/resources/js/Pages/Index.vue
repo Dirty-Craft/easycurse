@@ -493,6 +493,15 @@
                                 {{ t("landing.features.share.description") }}
                             </p>
                         </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">🧪</div>
+                            <h3 class="feature-title">
+                                {{ t("landing.features.test.title") }}
+                            </h3>
+                            <p class="feature-description">
+                                {{ t("landing.features.test.description") }}
+                            </p>
+                        </div>
                     </div>
                 </div>
             </section>

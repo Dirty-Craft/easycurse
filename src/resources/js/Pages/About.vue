@@ -41,6 +41,9 @@
                         <p>
                             {{ t("about.what.p2") }}
                         </p>
+                        <p>
+                            {{ t("about.what.p3") }}
+                        </p>
                     </div>
                 </div>
             </section>
