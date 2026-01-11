@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ModPack;
 use App\Models\ModPackItem;
+use App\Models\ModPackRun;
 use App\Services\ModPackExportService;
 use App\Services\ModService;
 use Illuminate\Http\Request;
@@ -63,12 +64,19 @@ class ModPackController extends Controller
             ->with('items')
             ->findOrFail($id);
 
+        // Get the active run (is_completed = false)
+        $activeRun = $modPack->runs()
+            ->where('is_completed', false)
+            ->latest()
+            ->first();
+
         $modService = new ModService;
         $gameVersions = $modService->getGameVersions();
         $modLoaders = $modService->getModLoaders();
 
         return Inertia::render('ModPacks/Show', [
             'modPack' => $modPack,
+            'activeRun' => $activeRun,
             'gameVersions' => $gameVersions,
             'modLoaders' => $modLoaders,
         ]);
@@ -716,6 +724,59 @@ class ModPackController extends Controller
 
         return response()->json([
             'message' => 'Reminder cancelled successfully',
+        ]);
+    }
+
+    /**
+     * Create a new run for a mod pack.
+     */
+    public function createRun(Request $request, string $id)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())->findOrFail($id);
+
+        // Create a new run with is_completed = false
+        $run = ModPackRun::create([
+            'mod_pack_id' => $modPack->id,
+            'is_completed' => false,
+        ]);
+
+        return response()->json([
+            'data' => $run,
+        ]);
+    }
+
+    /**
+     * Stop (complete) a run for a mod pack.
+     */
+    public function stopRun(Request $request, string $id, string $runId)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())->findOrFail($id);
+        $run = ModPackRun::where('mod_pack_id', $modPack->id)
+            ->findOrFail($runId);
+
+        $run->update([
+            'is_completed' => true,
+        ]);
+
+        return response()->json([
+            'message' => 'Run stopped successfully',
+            'data' => $run,
+        ]);
+    }
+
+    /**
+     * Get run history for a mod pack.
+     */
+    public function getRunHistory(Request $request, string $id)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())->findOrFail($id);
+
+        $runs = ModPackRun::where('mod_pack_id', $modPack->id)
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'data' => $runs,
         ]);
     }
 

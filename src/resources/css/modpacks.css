@@ -1269,3 +1269,230 @@
     border-bottom-right-radius: 4px;
 }
 
+/* Run Actions Container */
+.run-actions-container {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+}
+
+.run-action-button {
+    flex: 1;
+    min-width: 200px;
+}
+
+.run-logs-button {
+    flex-shrink: 0;
+}
+
+@media (width <= 640px) {
+    .run-actions-container {
+        flex-direction: column;
+    }
+
+    .run-action-button {
+        width: 100%;
+        min-width: unset;
+    }
+
+    .run-logs-button {
+        width: 100%;
+    }
+}
+
+/* Run History List Styles */
+.run-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.run-history-item {
+    display: flex;
+    align-items: center;
+    padding: var(--spacing-md);
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-base);
+}
+
+.run-history-item:hover {
+    border-color: var(--color-primary);
+    background: var(--color-background-light);
+    transform: translateX(4px);
+    box-shadow: var(--shadow-sm);
+}
+
+/* RTL: hover should move left */
+[dir="rtl"] .run-history-item:hover {
+    transform: translateX(-4px);
+}
+
+.run-history-item-active {
+    border-color: var(--color-primary);
+    background: var(--color-background-light);
+    position: relative;
+}
+
+.run-history-item-active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--color-primary);
+    border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+
+/* RTL: move indicator to right */
+[dir="rtl"] .run-history-item-active::before {
+    left: auto;
+    right: 0;
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+.run-history-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    gap: var(--spacing-md);
+}
+
+.run-history-status {
+    display: flex;
+    align-items: center;
+}
+
+.run-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--spacing-xs) var(--spacing-md);
+    border-radius: var(--radius-full);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.run-status-active {
+    background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
+    color: white;
+    box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
+}
+
+.run-status-completed {
+    background: var(--color-background-light);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+}
+
+.run-history-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--spacing-xs);
+}
+
+/* RTL: align date to left */
+[dir="rtl"] .run-history-info {
+    align-items: flex-start;
+}
+
+.run-history-date {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    font-family: var(--font-family-base);
+}
+
+@media (width <= 640px) {
+    .run-history-item {
+        padding: var(--spacing-sm) var(--spacing-md);
+    }
+
+    .run-history-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-sm);
+    }
+
+    .run-history-info {
+        align-items: flex-start;
+        width: 100%;
+    }
+
+    .run-history-item-active::before {
+        display: none;
+    }
+
+    .run-history-item-active {
+        box-shadow: 0 0 0 2px rgb(0 217 255 / 20%);
+        border-width: 2px;
+    }
+}
+
+/* View Run Modal Styles */
+.view-run-modal-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.run-details-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.run-date-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) 0;
+}
+
+.run-date-label {
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+}
+
+.run-date-value {
+    color: var(--color-text-primary);
+    font-size: 0.875rem;
+    font-family: var(--font-family-base);
+}
+
+.run-output-container {
+    margin-top: var(--spacing-md);
+}
+
+.run-output {
+    background: #000;
+    color: #fff;
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    margin: 0;
+    min-height: 200px;
+    max-height: 400px;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    border: 1px solid var(--color-border);
+}
+
+/* Light theme: adjust output box */
+:root[data-theme="light"] .run-output {
+    background: #1a1a1a;
+    color: #fff;
+}
+
