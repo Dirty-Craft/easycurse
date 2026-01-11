@@ -732,7 +732,9 @@ class ModPackController extends Controller
      */
     public function createRun(Request $request, string $id)
     {
-        $modPack = ModPack::where('user_id', Auth::id())->findOrFail($id);
+        $modPack = ModPack::where('user_id', Auth::id())
+            ->with('items')
+            ->findOrFail($id);
 
         // Create a new run with is_completed = false
         $run = ModPackRun::create([
@@ -740,8 +742,83 @@ class ModPackController extends Controller
             'is_completed' => false,
         ]);
 
+        // Create directory structure for the run
+        $runDir = '/shared/virtual/'.$run->id;
+        $modsDir = $runDir.'/mods';
+
+        if (! is_dir($runDir)) {
+            mkdir($runDir, 0755, true);
+        }
+        if (! is_dir($modsDir)) {
+            mkdir($modsDir, 0755, true);
+        }
+
+        // Download all mods from the modpack
+        $modService = new ModService;
+        $downloadedCount = 0;
+        $failedCount = 0;
+
+        foreach ($modPack->items as $item) {
+            $downloadInfo = $this->getItemDownloadInfo($item, $modService);
+
+            if ($downloadInfo && isset($downloadInfo['url'])) {
+                try {
+                    $response = Http::timeout(60)
+                        ->withHeaders([
+                            'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                        ])
+                        ->get($downloadInfo['url']);
+
+                    if ($response->successful()) {
+                        $filename = $downloadInfo['filename'] ?? basename(parse_url($downloadInfo['url'], PHP_URL_PATH));
+                        if (! $filename || ! preg_match('/\.jar$/', $filename)) {
+                            $filename = preg_replace('/[^a-zA-Z0-9._-]/', '_', $item->mod_name).'.jar';
+                        }
+
+                        $filePath = $modsDir.'/'.$filename;
+                        file_put_contents($filePath, $response->body());
+                        $downloadedCount++;
+                    } else {
+                        \Log::warning('Failed to download mod file for run', [
+                            'run_id' => $run->id,
+                            'item_id' => $item->id,
+                            'mod_name' => $item->mod_name,
+                            'url' => $downloadInfo['url'],
+                            'status' => $response->status(),
+                        ]);
+                        $failedCount++;
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Error downloading mod file for run', [
+                        'run_id' => $run->id,
+                        'item_id' => $item->id,
+                        'mod_name' => $item->mod_name,
+                        'url' => $downloadInfo['url'] ?? null,
+                        'error' => $e->getMessage(),
+                    ]);
+                    $failedCount++;
+                }
+            } else {
+                \Log::warning('No download info available for mod item', [
+                    'run_id' => $run->id,
+                    'item_id' => $item->id,
+                    'mod_name' => $item->mod_name,
+                ]);
+                $failedCount++;
+            }
+        }
+
+        \Log::info('Run created with mod downloads', [
+            'run_id' => $run->id,
+            'mod_pack_id' => $modPack->id,
+            'downloaded_count' => $downloadedCount,
+            'failed_count' => $failedCount,
+        ]);
+
         return response()->json([
             'data' => $run,
+            'downloaded_count' => $downloadedCount,
+            'failed_count' => $failedCount,
         ]);
     }
 
