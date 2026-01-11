@@ -71,6 +71,10 @@ class ModPackController extends Controller
             ->latest()
             ->first();
 
+        $user = Auth::user();
+        $isPremium = $user->isPremium();
+        $monthlyRunCount = $user->getMonthlyRunCount();
+
         $modService = new ModService;
         $gameVersions = $modService->getGameVersions();
         $modLoaders = $modService->getModLoaders();
@@ -80,6 +84,8 @@ class ModPackController extends Controller
             'activeRun' => $activeRun,
             'gameVersions' => $gameVersions,
             'modLoaders' => $modLoaders,
+            'isPremium' => $isPremium,
+            'monthlyRunCount' => $monthlyRunCount,
         ]);
     }
 
@@ -1175,6 +1181,16 @@ class ModPackController extends Controller
             ->with('items')
             ->findOrFail($id);
 
+        $user = Auth::user();
+
+        // Check premium status and run limits for free users
+        if (! $user->isPremium()) {
+            $monthlyRunCount = $user->getMonthlyRunCount();
+            if ($monthlyRunCount >= 10) {
+                return redirect()->route('premium')->with('error', __('messages.premium.run_limit_exceeded'));
+            }
+        }
+
         // Create a new run with is_completed = false
         $run = ModPackRun::create([
             'mod_pack_id' => $modPack->id,
@@ -1391,11 +1407,16 @@ class ModPackController extends Controller
             'runner_pick_written' => $runnerPickWritten !== false,
         ]);
 
-        return response()->json([
-            'data' => $run,
-            'downloaded_count' => $downloadedCount,
-            'failed_count' => $failedCount,
-        ]);
+        // Return JSON for AJAX requests, redirect for regular requests
+        if ($request->wantsJson()) {
+            return response()->json([
+                'data' => $run,
+                'downloaded_count' => $downloadedCount,
+                'failed_count' => $failedCount,
+            ]);
+        }
+
+        return redirect()->route('mod-packs.show', $modPack->id);
     }
 
     /**

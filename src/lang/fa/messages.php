@@ -201,6 +201,14 @@ return [
     'auth.profile.email_hint' => 'ایمیل قابل تغییر نیست',
     'auth.profile.updating' => 'در حال به‌روزرسانی...',
     'auth.profile.update' => 'به‌روزرسانی پروفایل',
+    'auth.profile.account_type' => 'نوع حساب',
+    'auth.profile.premium' => 'پریمیوم',
+    'auth.profile.premium_remaining_days' => ':days روز باقی مانده',
+    'auth.profile.free' => 'رایگان',
+    'auth.profile.monthly_runs' => 'اجراهای ماهانه',
+    'auth.profile.monthly_runs_hint' => 'حساب‌های رایگان به 10 اجرا در ماه محدود هستند',
+    'auth.profile.upgrade_cta' => 'برای اجراهای نامحدود به پریمیوم ارتقا دهید',
+    'auth.profile.upgrade_to_premium' => 'ارتقا به پریمیوم',
 
     // Mod packs pages
     'modpacks.index.title' => 'مادهای من',
@@ -248,6 +256,8 @@ return [
     'modpacks.show.run_virtual_java' => 'اجرا در محیط جاوا مجازی',
     'modpacks.show.view_run' => 'مشاهده اجرا',
     'modpacks.show.run_logs' => 'گزارش اجراها',
+    'modpacks.show.run_limit_reached' => 'شما به حد ماهانه 10 اجرا رسیده‌اید (:count/10). برای اجراهای نامحدود به پریمیوم ارتقا دهید.',
+    'modpacks.show.upgrade_to_premium' => 'ارتقا به پریمیوم',
     'modpacks.show.create_run_failed' => 'ایجاد اجرا ناموفق بود. لطفاً دوباره تلاش کنید.',
     'modpacks.show.stop_run_failed' => 'توقف اجرا ناموفق بود. لطفاً دوباره تلاش کنید.',
     'modpacks.show.fetch_run_history_failed' => 'دریافت تاریخچه اجراها ناموفق بود. لطفاً دوباره تلاش کنید.',
@@ -397,4 +407,5 @@ return [
     'premium.premium.runs' => 'اجرای نامحدود جاوا',
     'premium.upgrade.title' => 'ارتقا به پریمیوم',
     'premium.upgrade.p1' => 'آماده ارتقا به پریمیوم هستید؟ برای ما ایمیل بفرستید و ما به شما کمک می‌کنیم شروع کنید.',
+    'premium.run_limit_exceeded' => 'شما به حد ماهانه 10 اجرا برای حساب‌های رایگان رسیده‌اید. لطفاً برای اجراهای نامحدود به پریمیوم ارتقا دهید.',
 ];

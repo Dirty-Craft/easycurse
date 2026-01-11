@@ -12,16 +12,19 @@
                     <div class="header-left">
                         <h1 class="modpacks-title">{{ modPack.name }}</h1>
                         <div class="version-info">
-                            <p class="modpacks-subtitle">
-                                {{ modPack.minecraft_version }} •
-                                {{ modPack.software }}
+                            <div class="modpacks-subtitle">
+                                <p>
+                                    {{ modPack.minecraft_version }} •
+                                    {{ modPack.software }}
+                                </p>
                                 <Button
                                     variant="primary"
+                                    size="sm"
                                     @click="showChangeVersionModal = true"
                                 >
                                     {{ t("modpacks.show.change") }}
                                 </Button>
-                            </p>
+                            </div>
                             <div
                                 v-if="
                                     modPack.minecraft_update_reminder_version &&
@@ -101,24 +104,42 @@
             </div>
 
             <div class="run-actions-container">
-                <Button
-                    v-if="!currentActiveRun"
-                    class="run-action-button"
-                    variant="success"
-                    :disabled="isCreatingRun"
-                    :class="{ 'btn-loading': isCreatingRun }"
-                    @click="createRun"
-                >
-                    {{ t("modpacks.show.run_virtual_java") }}
-                </Button>
-                <Button
-                    v-else
-                    class="run-action-button"
-                    variant="primary"
-                    @click="openViewRunModal(currentActiveRun)"
-                >
-                    {{ t("modpacks.show.view_run") }}
-                </Button>
+                <div v-if="!currentActiveRun" class="run-action-wrapper">
+                    <Button
+                        v-if="!hasReachedRunLimit"
+                        class="run-action-button"
+                        variant="success"
+                        :disabled="isCreatingRun"
+                        :class="{ 'btn-loading': isCreatingRun }"
+                        @click="createRun"
+                    >
+                        {{ t("modpacks.show.run_virtual_java") }}
+                    </Button>
+                    <div v-else class="run-limit-banner">
+                        <div class="run-limit-content">
+                            <span class="run-limit-icon">⚠️</span>
+                            <span class="run-limit-text">
+                                {{
+                                    t("modpacks.show.run_limit_reached", {
+                                        count: props.monthlyRunCount,
+                                    })
+                                }}
+                            </span>
+                        </div>
+                        <Button tag="Link" href="/premium" variant="primary">
+                            {{ t("modpacks.show.upgrade_to_premium") }}
+                        </Button>
+                    </div>
+                </div>
+                <div v-else class="run-action-wrapper">
+                    <Button
+                        class="run-action-button"
+                        variant="primary"
+                        @click="openViewRunModal(currentActiveRun)"
+                    >
+                        {{ t("modpacks.show.view_run") }}
+                    </Button>
+                </div>
                 <Button
                     class="run-logs-button"
                     variant="secondary"
@@ -1631,6 +1652,14 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    isPremium: {
+        type: Boolean,
+        default: false,
+    },
+    monthlyRunCount: {
+        type: Number,
+        default: 0,
+    },
 });
 
 const showEditModal = ref(false);
@@ -1673,6 +1702,11 @@ const currentActiveRun = computed(() => {
     }
     // Otherwise use the activeRun from props
     return props.activeRun;
+});
+
+// Computed property to check if user has reached run limit
+const hasReachedRunLimit = computed(() => {
+    return !props.isPremium && props.monthlyRunCount >= 10;
 });
 
 const editForm = useForm({

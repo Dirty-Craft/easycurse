@@ -217,12 +217,17 @@
 
 .modpacks-subtitle {
     color: var(--color-text-secondary);
-    font-size: 0.9375rem;
     margin: 0;
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
     flex-wrap: wrap;
+}
+
+.modpacks-subtitle p {
+    color: inherit;
+    font-size: 0.9375rem;
+    margin: 0;
 }
 
 .version-info {
@@ -1277,9 +1282,48 @@
     flex-wrap: wrap;
 }
 
-.run-action-button {
+.run-action-wrapper {
     flex: 1;
     min-width: 200px;
+    display: flex;
+}
+
+.run-action-button {
+    width: 100%;
+    min-width: 0;
+}
+
+.run-limit-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: var(--color-background-light);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.run-limit-content {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex: 1;
+    min-width: 0;
+}
+
+.run-limit-icon {
+    font-size: 1.125rem;
+    flex-shrink: 0;
+}
+
+.run-limit-text {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+    font-family: var(--font-family-base);
 }
 
 .run-logs-button {
@@ -1291,9 +1335,23 @@
         flex-direction: column;
     }
 
+    .run-action-wrapper {
+        width: 100%;
+        min-width: unset;
+    }
+
     .run-action-button {
         width: 100%;
         min-width: unset;
+    }
+
+    .run-limit-banner {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .run-limit-content {
+        width: 100%;
     }
 
     .run-logs-button {
@@ -1496,10 +1554,3 @@
     border: none;
     display: block;
 }
-
-/* Light theme: adjust output box */
-:root[data-theme="light"] .run-output {
-    background: #1a1a1a;
-    color: #fff;
-}
-

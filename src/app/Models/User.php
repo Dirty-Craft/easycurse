@@ -44,6 +44,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'premium_until' => 'datetime',
             'password' => 'hashed',
         ];
     }
@@ -54,6 +55,27 @@ class User extends Authenticatable
     public function modPacks(): HasMany
     {
         return $this->hasMany(ModPack::class);
+    }
+
+    /**
+     * Check if the user has an active premium subscription.
+     */
+    public function isPremium(): bool
+    {
+        return $this->premium_until !== null && $this->premium_until->isFuture();
+    }
+
+    /**
+     * Get the count of runs created by this user in the current month.
+     */
+    public function getMonthlyRunCount(): int
+    {
+        return ModPackRun::whereHas('modPack', function ($query) {
+            $query->where('user_id', $this->id);
+        })
+            ->whereYear('created_at', now()->year)
+            ->whereMonth('created_at', now()->month)
+            ->count();
     }
 
     /**

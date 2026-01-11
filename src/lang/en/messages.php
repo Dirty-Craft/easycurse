@@ -201,6 +201,14 @@ return [
     'auth.profile.email_hint' => 'Email cannot be changed',
     'auth.profile.updating' => 'Updating...',
     'auth.profile.update' => 'Update Profile',
+    'auth.profile.account_type' => 'Account Type',
+    'auth.profile.premium' => 'Premium',
+    'auth.profile.premium_remaining_days' => ':days day(s) remaining',
+    'auth.profile.free' => 'Free',
+    'auth.profile.monthly_runs' => 'Monthly Runs',
+    'auth.profile.monthly_runs_hint' => 'Free accounts are limited to 10 runs per month',
+    'auth.profile.upgrade_cta' => 'Upgrade to Premium for unlimited runs',
+    'auth.profile.upgrade_to_premium' => 'Upgrade to Premium',
 
     // Mod packs pages
     'modpacks.index.title' => 'My Mods',
@@ -244,6 +252,8 @@ return [
     'modpacks.show.run_virtual_java' => 'Run in virtual java environment',
     'modpacks.show.view_run' => 'View Run',
     'modpacks.show.run_logs' => 'Run Logs',
+    'modpacks.show.run_limit_reached' => 'You have reached the monthly limit of 10 runs (:count/10). Upgrade to Premium for unlimited runs.',
+    'modpacks.show.upgrade_to_premium' => 'Upgrade to Premium',
     'modpacks.show.create_run_failed' => 'Failed to create run. Please try again.',
     'modpacks.show.stop_run_failed' => 'Failed to stop run. Please try again.',
     'modpacks.show.fetch_run_history_failed' => 'Failed to fetch run history. Please try again.',
@@ -398,4 +408,5 @@ return [
     'premium.premium.runs' => 'Unlimited Java runs',
     'premium.upgrade.title' => 'Upgrade to Premium',
     'premium.upgrade.p1' => 'Ready to upgrade to Premium? Send us an email and we\'ll help you get started.',
+    'premium.run_limit_exceeded' => 'You have reached the monthly limit of 10 runs for free accounts. Please upgrade to Premium for unlimited runs.',
 ];
