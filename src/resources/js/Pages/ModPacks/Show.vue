@@ -130,6 +130,11 @@
 
             <div class="modpacks-main">
                 <div class="modpacks-card">
+                    <!-- Flash Error Message -->
+                    <div v-if="flashError" class="error-message flash-error">
+                        <p>{{ flashError }}</p>
+                    </div>
+
                     <div class="section-header">
                         <h3 class="section-title">
                             {{ t("modpacks.show.mods") }}
@@ -789,10 +794,7 @@
                     <div v-if="isLoadingRunLogs" class="loading-preview">
                         <p>{{ t("modpacks.show.run_logs_modal.loading") }}</p>
                     </div>
-                    <pre
-                        v-else
-                        class="run-output"
-                    >{{
+                    <pre v-else class="run-output">{{
                         runLogs || t("modpacks.show.view_run_modal.no_output")
                     }}</pre>
                 </div>
@@ -1133,6 +1135,76 @@
                             })
                         }}
                     </p>
+                </div>
+
+                <!-- Dependencies and Conflicts -->
+                <div
+                    v-if="
+                        selectedFile &&
+                        (dependencyTree || dependencyConflicts.length > 0)
+                    "
+                    class="dependencies-section"
+                >
+                    <div
+                        v-if="isLoadingDependencies"
+                        class="loading-dependencies"
+                    >
+                        <p>
+                            {{
+                                t(
+                                    "modpacks.show.add_modal.loading_dependencies",
+                                )
+                            }}
+                        </p>
+                    </div>
+
+                    <!-- Conflicts -->
+                    <div
+                        v-if="dependencyConflicts.length > 0"
+                        class="conflicts-warning"
+                    >
+                        <h4 class="conflicts-title">
+                            {{ t("modpacks.show.add_modal.conflicts") }}
+                        </h4>
+                        <ul class="conflicts-list">
+                            <li
+                                v-for="(conflict, index) in dependencyConflicts"
+                                :key="index"
+                                class="conflict-item"
+                            >
+                                {{ conflict.existing_mod_name }}
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Dependency Tree -->
+                    <div v-if="dependencyTree" class="dependencies-tree">
+                        <h4 class="dependencies-title">
+                            {{ t("modpacks.show.add_modal.dependencies") }}
+                        </h4>
+                        <div
+                            v-if="
+                                dependencyTree.dependencies?.required?.length >
+                                0
+                            "
+                            class="dependency-info"
+                        >
+                            <p>
+                                {{
+                                    t(
+                                        "modpacks.show.add_modal.dependencies_will_be_added",
+                                        {
+                                            count: dependencyTree.dependencies
+                                                .required.length,
+                                        },
+                                    )
+                                }}
+                            </p>
+                        </div>
+                        <p v-else class="no-dependencies">
+                            {{ t("modpacks.show.add_modal.no_dependencies") }}
+                        </p>
+                    </div>
                 </div>
 
                 <div v-if="addModError" class="error-message">
@@ -1520,8 +1592,15 @@
 </template>
 
 <script setup>
-import { Head, Link, router, useForm } from "@inertiajs/vue3";
-import { ref, watch, computed, onMounted, onBeforeUnmount, nextTick } from "vue";
+import {
+    ref,
+    watch,
+    computed,
+    onMounted,
+    onBeforeUnmount,
+    nextTick,
+} from "vue";
+import { Head, Link, router, useForm, usePage } from "@inertiajs/vue3";
 import AppLayout from "../../Layouts/AppLayout.vue";
 import Button from "../../Components/Button.vue";
 import Input from "../../Components/Input.vue";
@@ -1532,6 +1611,11 @@ import { downloadZip } from "client-zip";
 import { useTranslations } from "../../composables/useTranslations";
 
 const { t } = useTranslations();
+
+const page = usePage();
+const flashError = computed(() => page.props.flash?.error);
+
+// Watch for flash errors - they will be cleared automatically on next navigation
 
 const props = defineProps({
     modPack: Object,
@@ -1878,6 +1962,9 @@ const selectedFile = ref(null);
 const isDownloadingAll = ref(false);
 const downloadingItems = ref(new Set());
 const addModError = ref("");
+const dependencyTree = ref(null);
+const dependencyConflicts = ref([]);
+const isLoadingDependencies = ref(false);
 const modsSearchQuery = ref("");
 const selectedItems = ref(new Set());
 const isDownloadingBulk = ref(false);
@@ -2027,8 +2114,46 @@ const selectMod = async (mod) => {
     }
 };
 
-const selectFile = (file) => {
+const selectFile = async (file) => {
     selectedFile.value = file;
+    dependencyTree.value = null;
+    dependencyConflicts.value = [];
+
+    // Fetch dependencies for the selected file
+    if (selectedMod.value) {
+        const source =
+            selectedMod.value._source ||
+            (typeof selectedMod.value.id === "string"
+                ? "modrinth"
+                : "curseforge");
+        const modId = selectedMod.value.id || selectedMod.value.project_id;
+
+        if (modId && file.id) {
+            isLoadingDependencies.value = true;
+            try {
+                const response = await axios.get(
+                    `/mod-packs/${props.modPack.id}/mod-dependencies`,
+                    {
+                        params: {
+                            mod_id: modId,
+                            file_id: file.id,
+                            source: source,
+                        },
+                    },
+                );
+
+                dependencyTree.value = response.data.tree || null;
+                dependencyConflicts.value = response.data.conflicts || [];
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error("Error loading dependencies:", error);
+                dependencyTree.value = null;
+                dependencyConflicts.value = [];
+            } finally {
+                isLoadingDependencies.value = false;
+            }
+        }
+    }
 };
 
 const closeAddModModal = () => {
@@ -2041,6 +2166,9 @@ const closeAddModModal = () => {
     modFiles.value = [];
     selectedFile.value = null;
     addModError.value = "";
+    dependencyTree.value = null;
+    dependencyConflicts.value = [];
+    isLoadingDependencies.value = false;
 };
 
 const addMod = () => {
@@ -2302,6 +2430,11 @@ const deleteModItem = (itemId) => {
             onSuccess: () => {
                 // Remove from selected items if it was selected
                 selectedItems.value.delete(itemId);
+            },
+            onError: (errors) => {
+                // eslint-disable-next-line no-console
+                console.error("Error deleting mod:", errors);
+                // Error will be shown via flash message
             },
         });
     }
@@ -3130,7 +3263,12 @@ const deleteBulkSelected = () => {
             onError: (errors) => {
                 // eslint-disable-next-line no-console
                 console.error("Error deleting selected mods:", errors);
-                alert(t("modpacks.show.bulk_delete_failed"));
+                // Check if there's a specific error message
+                if (errors?.error) {
+                    alert(errors.error);
+                } else {
+                    alert(t("modpacks.show.bulk_delete_failed"));
+                }
             },
             onFinish: () => {
                 isDeletingBulk.value = false;

@@ -41,6 +41,7 @@ Route::middleware('auth')->group(function () {
     ]);
     Route::get('/mod-packs/{id}/search-mods', [\App\Http\Controllers\ModPackController::class, 'searchMods'])->name('mod-packs.search-mods');
     Route::get('/mod-packs/{id}/mod-files', [\App\Http\Controllers\ModPackController::class, 'getModFiles'])->name('mod-packs.mod-files');
+    Route::get('/mod-packs/{id}/mod-dependencies', [\App\Http\Controllers\ModPackController::class, 'getModDependencies'])->name('mod-packs.mod-dependencies');
     Route::post('/mod-packs/{id}/items', [\App\Http\Controllers\ModPackController::class, 'storeItem'])->name('mod-packs.items.store');
     Route::put('/mod-packs/{id}/items/{itemId}', [\App\Http\Controllers\ModPackController::class, 'updateItem'])->name('mod-packs.items.update');
     Route::delete('/mod-packs/{id}/items/{itemId}', [\App\Http\Controllers\ModPackController::class, 'destroyItem'])->name('mod-packs.items.destroy');

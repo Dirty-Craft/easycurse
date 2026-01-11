@@ -674,6 +674,7 @@ class CurseForgeService
             'required' => [],
             'optional' => [],
             'embedded' => [],
+            'incompatible' => [],
         ];
 
         foreach ($dependencies as $dependency) {
@@ -684,11 +685,12 @@ class CurseForgeService
                 continue;
             }
 
-            // Relation types: 1 = EmbeddedLibrary, 2 = OptionalDependency, 3 = RequiredDependency
+            // Relation types: 1 = EmbeddedLibrary, 2 = OptionalDependency, 3 = RequiredDependency, 4 = Incompatible
             match ($relationType) {
                 1 => $result['embedded'][] = $modId,
                 2 => $result['optional'][] = $modId,
                 3 => $result['required'][] = $modId,
+                4 => $result['incompatible'][] = $modId,
                 default => null,
             };
         }

@@ -16,6 +16,8 @@ return [
 
     // Mod pack messages
     'modpack.mod_already_added' => 'این ماد قبلاً به مودپک اضافه شده است.',
+    'modpack.cannot_remove_required' => 'نمی‌توان :name را حذف کرد چون مورد نیاز است توسط: :required_by',
+    'modpack.cannot_remove_required_bulk' => 'نمی‌توان :count ماد را حذف کرد چون مورد نیاز هستند توسط مادهای دیگر:',
     'modpack.mods_without_version' => 'مادهای زیر نسخه‌ای برای :version (:software) ندارند: :mods',
     'modpack.remind_me_once_available' => 'وقتی در دسترس بود به من یادآوری کن',
     'modpack.reminder_set' => 'یادآوری تنظیم شد! وقتی همه مادها برای این نسخه در دسترس باشند به شما اطلاع داده می‌شود.',
@@ -285,6 +287,11 @@ return [
     'modpacks.show.add_modal.no_compatible' => 'نسخه سازگاری پیدا نشد.',
     'modpacks.show.add_modal.back' => '→ بازگشت',
     'modpacks.show.add_modal.add' => 'افزودن ماد',
+    'modpacks.show.add_modal.loading_dependencies' => 'در حال بارگذاری وابستگی‌ها...',
+    'modpacks.show.add_modal.dependencies' => 'وابستگی‌ها',
+    'modpacks.show.add_modal.conflicts' => 'تعارض‌ها',
+    'modpacks.show.add_modal.no_dependencies' => 'وابستگی‌ای لازم نیست.',
+    'modpacks.show.add_modal.dependencies_will_be_added' => ':count وابستگی مورد نیاز به صورت خودکار افزوده خواهد شد.',
     'modpacks.show.delete_confirm' => 'از حذف این مودپک مطمئنی؟',
     'modpacks.show.duplicate_confirm' => 'از تکثیر این مودپک مطمئنی؟ یک مودپک جدید با نام "(Clone)" ساخته می‌شود.',
     'modpacks.show.remove_confirm' => 'از حذف این ماد مطمئنی؟',
