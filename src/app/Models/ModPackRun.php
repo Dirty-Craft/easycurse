@@ -18,7 +18,6 @@ class ModPackRun extends Model
     protected $fillable = [
         'mod_pack_id',
         'is_completed',
-        'output',
     ];
 
     /**

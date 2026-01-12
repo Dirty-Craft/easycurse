@@ -19,7 +19,6 @@ class ModPackRunFactory extends Factory
         return [
             'mod_pack_id' => \App\Models\ModPack::factory(),
             'is_completed' => false,
-            'output' => null,
         ];
     }
 }

@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id();
             $table->foreignId('mod_pack_id')->constrained()->cascadeOnDelete();
             $table->boolean('is_completed')->default(false);
-            $table->text('output')->nullable();
             $table->timestamps();
         });
     }
