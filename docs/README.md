@@ -8,6 +8,7 @@
 - [Modrinth Integration](modrinth.md)
 - [Dependency Handling System](dependencies.md)
 - [Mod Update Reminders](reminders.md)
+- [Runners](runners.md)
 - [Linter](linter.md)
 - [Styles](styles.md)
 - [Localization](localization.md)
