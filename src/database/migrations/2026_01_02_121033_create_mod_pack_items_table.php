@@ -20,11 +20,19 @@ return new class extends Migration
             $table->unsignedBigInteger('curseforge_mod_id')->nullable();
             $table->unsignedBigInteger('curseforge_file_id')->nullable();
             $table->string('curseforge_slug')->nullable();
+            $table->boolean('is_auto_added')->default(false);
+            $table->timestamp('last_update_notified_at')->nullable();
+            $table->string('modrinth_project_id')->nullable();
+            $table->string('modrinth_version_id')->nullable();
+            $table->string('modrinth_slug')->nullable();
+            $table->string('source')->nullable()->comment('Platform source: curseforge or modrinth');
             $table->timestamps();
 
             $table->index('mod_pack_id');
             $table->index(['mod_pack_id', 'sort_order']);
             $table->index('curseforge_mod_id');
+            $table->index('modrinth_project_id');
+            $table->index('source');
         });
     }
 

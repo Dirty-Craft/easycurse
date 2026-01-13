@@ -69,6 +69,9 @@
                             <Link href="/donate" class="footer-link">
                                 {{ t("layout.footer.donate") }}
                             </Link>
+                            <Link href="/premium" class="footer-link">
+                                {{ t("layout.footer.premium") }}
+                            </Link>
                             <a
                                 href="https://github.com/Dirty-Craft/easycurse"
                                 target="_blank"
@@ -128,7 +131,7 @@ import { useDirection } from "../composables/useDirection";
 const { t } = useTranslations();
 const page = usePage();
 
-// Show advertisement on all pages except landing (/), about (/about), ads (/ads), and donate (/donate)
+// Show advertisement on all pages except landing (/), about (/about), ads (/ads), donate (/donate), and premium (/premium)
 const shouldShowAdvertisement = computed(() => {
     // Normalize URL: remove query parameters and normalize trailing slashes
     let url = page.url.split("?")[0]; // Remove query parameters
@@ -138,7 +141,8 @@ const shouldShowAdvertisement = computed(() => {
         url !== "/" &&
         !url.startsWith("/about") &&
         !url.startsWith("/ads") &&
-        url !== "/donate"
+        url !== "/donate" &&
+        url !== "/premium"
     );
 });
 

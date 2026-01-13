@@ -11,8 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('mod_pack_items', function (Blueprint $table) {
-            $table->boolean('is_auto_added')->default(false)->after('source');
+        Schema::create('mod_pack_runs', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('mod_pack_id')->constrained()->cascadeOnDelete();
+            $table->boolean('is_completed')->default(false);
+            $table->timestamps();
         });
     }
 
@@ -21,8 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('mod_pack_items', function (Blueprint $table) {
-            $table->dropColumn('is_auto_added');
-        });
+        Schema::dropIfExists('mod_pack_runs');
     }
 };

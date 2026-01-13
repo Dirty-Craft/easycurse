@@ -52,6 +52,14 @@ class ModPack extends Model
     }
 
     /**
+     * Get the mod pack runs for the mod pack.
+     */
+    public function runs(): HasMany
+    {
+        return $this->hasMany(ModPackRun::class);
+    }
+
+    /**
      * Generate a unique share token for this mod pack.
      */
     public function generateShareToken(): string

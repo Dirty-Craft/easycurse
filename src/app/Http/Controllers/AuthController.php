@@ -206,8 +206,13 @@ class AuthController extends Controller
      */
     public function showProfile()
     {
+        $user = Auth::user();
+
         return Inertia::render('Auth/Profile', [
-            'user' => Auth::user(),
+            'user' => $user,
+            'isPremium' => $user->isPremium(),
+            'monthlyRunCount' => $user->getMonthlyRunCount(),
+            'premiumUntil' => $user->premium_until?->toIso8601String(),
         ]);
     }
 

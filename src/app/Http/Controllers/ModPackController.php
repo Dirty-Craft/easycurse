@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ModPack;
 use App\Models\ModPackItem;
+use App\Models\ModPackRun;
 use App\Services\DependencyResolutionService;
 use App\Services\ModPackExportService;
 use App\Services\ModService;
@@ -64,14 +65,27 @@ class ModPackController extends Controller
             ->with('items')
             ->findOrFail($id);
 
+        // Get the active run (is_completed = false)
+        $activeRun = $modPack->runs()
+            ->where('is_completed', false)
+            ->latest()
+            ->first();
+
+        $user = Auth::user();
+        $isPremium = $user->isPremium();
+        $monthlyRunCount = $user->getMonthlyRunCount();
+
         $modService = new ModService;
         $gameVersions = $modService->getGameVersions();
         $modLoaders = $modService->getModLoaders();
 
         return Inertia::render('ModPacks/Show', [
             'modPack' => $modPack,
+            'activeRun' => $activeRun,
             'gameVersions' => $gameVersions,
             'modLoaders' => $modLoaders,
+            'isPremium' => $isPremium,
+            'monthlyRunCount' => $monthlyRunCount,
         ]);
     }
 
@@ -1159,6 +1173,385 @@ class ModPackController extends Controller
     }
 
     /**
+     * Create a new run for a mod pack.
+     */
+    public function createRun(Request $request, string $id)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())
+            ->with('items')
+            ->findOrFail($id);
+
+        $user = Auth::user();
+
+        // Check premium status and run limits for free users
+        if (! $user->isPremium()) {
+            $monthlyRunCount = $user->getMonthlyRunCount();
+            if ($monthlyRunCount >= 10) {
+                return redirect()->route('premium')->with('error', __('messages.premium.run_limit_exceeded'));
+            }
+        }
+
+        // Create a new run with is_completed = false
+        $run = ModPackRun::create([
+            'mod_pack_id' => $modPack->id,
+            'is_completed' => false,
+        ]);
+
+        // Create directory structure for the run
+        $baseDir = '/shared/virtual';
+        $runDir = $baseDir.'/'.$run->id;
+        $modsDir = $runDir.'/mods';
+
+        // Verify base directory exists and is writable (should be a Docker volume mount)
+        // We don't try to create it since it's a volume mount - it must exist
+        if (! is_dir($baseDir)) {
+            throw new \RuntimeException(
+                "Base directory does not exist: {$baseDir}. ".
+                'Please ensure the Docker volume mount is configured correctly in docker-compose.yml '.
+                'and that ./docker/virtual directory exists on the host system.'
+            );
+        }
+
+        if (! is_writable($baseDir)) {
+            throw new \RuntimeException(
+                "Base directory is not writable: {$baseDir}. ".
+                'Please check permissions on ./docker/virtual on the host system.'
+            );
+        }
+
+        // Create run directory
+        if (! is_dir($runDir)) {
+            if (! @mkdir($runDir, 0755, true) && ! is_dir($runDir)) {
+                throw new \RuntimeException("Failed to create run directory: {$runDir}");
+            }
+        }
+
+        // Create mods directory
+        if (! is_dir($modsDir)) {
+            if (! @mkdir($modsDir, 0755, true) && ! is_dir($modsDir)) {
+                throw new \RuntimeException("Failed to create mods directory: {$modsDir}");
+            }
+        }
+
+        // Download mod loader from ServerJars
+        $loaderDownloaded = $this->downloadModLoaderFromServerJars(
+            $runDir,
+            $modPack->software,
+            $modPack->minecraft_version
+        );
+
+        // Initialize server JAR download status
+        // For Fabric and Quilt, the installer will download the server JAR
+        // For Forge and NeoForge, we need to download the vanilla server JAR for the installer
+        $serverJarDownloaded = ! in_array($modPack->software, ['fabric', 'quilt', 'neoforge', 'forge']);
+
+        if (! $loaderDownloaded) {
+            \Log::warning('Failed to download mod loader from ServerJars', [
+                'run_id' => $run->id,
+                'software' => $modPack->software,
+                'minecraft_version' => $modPack->minecraft_version,
+            ]);
+        } else {
+            // For Fabric and Quilt, the installer will download the server JAR, so we skip the separate download
+            // For NeoForge and Forge, we need to download the vanilla Minecraft server JAR for the installer
+            if (in_array($modPack->software, ['neoforge', 'forge'])) {
+                $serverJarDownloaded = $this->downloadVanillaServerJar(
+                    $runDir,
+                    $modPack->minecraft_version
+                );
+
+                if (! $serverJarDownloaded) {
+                    \Log::warning('Failed to download vanilla server JAR for installer', [
+                        'run_id' => $run->id,
+                        'software' => $modPack->software,
+                        'minecraft_version' => $modPack->minecraft_version,
+                    ]);
+                }
+            } elseif (in_array($modPack->software, ['fabric', 'quilt'])) {
+                // For Fabric and Quilt, the installer handles everything, so server JAR is already handled
+                $serverJarDownloaded = true;
+            }
+
+            // Save other required files after mod loader is successfully downloaded
+            $filename = $modPack->software.'.jar';
+
+            // Write eula.txt
+            $eulaWritten = file_put_contents($runDir.'/eula.txt', 'eula=true');
+            if ($eulaWritten === false) {
+                \Log::error('Failed to write eula.txt', [
+                    'run_id' => $run->id,
+                    'run_dir' => $runDir,
+                ]);
+            }
+
+            // Write run.sh
+            // For Fabric, we need to run the installer first, then run the generated launcher
+            if ($modPack->software === 'fabric' && file_exists($runDir.'/fabric-installer-info.txt')) {
+                $installerInfo = json_decode(file_get_contents($runDir.'/fabric-installer-info.txt'), true);
+                $runShContent = "#!/bin/sh\n";
+                $runShContent .= "# Run Fabric installer to generate server launcher\n";
+                $runShContent .= "java -jar fabric-installer.jar server -mcversion {$installerInfo['minecraft_version']} -loader {$installerInfo['loader_version']} -downloadMinecraft > logs.txt 2>&1\n";
+                $runShContent .= "# Run the generated Fabric server launcher\n";
+                $runShContent .= "java -jar fabric-server-launch.jar >> logs.txt 2>&1\n";
+            } elseif ($modPack->software === 'quilt' && file_exists($runDir.'/quilt-installer-info.txt')) {
+                // For Quilt, we need to run the installer first, then run the generated launcher
+                $installerInfo = json_decode(file_get_contents($runDir.'/quilt-installer-info.txt'), true);
+                $runShContent = "#!/bin/sh\n";
+                $runShContent .= "# Run Quilt installer to generate server launcher\n";
+                $runShContent .= "java -jar quilt-installer.jar install server {$installerInfo['minecraft_version']} {$installerInfo['loader_version']} --install-dir=. --download-server --create-scripts > logs.txt 2>&1\n";
+                $runShContent .= "# Check installer exit code\n";
+                $runShContent .= "INSTALLER_EXIT=\$?\n";
+                $runShContent .= "if [ \$INSTALLER_EXIT -ne 0 ]; then\n";
+                $runShContent .= "  echo 'Quilt installer failed with exit code ' \$INSTALLER_EXIT '.' >> logs.txt 2>&1\n";
+                $runShContent .= "  exit 1\n";
+                $runShContent .= "fi\n";
+                $runShContent .= "# Run the generated Quilt server launcher\n";
+                $runShContent .= "# Quilt installer should generate quilt-server-launch.jar or set up server.jar with the loader\n";
+                $runShContent .= "if [ -f quilt-server-launch.jar ]; then\n";
+                $runShContent .= "  java -jar quilt-server-launch.jar nogui >> logs.txt 2>&1\n";
+                $runShContent .= "elif [ -f server.jar ]; then\n";
+                $runShContent .= "  # Quilt installer should have set up server.jar with the loader\n";
+                $runShContent .= "  java -jar server.jar nogui >> logs.txt 2>&1\n";
+                $runShContent .= "else\n";
+                $runShContent .= "  echo 'Error: No server launcher found after Quilt installation.' >> logs.txt 2>&1\n";
+                $runShContent .= "  echo 'Installer exit code: ' \$INSTALLER_EXIT >> logs.txt 2>&1\n";
+                $runShContent .= "  echo 'Files in directory:' >> logs.txt 2>&1\n";
+                $runShContent .= "  ls -la >> logs.txt 2>&1\n";
+                $runShContent .= "  exit 1\n";
+                $runShContent .= "fi\n";
+            } elseif ($modPack->software === 'neoforge' && file_exists($runDir.'/neoforge-installer-info.txt')) {
+                // For NeoForge, run the installer with --installServer flag
+                $installerInfo = json_decode(file_get_contents($runDir.'/neoforge-installer-info.txt'), true);
+                $runShContent = "#!/bin/sh\n";
+                $runShContent .= "# Check if vanilla server JAR exists (required for NeoForge installer)\n";
+                $runShContent .= "if [ ! -f server.jar ]; then\n";
+                $runShContent .= "  echo 'Error: server.jar not found. NeoForge installer requires vanilla server JAR.' > logs.txt 2>&1\n";
+                $runShContent .= "  exit 1\n";
+                $runShContent .= "fi\n";
+                $runShContent .= "# Run NeoForge installer to generate server files\n";
+                $runShContent .= "java -jar neoforge-installer.jar --installServer > logs.txt 2>&1\n";
+                $runShContent .= "INSTALLER_EXIT=\$?\n";
+                $runShContent .= "if [ \$INSTALLER_EXIT -ne 0 ]; then\n";
+                $runShContent .= "  echo 'NeoForge installer failed with exit code ' \$INSTALLER_EXIT '.' >> logs.txt 2>&1\n";
+                $runShContent .= "  echo 'Files in directory:' >> logs.txt 2>&1\n";
+                $runShContent .= "  ls -la >> logs.txt 2>&1\n";
+                $runShContent .= "  exit 1\n";
+                $runShContent .= "fi\n";
+                $runShContent .= "# Run the generated NeoForge server (run.sh is generated by installer)\n";
+                $runShContent .= "if [ -f run.sh ]; then\n";
+                $runShContent .= "  chmod +x run.sh\n";
+                $runShContent .= "  ./run.sh nogui >> logs.txt 2>&1\n";
+                $runShContent .= "elif [ -f server.jar ]; then\n";
+                $runShContent .= "  # Fallback: try to run server jar directly if run.sh not generated\n";
+                $runShContent .= "  java -jar server.jar nogui >> logs.txt 2>&1\n";
+                $runShContent .= "else\n";
+                $runShContent .= "  echo 'Error: No server launcher found after NeoForge installation.' >> logs.txt 2>&1\n";
+                $runShContent .= "  echo 'Installer exit code: ' \$INSTALLER_EXIT >> logs.txt 2>&1\n";
+                $runShContent .= "  echo 'Files in directory:' >> logs.txt 2>&1\n";
+                $runShContent .= "  ls -la >> logs.txt 2>&1\n";
+                $runShContent .= "  exit 1\n";
+                $runShContent .= "fi\n";
+            } elseif ($modPack->software === 'forge' && file_exists($runDir.'/forge-installer-info.txt')) {
+                // For Forge, run the installer with --installServer flag
+                $installerInfo = json_decode(file_get_contents($runDir.'/forge-installer-info.txt'), true);
+                $runShContent = "#!/bin/sh\n";
+                $runShContent .= "# Run Forge installer to generate server files\n";
+                $runShContent .= "java -jar forge-installer.jar --installServer > logs.txt 2>&1\n";
+                $runShContent .= "# Run the generated Forge server (run.sh is generated by installer)\n";
+                $runShContent .= "if [ -f run.sh ]; then\n";
+                $runShContent .= "  chmod +x run.sh\n";
+                $runShContent .= "  ./run.sh >> logs.txt 2>&1\n";
+                $runShContent .= "else\n";
+                $runShContent .= "  # Fallback: try to run server jar directly if run.sh not generated\n";
+                $runShContent .= "  java -jar server.jar >> logs.txt 2>&1\n";
+                $runShContent .= "fi\n";
+            } else {
+                $runShContent = "#!/bin/sh\n";
+                $runShContent .= "java -jar {$filename} > logs.txt 2>&1\n";
+            }
+
+            $runShWritten = file_put_contents($runDir.'/run.sh', $runShContent);
+            if ($runShWritten === false) {
+                \Log::error('Failed to write run.sh', [
+                    'run_id' => $run->id,
+                    'run_dir' => $runDir,
+                ]);
+            } else {
+                // Make run.sh executable
+                chmod($runDir.'/run.sh', 0755);
+            }
+
+            \Log::info('Mod loader files written successfully', [
+                'run_id' => $run->id,
+                'eula_written' => $eulaWritten !== false,
+                'run_sh_written' => $runShWritten !== false,
+                'server_jar_downloaded' => $serverJarDownloaded,
+            ]);
+        }
+
+        // Download all mods from the modpack
+        $modService = new ModService;
+        $downloadedCount = 0;
+        $failedCount = 0;
+
+        foreach ($modPack->items as $item) {
+            $downloadInfo = $this->getItemDownloadInfo($item, $modService);
+
+            if ($downloadInfo && isset($downloadInfo['url'])) {
+                try {
+                    $response = Http::timeout(60)
+                        ->withHeaders([
+                            'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                        ])
+                        ->get($downloadInfo['url']);
+
+                    if ($response->successful()) {
+                        $filename = $downloadInfo['filename'] ?? basename(parse_url($downloadInfo['url'], PHP_URL_PATH));
+                        if (! $filename || ! preg_match('/\.jar$/', $filename)) {
+                            $filename = preg_replace('/[^a-zA-Z0-9._-]/', '_', $item->mod_name).'.jar';
+                        }
+
+                        $filePath = $modsDir.'/'.$filename;
+                        file_put_contents($filePath, $response->body());
+                        $downloadedCount++;
+                    } else {
+                        \Log::warning('Failed to download mod file for run', [
+                            'run_id' => $run->id,
+                            'item_id' => $item->id,
+                            'mod_name' => $item->mod_name,
+                            'url' => $downloadInfo['url'],
+                            'status' => $response->status(),
+                        ]);
+                        $failedCount++;
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Error downloading mod file for run', [
+                        'run_id' => $run->id,
+                        'item_id' => $item->id,
+                        'mod_name' => $item->mod_name,
+                        'url' => $downloadInfo['url'] ?? null,
+                        'error' => $e->getMessage(),
+                    ]);
+                    $failedCount++;
+                }
+            } else {
+                \Log::warning('No download info available for mod item', [
+                    'run_id' => $run->id,
+                    'item_id' => $item->id,
+                    'mod_name' => $item->mod_name,
+                ]);
+                $failedCount++;
+            }
+        }
+
+        // Write runner.pick file AFTER all files are ready (mods and mod loader)
+        // This signals the runner.sh script that the run is ready to execute
+        // Only write runner.pick if mod loader was successfully downloaded
+        // For Fabric/Quilt/NeoForge, also require server JAR to be downloaded
+        $runnerPickWritten = false;
+        $canRun = $loaderDownloaded && $serverJarDownloaded;
+
+        if ($canRun) {
+            $runnerPickWritten = file_put_contents($runDir.'/runner.pick', '1');
+            if ($runnerPickWritten === false) {
+                \Log::error('Failed to write runner.pick', [
+                    'run_id' => $run->id,
+                    'run_dir' => $runDir,
+                ]);
+            } else {
+                \Log::info('runner.pick file created successfully', [
+                    'run_id' => $run->id,
+                ]);
+            }
+        } else {
+            \Log::warning('Skipping runner.pick creation - required downloads failed', [
+                'run_id' => $run->id,
+                'loader_downloaded' => $loaderDownloaded,
+                'server_jar_downloaded' => $serverJarDownloaded ?? null,
+            ]);
+        }
+
+        \Log::info('Run created with mod downloads', [
+            'run_id' => $run->id,
+            'mod_pack_id' => $modPack->id,
+            'downloaded_count' => $downloadedCount,
+            'failed_count' => $failedCount,
+            'loader_downloaded' => $loaderDownloaded,
+            'runner_pick_written' => $runnerPickWritten !== false,
+        ]);
+
+        // Return JSON for AJAX requests, redirect for regular requests
+        if ($request->wantsJson()) {
+            return response()->json([
+                'data' => $run,
+                'downloaded_count' => $downloadedCount,
+                'failed_count' => $failedCount,
+            ]);
+        }
+
+        return redirect()->route('mod-packs.show', $modPack->id);
+    }
+
+    /**
+     * Stop (complete) a run for a mod pack.
+     */
+    public function stopRun(Request $request, string $id, string $runId)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())->findOrFail($id);
+        $run = ModPackRun::where('mod_pack_id', $modPack->id)
+            ->findOrFail($runId);
+
+        $run->update([
+            'is_completed' => true,
+        ]);
+
+        return response()->json([
+            'message' => 'Run stopped successfully',
+            'data' => $run,
+        ]);
+    }
+
+    /**
+     * Get run history for a mod pack.
+     */
+    public function getRunHistory(Request $request, string $id)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())->findOrFail($id);
+
+        $runs = ModPackRun::where('mod_pack_id', $modPack->id)
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'data' => $runs,
+        ]);
+    }
+
+    /**
+     * Get logs for a specific run.
+     */
+    public function getRunLogs(Request $request, string $id, string $runId)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())->findOrFail($id);
+        $run = ModPackRun::where('mod_pack_id', $modPack->id)
+            ->findOrFail($runId);
+
+        $logsPath = '/shared/virtual/'.$runId.'/logs.txt';
+
+        if (! file_exists($logsPath)) {
+            return response()->json([
+                'data' => '',
+            ]);
+        }
+
+        $logs = file_get_contents($logsPath);
+
+        return response()->json([
+            'data' => $logs ?: '',
+        ]);
+    }
+
+    /**
      * Proxy endpoint to download mod files (bypasses CORS).
      * This is a simple pass-through proxy - no server-side zip generation.
      * The client still creates the ZIP file.
@@ -2073,6 +2466,1573 @@ class ModPackController extends Controller
             return response()->json([
                 'error' => __('messages.modpack.export_failed').': '.$e->getMessage(),
             ], 500);
+        }
+    }
+
+    /**
+     * Download mod loader from ServerJars.
+     */
+    private function downloadModLoaderFromServerJars(string $runDir, string $software, string $minecraftVersion): bool
+    {
+        \Log::info('Attempting to download mod loader', [
+            'run_dir' => $runDir,
+            'software' => $software,
+            'minecraft_version' => $minecraftVersion,
+        ]);
+
+        // For Fabric and Quilt, always use the installer approach
+        if ($software === 'fabric') {
+            return $this->downloadFabricInstaller($runDir, $minecraftVersion);
+        }
+
+        if ($software === 'quilt') {
+            return $this->downloadQuiltInstaller($runDir, $minecraftVersion);
+        }
+
+        // Map software types to ServerJars API types
+        $serverJarsTypeMap = [
+            'forge' => 'modded/forge',
+            'neoforge' => 'modded/neoforge',
+        ];
+
+        if (! isset($serverJarsTypeMap[$software])) {
+            \Log::warning('Unsupported software type for ServerJars download', [
+                'software' => $software,
+            ]);
+
+            return false;
+        }
+
+        $type = $serverJarsTypeMap[$software];
+
+        try {
+            // Try to get the latest build number for the specified version
+            // ServerJars API format: /api/fetchLatest/{type}/{version}
+            $latestUrl = "https://serverjars.com/api/fetchLatest/{$type}/{$minecraftVersion}";
+
+            \Log::debug('Fetching latest build from ServerJars', [
+                'url' => $latestUrl,
+            ]);
+
+            $latestResponse = Http::timeout(30)
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                ])
+                ->get($latestUrl);
+
+            $build = null;
+            $downloadUrl = null;
+
+            if ($latestResponse->successful()) {
+                $latestData = $latestResponse->json();
+                \Log::debug('ServerJars latest build response', [
+                    'response' => $latestData,
+                ]);
+
+                // Try different possible response structures
+                $build = $latestData['response']['build']
+                    ?? $latestData['response']['version']
+                    ?? $latestData['build']
+                    ?? $latestData['version']
+                    ?? $latestData['latest']
+                    ?? null;
+
+                if ($build) {
+                    \Log::info('Found build number from ServerJars', [
+                        'build' => $build,
+                    ]);
+                    // ServerJars API format: /api/fetchJar/{type}/{version}/{build}
+                    $downloadUrl = "https://serverjars.com/api/fetchJar/{$type}/{$minecraftVersion}/{$build}";
+                } else {
+                    \Log::warning('No build number found in ServerJars response, trying direct download', [
+                        'response' => $latestData,
+                    ]);
+                }
+            } else {
+                \Log::warning('Failed to get latest build from ServerJars, trying direct download', [
+                    'url' => $latestUrl,
+                    'status' => $latestResponse->status(),
+                    'body' => $latestResponse->body(),
+                ]);
+            }
+
+            // Fallback: try direct download without build number
+            // Some ServerJars endpoints might support: /api/fetchJar/{type}/{version}/latest
+            if (! $downloadUrl) {
+                $downloadUrl = "https://serverjars.com/api/fetchJar/{$type}/{$minecraftVersion}/latest";
+                \Log::info('Trying direct download with latest', [
+                    'url' => $downloadUrl,
+                ]);
+            }
+
+            \Log::debug('Downloading jar from ServerJars', [
+                'url' => $downloadUrl,
+            ]);
+
+            $downloadResponse = Http::timeout(120) // Longer timeout for large files
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                    'Accept' => 'application/java-archive, application/octet-stream, */*',
+                ])
+                ->withoutRedirecting() // We'll handle redirects manually
+                ->get($downloadUrl);
+
+            // Check if we got a redirect
+            if ($downloadResponse->status() >= 300 && $downloadResponse->status() < 400) {
+                $redirectUrl = $downloadResponse->header('Location');
+                if ($redirectUrl) {
+                    \Log::info('Following redirect from ServerJars', [
+                        'original_url' => $downloadUrl,
+                        'redirect_url' => $redirectUrl,
+                    ]);
+                    $downloadUrl = $redirectUrl;
+                    $downloadResponse = Http::timeout(120)
+                        ->withHeaders([
+                            'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                            'Accept' => 'application/java-archive, application/octet-stream, */*',
+                        ])
+                        ->get($downloadUrl);
+                }
+            }
+
+            if (! $downloadResponse->successful()) {
+                \Log::warning('Failed to download mod loader from ServerJars', [
+                    'url' => $downloadUrl,
+                    'status' => $downloadResponse->status(),
+                    'body_preview' => substr($downloadResponse->body(), 0, 200),
+                ]);
+
+                // For NeoForge and Forge, try installer fallback if ServerJars download fails
+                if ($software === 'neoforge') {
+                    \Log::info('ServerJars download failed for NeoForge, falling back to installer method');
+
+                    return $this->downloadNeoForgeInstaller($runDir, $minecraftVersion, $latestData ?? null);
+                }
+
+                if ($software === 'forge') {
+                    \Log::info('ServerJars download failed for Forge, falling back to installer method');
+
+                    return $this->downloadForgeInstaller($runDir, $minecraftVersion, $latestData ?? null);
+                }
+
+                return false;
+            }
+
+            $responseBody = $downloadResponse->body();
+
+            // Check if we got HTML instead of a JAR file (ServerJars sometimes returns HTML redirect pages)
+            if (str_starts_with(trim($responseBody), '<html') || str_starts_with(trim($responseBody), '<!DOCTYPE')) {
+                \Log::warning('ServerJars returned HTML instead of JAR file, trying alternative method', [
+                    'url' => $downloadUrl,
+                    'body_preview' => substr($responseBody, 0, 500),
+                ]);
+
+                // Try using the direct download URL from the official sources
+                // For Fabric, we need to use the Fabric installer to create a proper server launcher
+                if ($software === 'fabric') {
+                    // Use Fabric's installer API to get the installer JAR
+                    // The installer will be run by the Docker container to generate the server launcher
+                    $installerApiUrl = 'https://meta.fabricmc.net/v2/versions/installer';
+                    $installerResponse = Http::timeout(30)->get($installerApiUrl);
+
+                    if ($installerResponse->successful()) {
+                        $installerData = $installerResponse->json();
+                        if (! empty($installerData) && isset($installerData[0]['version'])) {
+                            // Get the latest installer version
+                            $installerVersion = $installerData[0]['version'];
+                            // Fabric installer download from Maven Central
+                            $installerUrl = "https://maven.fabricmc.net/net/fabricmc/fabric-installer/{$installerVersion}/fabric-installer-{$installerVersion}.jar";
+
+                            \Log::info('Downloading Fabric installer', [
+                                'url' => $installerUrl,
+                                'installer_version' => $installerVersion,
+                            ]);
+
+                            $installerDownloadResponse = Http::timeout(120)
+                                ->withHeaders([
+                                    'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                                ])
+                                ->get($installerUrl);
+
+                            if ($installerDownloadResponse->successful()) {
+                                $installerJar = $installerDownloadResponse->body();
+
+                                // Validate installer JAR
+                                if (strlen($installerJar) < 4 || substr($installerJar, 0, 2) !== 'PK') {
+                                    \Log::error('Downloaded Fabric installer does not appear to be a valid JAR file', [
+                                        'file_size' => strlen($installerJar),
+                                        'first_bytes' => bin2hex(substr($installerJar, 0, 10)),
+                                    ]);
+
+                                    return false;
+                                }
+
+                                // Save the installer JAR
+                                $installerPath = $runDir.'/fabric-installer.jar';
+                                $installerWritten = file_put_contents($installerPath, $installerJar);
+
+                                if ($installerWritten === false) {
+                                    \Log::error('Failed to write Fabric installer to disk', [
+                                        'file_path' => $installerPath,
+                                    ]);
+
+                                    return false;
+                                }
+
+                                // Now we need to run the installer to generate the server launcher
+                                // We'll modify run.sh to run the installer first
+                                // The installer command: java -jar fabric-installer.jar server -mcversion {version} -loader {loader_version} -downloadMinecraft
+
+                                // Get the loader version
+                                $loaderApiUrl = "https://meta.fabricmc.net/v2/versions/loader/{$minecraftVersion}";
+                                $loaderResponse = Http::timeout(30)->get($loaderApiUrl);
+
+                                if ($loaderResponse->successful()) {
+                                    $loaderData = $loaderResponse->json();
+                                    if (! empty($loaderData) && isset($loaderData[0]['loader']['version'])) {
+                                        $loaderVersion = $loaderData[0]['loader']['version'];
+
+                                        // We'll need to run the installer, but we can't do that from PHP
+                                        // Instead, we'll save the installer and modify run.sh to run it first
+                                        // For now, return true and we'll handle the installer execution in run.sh
+                                        \Log::info('Fabric installer downloaded, will be executed by run.sh', [
+                                            'installer_path' => $installerPath,
+                                            'loader_version' => $loaderVersion,
+                                            'minecraft_version' => $minecraftVersion,
+                                        ]);
+
+                                        // Store installer info for run.sh
+                                        file_put_contents($runDir.'/fabric-installer-info.txt', json_encode([
+                                            'installer_version' => $installerVersion,
+                                            'loader_version' => $loaderVersion,
+                                            'minecraft_version' => $minecraftVersion,
+                                        ]));
+
+                                        // Return true to indicate we have the installer
+                                        // The actual server launcher will be generated by run.sh
+                                        return true;
+                                    }
+                                }
+
+                                \Log::error('Failed to get Fabric loader version', [
+                                    'url' => $loaderApiUrl,
+                                ]);
+
+                                return false;
+                            } else {
+                                \Log::error('Failed to download Fabric installer', [
+                                    'url' => $installerUrl,
+                                    'status' => $installerDownloadResponse->status(),
+                                ]);
+
+                                return false;
+                            }
+                        } else {
+                            \Log::error('Invalid response from Fabric installer API', [
+                                'response' => $installerData,
+                            ]);
+
+                            return false;
+                        }
+                    } else {
+                        \Log::error('Failed to fetch Fabric installer info', [
+                            'url' => $installerApiUrl,
+                            'status' => $installerResponse->status(),
+                        ]);
+
+                        return false;
+                    }
+                } elseif ($software === 'neoforge') {
+                    // For NeoForge, try to use the installer approach
+                    \Log::info('ServerJars returned HTML for NeoForge, falling back to installer method');
+
+                    return $this->downloadNeoForgeInstaller($runDir, $minecraftVersion, $latestData ?? null);
+                } elseif ($software === 'forge') {
+                    // For Forge, try to use the installer approach
+                    \Log::info('ServerJars returned HTML for Forge, falling back to installer method');
+
+                    return $this->downloadForgeInstaller($runDir, $minecraftVersion, $latestData ?? null);
+                } else {
+                    // For other loaders, we might need to handle differently
+                    \Log::error('ServerJars returned HTML for unsupported loader, cannot proceed', [
+                        'software' => $software,
+                    ]);
+
+                    return false;
+                }
+            }
+
+            // Validate that we actually got a JAR file (JAR files are ZIP files, check for ZIP magic bytes)
+            if (strlen($responseBody) < 4 || substr($responseBody, 0, 2) !== 'PK') {
+                \Log::error('Downloaded file does not appear to be a valid JAR file (missing ZIP magic bytes)', [
+                    'file_size' => strlen($responseBody),
+                    'first_bytes' => bin2hex(substr($responseBody, 0, 10)),
+                ]);
+
+                // For NeoForge and Forge, try installer fallback if downloaded file is invalid
+                if ($software === 'neoforge') {
+                    \Log::info('ServerJars download returned invalid file for NeoForge, falling back to installer method');
+
+                    return $this->downloadNeoForgeInstaller($runDir, $minecraftVersion, $latestData ?? null);
+                }
+
+                if ($software === 'forge') {
+                    \Log::info('ServerJars download returned invalid file for Forge, falling back to installer method');
+
+                    return $this->downloadForgeInstaller($runDir, $minecraftVersion, $latestData ?? null);
+                }
+
+                return false;
+            }
+
+            // Determine the filename based on software type
+            $filename = $software.'.jar';
+            $filePath = $runDir.'/'.$filename;
+
+            // Save the jar file
+            $bytesWritten = file_put_contents($filePath, $responseBody);
+
+            if ($bytesWritten === false) {
+                \Log::error('Failed to write mod loader file to disk', [
+                    'file_path' => $filePath,
+                    'run_dir' => $runDir,
+                    'directory_exists' => is_dir($runDir),
+                    'directory_writable' => is_writable($runDir),
+                ]);
+
+                return false;
+            }
+
+            \Log::info('Successfully downloaded mod loader from ServerJars', [
+                'software' => $software,
+                'minecraft_version' => $minecraftVersion,
+                'build' => $build,
+                'file_path' => $filePath,
+                'file_size' => $bytesWritten,
+                'file_exists' => file_exists($filePath),
+            ]);
+
+            return true;
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            \Log::error('Connection error downloading mod loader from ServerJars', [
+                'software' => $software,
+                'minecraft_version' => $minecraftVersion,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        } catch (\Exception $e) {
+            \Log::error('Error downloading mod loader from ServerJars', [
+                'software' => $software,
+                'minecraft_version' => $minecraftVersion,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Download Fabric installer and set it up for server generation.
+     */
+    private function downloadFabricInstaller(string $runDir, string $minecraftVersion): bool
+    {
+        \Log::info('Downloading Fabric installer', [
+            'run_dir' => $runDir,
+            'minecraft_version' => $minecraftVersion,
+        ]);
+
+        try {
+            // Get the latest installer version
+            $installerApiUrl = 'https://meta.fabricmc.net/v2/versions/installer';
+            $installerResponse = Http::timeout(30)->get($installerApiUrl);
+
+            if (! $installerResponse->successful()) {
+                \Log::error('Failed to fetch Fabric installer version', [
+                    'url' => $installerApiUrl,
+                    'status' => $installerResponse->status(),
+                ]);
+
+                return false;
+            }
+
+            $installerData = $installerResponse->json();
+            if (empty($installerData) || ! isset($installerData[0]['version'])) {
+                \Log::error('Invalid response from Fabric installer API', [
+                    'response' => $installerData,
+                ]);
+
+                return false;
+            }
+
+            $installerVersion = $installerData[0]['version'];
+            $installerUrl = "https://maven.fabricmc.net/net/fabricmc/fabric-installer/{$installerVersion}/fabric-installer-{$installerVersion}.jar";
+
+            \Log::info('Downloading Fabric installer JAR', [
+                'url' => $installerUrl,
+                'installer_version' => $installerVersion,
+            ]);
+
+            $installerDownloadResponse = Http::timeout(120)
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                ])
+                ->get($installerUrl);
+
+            if (! $installerDownloadResponse->successful()) {
+                \Log::error('Failed to download Fabric installer', [
+                    'url' => $installerUrl,
+                    'status' => $installerDownloadResponse->status(),
+                ]);
+
+                return false;
+            }
+
+            $installerJar = $installerDownloadResponse->body();
+
+            // Validate installer JAR
+            if (strlen($installerJar) < 4 || substr($installerJar, 0, 2) !== 'PK') {
+                \Log::error('Downloaded Fabric installer does not appear to be a valid JAR file', [
+                    'file_size' => strlen($installerJar),
+                    'first_bytes' => bin2hex(substr($installerJar, 0, 10)),
+                ]);
+
+                return false;
+            }
+
+            // Save the installer JAR
+            $installerPath = $runDir.'/fabric-installer.jar';
+            $installerWritten = file_put_contents($installerPath, $installerJar);
+
+            if ($installerWritten === false) {
+                \Log::error('Failed to write Fabric installer to disk', [
+                    'file_path' => $installerPath,
+                ]);
+
+                return false;
+            }
+
+            // Get the loader version
+            $loaderApiUrl = "https://meta.fabricmc.net/v2/versions/loader/{$minecraftVersion}";
+            $loaderResponse = Http::timeout(30)->get($loaderApiUrl);
+
+            if (! $loaderResponse->successful()) {
+                \Log::error('Failed to get Fabric loader version', [
+                    'url' => $loaderApiUrl,
+                    'status' => $loaderResponse->status(),
+                ]);
+
+                return false;
+            }
+
+            $loaderData = $loaderResponse->json();
+            if (empty($loaderData) || ! isset($loaderData[0]['loader']['version'])) {
+                \Log::error('Invalid response from Fabric loader API', [
+                    'response' => $loaderData,
+                ]);
+
+                return false;
+            }
+
+            $loaderVersion = $loaderData[0]['loader']['version'];
+
+            // Store installer info for run.sh
+            $installerInfo = [
+                'installer_version' => $installerVersion,
+                'loader_version' => $loaderVersion,
+                'minecraft_version' => $minecraftVersion,
+            ];
+
+            $infoWritten = file_put_contents($runDir.'/fabric-installer-info.txt', json_encode($installerInfo));
+            if ($infoWritten === false) {
+                \Log::error('Failed to write Fabric installer info', [
+                    'file_path' => $runDir.'/fabric-installer-info.txt',
+                ]);
+
+                return false;
+            }
+
+            \Log::info('Fabric installer downloaded successfully', [
+                'installer_path' => $installerPath,
+                'loader_version' => $loaderVersion,
+                'minecraft_version' => $minecraftVersion,
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('Error downloading Fabric installer', [
+                'minecraft_version' => $minecraftVersion,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Download Quilt installer and set it up for server generation.
+     */
+    private function downloadQuiltInstaller(string $runDir, string $minecraftVersion): bool
+    {
+        \Log::info('Downloading Quilt installer', [
+            'run_dir' => $runDir,
+            'minecraft_version' => $minecraftVersion,
+        ]);
+
+        try {
+            // Get the latest installer version
+            $installerApiUrl = 'https://meta.quiltmc.org/v3/versions/installer';
+            $installerResponse = Http::timeout(30)->get($installerApiUrl);
+
+            if (! $installerResponse->successful()) {
+                \Log::error('Failed to fetch Quilt installer version', [
+                    'url' => $installerApiUrl,
+                    'status' => $installerResponse->status(),
+                ]);
+
+                return false;
+            }
+
+            $installerData = $installerResponse->json();
+            if (empty($installerData) || ! isset($installerData[0]['version'])) {
+                \Log::error('Invalid response from Quilt installer API', [
+                    'response' => $installerData,
+                ]);
+
+                return false;
+            }
+
+            $installerVersion = $installerData[0]['version'];
+            $installerUrl = "https://maven.quiltmc.org/repository/release/org/quiltmc/quilt-installer/{$installerVersion}/quilt-installer-{$installerVersion}.jar";
+
+            \Log::info('Downloading Quilt installer JAR', [
+                'url' => $installerUrl,
+                'installer_version' => $installerVersion,
+            ]);
+
+            $installerDownloadResponse = Http::timeout(120)
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                ])
+                ->get($installerUrl);
+
+            if (! $installerDownloadResponse->successful()) {
+                \Log::error('Failed to download Quilt installer', [
+                    'url' => $installerUrl,
+                    'status' => $installerDownloadResponse->status(),
+                ]);
+
+                return false;
+            }
+
+            $installerJar = $installerDownloadResponse->body();
+
+            // Validate installer JAR
+            if (strlen($installerJar) < 4 || substr($installerJar, 0, 2) !== 'PK') {
+                \Log::error('Downloaded Quilt installer does not appear to be a valid JAR file', [
+                    'file_size' => strlen($installerJar),
+                    'first_bytes' => bin2hex(substr($installerJar, 0, 10)),
+                ]);
+
+                return false;
+            }
+
+            // Save the installer JAR
+            $installerPath = $runDir.'/quilt-installer.jar';
+            $installerWritten = file_put_contents($installerPath, $installerJar);
+
+            if ($installerWritten === false) {
+                \Log::error('Failed to write Quilt installer to disk', [
+                    'file_path' => $installerPath,
+                ]);
+
+                return false;
+            }
+
+            // Get the loader version
+            $loaderApiUrl = "https://meta.quiltmc.org/v3/versions/loader/{$minecraftVersion}";
+            $loaderResponse = Http::timeout(30)->get($loaderApiUrl);
+
+            if (! $loaderResponse->successful()) {
+                \Log::error('Failed to get Quilt loader version', [
+                    'url' => $loaderApiUrl,
+                    'status' => $loaderResponse->status(),
+                ]);
+
+                return false;
+            }
+
+            $loaderData = $loaderResponse->json();
+            if (empty($loaderData) || ! isset($loaderData[0]['loader']['version'])) {
+                \Log::error('Invalid response from Quilt loader API', [
+                    'response' => $loaderData,
+                ]);
+
+                return false;
+            }
+
+            $loaderVersion = $loaderData[0]['loader']['version'];
+
+            // Store installer info for run.sh
+            $installerInfo = [
+                'installer_version' => $installerVersion,
+                'loader_version' => $loaderVersion,
+                'minecraft_version' => $minecraftVersion,
+            ];
+
+            $infoWritten = file_put_contents($runDir.'/quilt-installer-info.txt', json_encode($installerInfo));
+            if ($infoWritten === false) {
+                \Log::error('Failed to write Quilt installer info', [
+                    'file_path' => $runDir.'/quilt-installer-info.txt',
+                ]);
+
+                return false;
+            }
+
+            \Log::info('Quilt installer downloaded successfully', [
+                'installer_path' => $installerPath,
+                'loader_version' => $loaderVersion,
+                'minecraft_version' => $minecraftVersion,
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('Error downloading Quilt installer', [
+                'minecraft_version' => $minecraftVersion,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Download NeoForge installer and set it up for server generation.
+     */
+    private function downloadNeoForgeInstaller(string $runDir, string $minecraftVersion, ?array $serverJarsData = null): bool
+    {
+        \Log::info('Downloading NeoForge installer', [
+            'run_dir' => $runDir,
+            'minecraft_version' => $minecraftVersion,
+        ]);
+
+        try {
+            // NeoForge installer requires the vanilla server JAR to be present before it runs
+            // Download it first if it doesn't exist
+            $serverJarPath = $runDir.'/server.jar';
+            if (! file_exists($serverJarPath)) {
+                \Log::info('Vanilla server JAR not found, downloading it for NeoForge installer', [
+                    'run_dir' => $runDir,
+                    'minecraft_version' => $minecraftVersion,
+                ]);
+
+                $serverJarDownloaded = $this->downloadVanillaServerJar($runDir, $minecraftVersion);
+                if (! $serverJarDownloaded) {
+                    \Log::error('Failed to download vanilla server JAR required for NeoForge installer', [
+                        'run_dir' => $runDir,
+                        'minecraft_version' => $minecraftVersion,
+                    ]);
+
+                    return false;
+                }
+            } else {
+                \Log::debug('Vanilla server JAR already exists, skipping download', [
+                    'server_jar_path' => $serverJarPath,
+                ]);
+            }
+            // Try to get NeoForge version from ServerJars data if available
+            $neoforgeVersion = null;
+            if ($serverJarsData) {
+                // ServerJars might include version info in the response
+                $neoforgeVersion = $serverJarsData['response']['version']
+                    ?? $serverJarsData['version']
+                    ?? $serverJarsData['response']['neoforge_version']
+                    ?? null;
+            }
+
+            // If we don't have version from ServerJars, try to get it from Modrinth API first
+            // NeoForge project slug on Modrinth is "neoforge"
+            if (! $neoforgeVersion) {
+                try {
+                    \Log::debug('Attempting to get NeoForge version from Modrinth API', [
+                        'minecraft_version' => $minecraftVersion,
+                        'project_slug' => 'neoforge',
+                    ]);
+
+                    $modrinthService = new \App\Services\ModrinthService;
+                    $neoforgeVersions = $modrinthService->getProjectVersions('neoforge', $minecraftVersion, 'neoforge');
+
+                    \Log::debug('Modrinth API response for NeoForge', [
+                        'versions_count' => count($neoforgeVersions),
+                        'first_version' => $neoforgeVersions[0] ?? null,
+                    ]);
+
+                    if (! empty($neoforgeVersions) && isset($neoforgeVersions[0]['version_number'])) {
+                        $neoforgeVersion = $neoforgeVersions[0]['version_number'];
+                        \Log::info('Found NeoForge version from Modrinth', [
+                            'version' => $neoforgeVersion,
+                            'version_id' => $neoforgeVersions[0]['id'] ?? null,
+                        ]);
+                    } else {
+                        \Log::debug('No NeoForge versions found in Modrinth API response', [
+                            'minecraft_version' => $minecraftVersion,
+                            'versions_count' => count($neoforgeVersions),
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::debug('Failed to get NeoForge version from Modrinth', [
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            // If we still don't have version, try CurseForge API
+            // NeoForge mod ID on CurseForge is 406902 (NeoForge project)
+            if (! $neoforgeVersion) {
+                try {
+                    \Log::debug('Attempting to get NeoForge version from CurseForge API', [
+                        'minecraft_version' => $minecraftVersion,
+                        'mod_id' => 406902,
+                    ]);
+
+                    $curseForgeService = new \App\Services\CurseForgeService;
+                    $neoforgeFiles = $curseForgeService->getModFiles(406902, $minecraftVersion, 'neoforge');
+
+                    \Log::debug('CurseForge API response for NeoForge', [
+                        'files_count' => count($neoforgeFiles),
+                        'first_file' => $neoforgeFiles[0] ?? null,
+                    ]);
+
+                    if (! empty($neoforgeFiles) && isset($neoforgeFiles[0]['displayName'])) {
+                        // Extract version from display name (e.g., "NeoForge 20.1.0" -> "20.1.0")
+                        $displayName = $neoforgeFiles[0]['displayName'];
+                        \Log::debug('Extracting version from CurseForge display name', [
+                            'display_name' => $displayName,
+                        ]);
+
+                        if (preg_match('/(\d+\.\d+\.\d+(?:\.\d+)?)/', $displayName, $matches)) {
+                            $neoforgeVersion = $matches[1];
+                            \Log::info('Found NeoForge version from CurseForge', [
+                                'version' => $neoforgeVersion,
+                                'display_name' => $displayName,
+                            ]);
+                        } else {
+                            \Log::warning('Could not extract version from CurseForge display name', [
+                                'display_name' => $displayName,
+                            ]);
+                        }
+                    } else {
+                        \Log::warning('No NeoForge files found in CurseForge API response', [
+                            'minecraft_version' => $minecraftVersion,
+                            'files_count' => count($neoforgeFiles),
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to get NeoForge version from CurseForge', [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                }
+            }
+
+            // If we still don't have a version, try to query Maven metadata to find available versions
+            if (! $neoforgeVersion) {
+                try {
+                    \Log::debug('Attempting to get NeoForge version from Maven metadata', [
+                        'minecraft_version' => $minecraftVersion,
+                    ]);
+
+                    // Query Maven metadata to get available versions
+                    $metadataUrl = 'https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml';
+                    $metadataResponse = Http::timeout(30)->get($metadataUrl);
+
+                    if ($metadataResponse->successful()) {
+                        $metadataXml = $metadataResponse->body();
+                        // Parse XML to extract version numbers
+                        if (preg_match_all('/<version>([^<]+)<\/version>/', $metadataXml, $matches)) {
+                            $availableVersions = $matches[1];
+                            \Log::debug('Found available NeoForge versions from Maven', [
+                                'versions_count' => count($availableVersions),
+                                'sample_versions' => array_slice($availableVersions, 0, 10),
+                            ]);
+
+                            // Extract major version from Minecraft version (e.g., 1.21 -> 21)
+                            $mcMajor = null;
+                            if (preg_match('/^1\.(\d+)/', $minecraftVersion, $mcMatches)) {
+                                $mcMajor = $mcMatches[1];
+                            }
+
+                            // Find versions that match the Minecraft version pattern
+                            // NeoForge versions typically start with the major version (e.g., 21.x.x for MC 1.21)
+                            foreach ($availableVersions as $version) {
+                                // Check if version starts with the major version number
+                                if ($mcMajor && preg_match('/^'.$mcMajor.'\./', $version)) {
+                                    $neoforgeVersion = $version;
+                                    \Log::info('Found NeoForge version from Maven metadata', [
+                                        'version' => $neoforgeVersion,
+                                        'minecraft_version' => $minecraftVersion,
+                                    ]);
+                                    break;
+                                }
+                            }
+
+                            // If no exact match, try to find the latest version that might work
+                            if (! $neoforgeVersion && ! empty($availableVersions)) {
+                                // Sort versions and try the latest ones
+                                usort($availableVersions, 'version_compare');
+                                $availableVersions = array_reverse($availableVersions);
+
+                                // Try the latest 5 versions
+                                foreach (array_slice($availableVersions, 0, 5) as $version) {
+                                    $installerUrl = "https://maven.neoforged.net/releases/net/neoforged/neoforge/{$version}/neoforge-{$version}-installer.jar";
+                                    try {
+                                        $testResponse = Http::timeout(10)->head($installerUrl);
+                                        if ($testResponse->successful()) {
+                                            $neoforgeVersion = $version;
+                                            \Log::info('Found NeoForge version from Maven (latest available)', [
+                                                'version' => $neoforgeVersion,
+                                                'minecraft_version' => $minecraftVersion,
+                                            ]);
+                                            break;
+                                        }
+                                    } catch (\Exception $e) {
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (\Exception $e) {
+                    \Log::debug('Failed to get NeoForge version from Maven metadata', [
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            // If we still don't have a version, try to construct it from Minecraft version
+            // NeoForge versions typically follow the pattern: {major}.{minor}.{patch}
+            // For Minecraft 1.20.x, NeoForge versions are typically 20.x.x
+            // For Minecraft 1.21, NeoForge versions are typically 21.0.x
+            if (! $neoforgeVersion) {
+                $major = null;
+                $minor = null;
+
+                // Try to match versions with patch number (e.g., "1.20.1")
+                if (preg_match('/^1\.(\d+)\.(\d+)/', $minecraftVersion, $matches)) {
+                    $major = $matches[1];
+                    $minor = $matches[2];
+                }
+                // Try to match versions without patch number (e.g., "1.21")
+                elseif (preg_match('/^1\.(\d+)$/', $minecraftVersion, $matches)) {
+                    $major = $matches[1];
+                    $minor = '0'; // Default to 0 for minor when patch is missing
+                }
+
+                if ($major !== null && $minor !== null) {
+                    // Try common NeoForge version patterns
+                    // For versions like 1.21, try 21.0.0, 21.0.1, etc.
+                    // For versions like 1.20.1, try 20.1.0, 20.1.1, etc.
+                    $possibleVersions = [];
+
+                    // First try versions matching the minor number
+                    for ($patch = 0; $patch <= 10; $patch++) {
+                        $possibleVersions[] = "{$major}.{$minor}.{$patch}";
+                    }
+
+                    // Also try with minor as 0 (for versions like 1.21 -> 21.0.x)
+                    if ($minor !== '0') {
+                        for ($patch = 0; $patch <= 10; $patch++) {
+                            $possibleVersions[] = "{$major}.0.{$patch}";
+                        }
+                    }
+
+                    // Try beta/alpha versions (e.g., 21.0.0-beta.1)
+                    for ($patch = 0; $patch <= 5; $patch++) {
+                        $possibleVersions[] = "{$major}.{$minor}.{$patch}-beta.1";
+                        $possibleVersions[] = "{$major}.{$minor}.{$patch}-alpha.1";
+                        $possibleVersions[] = "{$major}.0.{$patch}-beta.1";
+                        $possibleVersions[] = "{$major}.0.{$patch}-alpha.1";
+                    }
+
+                    // Remove duplicates
+                    $possibleVersions = array_unique($possibleVersions);
+
+                    \Log::debug('Testing NeoForge version patterns', [
+                        'minecraft_version' => $minecraftVersion,
+                        'possible_versions_count' => count($possibleVersions),
+                        'sample_versions' => array_slice($possibleVersions, 0, 10),
+                    ]);
+
+                    // Try each possible version until we find one that exists
+                    foreach ($possibleVersions as $possibleVersion) {
+                        $installerUrl = "https://maven.neoforged.net/releases/net/neoforged/neoforge/{$possibleVersion}/neoforge-{$possibleVersion}-installer.jar";
+                        try {
+                            $testResponse = Http::timeout(10)->head($installerUrl);
+                            if ($testResponse->successful()) {
+                                $neoforgeVersion = $possibleVersion;
+                                \Log::info('Found NeoForge version by testing Maven URLs', [
+                                    'version' => $neoforgeVersion,
+                                    'minecraft_version' => $minecraftVersion,
+                                ]);
+                                break;
+                            }
+                        } catch (\Exception $e) {
+                            // Continue to next version
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            if (! $neoforgeVersion) {
+                \Log::error('Could not determine NeoForge version', [
+                    'minecraft_version' => $minecraftVersion,
+                ]);
+
+                return false;
+            }
+
+            // Download NeoForge installer from Maven
+            $installerUrl = "https://maven.neoforged.net/releases/net/neoforged/neoforge/{$neoforgeVersion}/neoforge-{$neoforgeVersion}-installer.jar";
+
+            \Log::info('Downloading NeoForge installer JAR', [
+                'url' => $installerUrl,
+                'neoforge_version' => $neoforgeVersion,
+            ]);
+
+            $installerDownloadResponse = Http::timeout(120)
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                ])
+                ->get($installerUrl);
+
+            if (! $installerDownloadResponse->successful()) {
+                \Log::error('Failed to download NeoForge installer', [
+                    'url' => $installerUrl,
+                    'status' => $installerDownloadResponse->status(),
+                ]);
+
+                return false;
+            }
+
+            $installerJar = $installerDownloadResponse->body();
+
+            // Validate installer JAR
+            if (strlen($installerJar) < 4 || substr($installerJar, 0, 2) !== 'PK') {
+                \Log::error('Downloaded NeoForge installer does not appear to be a valid JAR file', [
+                    'file_size' => strlen($installerJar),
+                    'first_bytes' => bin2hex(substr($installerJar, 0, 10)),
+                ]);
+
+                return false;
+            }
+
+            // Save the installer JAR
+            $installerPath = $runDir.'/neoforge-installer.jar';
+            $installerWritten = file_put_contents($installerPath, $installerJar);
+
+            if ($installerWritten === false) {
+                \Log::error('Failed to write NeoForge installer to disk', [
+                    'file_path' => $installerPath,
+                ]);
+
+                return false;
+            }
+
+            // Store installer info for run.sh
+            $installerInfo = [
+                'installer_version' => $neoforgeVersion,
+                'neoforge_version' => $neoforgeVersion,
+                'minecraft_version' => $minecraftVersion,
+            ];
+
+            $infoWritten = file_put_contents($runDir.'/neoforge-installer-info.txt', json_encode($installerInfo));
+            if ($infoWritten === false) {
+                \Log::error('Failed to write NeoForge installer info', [
+                    'file_path' => $runDir.'/neoforge-installer-info.txt',
+                ]);
+
+                return false;
+            }
+
+            \Log::info('NeoForge installer downloaded successfully', [
+                'installer_path' => $installerPath,
+                'neoforge_version' => $neoforgeVersion,
+                'minecraft_version' => $minecraftVersion,
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('Error downloading NeoForge installer', [
+                'minecraft_version' => $minecraftVersion,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Download Forge installer and set it up for server generation.
+     */
+    private function downloadForgeInstaller(string $runDir, string $minecraftVersion, ?array $serverJarsData = null): bool
+    {
+        \Log::info('Downloading Forge installer', [
+            'run_dir' => $runDir,
+            'minecraft_version' => $minecraftVersion,
+        ]);
+
+        try {
+            // Try to get Forge version from ServerJars data if available
+            $forgeVersion = null;
+            if ($serverJarsData) {
+                // ServerJars might include version info in the response
+                $forgeVersion = $serverJarsData['response']['version']
+                    ?? $serverJarsData['version']
+                    ?? $serverJarsData['response']['forge_version']
+                    ?? null;
+            }
+
+            // If we don't have version from ServerJars, try to get it from CurseForge API
+            // Forge mod ID on CurseForge is 306612 (Minecraft Forge)
+            if (! $forgeVersion) {
+                try {
+                    \Log::debug('Attempting to get Forge version from CurseForge API', [
+                        'minecraft_version' => $minecraftVersion,
+                        'mod_id' => 306612,
+                    ]);
+
+                    $curseForgeService = new \App\Services\CurseForgeService;
+
+                    // Try with the exact version first
+                    $forgeFiles = $curseForgeService->getModFiles(306612, $minecraftVersion, 'forge');
+
+                    // If no files found, try without version filtering to get all Forge files
+                    // Then we'll search for files matching our version pattern
+                    if (empty($forgeFiles)) {
+                        \Log::debug('No Forge files found with exact version, trying without version filter', [
+                            'minecraft_version' => $minecraftVersion,
+                        ]);
+
+                        // Try direct API call to bypass caching issues
+                        try {
+                            $curseForgeApiKey = config('services.curseforge.api_key');
+                            if ($curseForgeApiKey) {
+                                $directResponse = Http::withHeaders([
+                                    'x-api-key' => $curseForgeApiKey,
+                                ])->get('https://api.curseforge.com/v1/mods/306612/files', [
+                                    'modLoaderType' => 1, // Forge
+                                ]);
+
+                                if ($directResponse->successful()) {
+                                    $directFiles = $directResponse->json('data', []);
+                                    \Log::debug('Direct CurseForge API call returned files', [
+                                        'files_count' => count($directFiles),
+                                    ]);
+
+                                    // Filter files that match our Minecraft version pattern
+                                    $normalizedRequested = preg_replace('/\.0+$/', '', $minecraftVersion);
+                                    foreach ($directFiles as $file) {
+                                        $fileVersions = $file['gameVersions'] ?? $file['gameVersion'] ?? [];
+                                        if (! is_array($fileVersions)) {
+                                            $fileVersions = is_string($fileVersions) ? [$fileVersions] : [];
+                                        }
+
+                                        foreach ($fileVersions as $fileVersion) {
+                                            if (is_string($fileVersion)) {
+                                                $normalizedFileVersion = preg_replace('/\.0+$/', '', $fileVersion);
+                                                // Check if it starts with our version (e.g., "1.19" matches "1.19", "1.19.1", "1.19.4")
+                                                if (str_starts_with($normalizedFileVersion, $normalizedRequested)) {
+                                                    $forgeFiles[] = $file;
+                                                    break 2; // Break out of both loops
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (\Exception $e) {
+                            \Log::warning('Direct CurseForge API call failed, falling back to service', [
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
+
+                        // Fallback to service method if direct call didn't work
+                        if (empty($forgeFiles)) {
+                            $allForgeFiles = $curseForgeService->getModFiles(306612, null, 'forge');
+
+                            // Filter files that match our Minecraft version pattern
+                            $normalizedRequested = preg_replace('/\.0+$/', '', $minecraftVersion);
+                            foreach ($allForgeFiles as $file) {
+                                $fileVersions = $file['gameVersions'] ?? $file['gameVersion'] ?? [];
+                                if (! is_array($fileVersions)) {
+                                    $fileVersions = is_string($fileVersions) ? [$fileVersions] : [];
+                                }
+
+                                foreach ($fileVersions as $fileVersion) {
+                                    if (is_string($fileVersion)) {
+                                        $normalizedFileVersion = preg_replace('/\.0+$/', '', $fileVersion);
+                                        if (str_starts_with($normalizedFileVersion, $normalizedRequested)) {
+                                            $forgeFiles[] = $file;
+                                            break 2;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    \Log::debug('CurseForge API response for Forge', [
+                        'files_count' => count($forgeFiles),
+                        'first_file' => $forgeFiles[0] ?? null,
+                    ]);
+
+                    if (! empty($forgeFiles) && isset($forgeFiles[0]['displayName'])) {
+                        // Extract version from display name (e.g., "1.20.1 - 47.2.0" -> "47.2.0" or "1.20.1-47.2.0")
+                        $displayName = $forgeFiles[0]['displayName'];
+                        \Log::debug('Extracting version from CurseForge display name', [
+                            'display_name' => $displayName,
+                        ]);
+
+                        // Try to match patterns like "1.20.1-47.2.0" or "47.2.0"
+                        if (preg_match('/(\d+\.\d+(?:\.\d+)?)-(\d+\.\d+\.\d+(?:\.\d+)?)/', $displayName, $matches)) {
+                            // Format: "1.20.1-47.2.0"
+                            $forgeVersion = $matches[0];
+                            \Log::info('Found Forge version from CurseForge (full format)', [
+                                'version' => $forgeVersion,
+                                'display_name' => $displayName,
+                            ]);
+                        } elseif (preg_match('/-?\s*(\d+\.\d+\.\d+(?:\.\d+)?)$/', $displayName, $matches)) {
+                            $forgeVersionNumber = $matches[1];
+                            // Construct full version string like "1.20.1-47.2.0"
+                            // Use the first file's game version if available, otherwise use requested version
+                            $mcVersion = $minecraftVersion;
+                            $fileVersions = $forgeFiles[0]['gameVersions'] ?? $forgeFiles[0]['gameVersion'] ?? [];
+                            if (! empty($fileVersions) && is_array($fileVersions) && isset($fileVersions[0])) {
+                                $mcVersion = is_string($fileVersions[0]) ? $fileVersions[0] : $minecraftVersion;
+                            }
+                            $forgeVersion = "{$mcVersion}-{$forgeVersionNumber}";
+                            \Log::info('Found Forge version from CurseForge', [
+                                'version' => $forgeVersion,
+                                'display_name' => $displayName,
+                            ]);
+                        } else {
+                            \Log::warning('Could not extract version from CurseForge display name', [
+                                'display_name' => $displayName,
+                            ]);
+                        }
+                    } else {
+                        \Log::warning('No Forge files found in CurseForge API response', [
+                            'minecraft_version' => $minecraftVersion,
+                            'files_count' => count($forgeFiles),
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to get Forge version from CurseForge', [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+                }
+            }
+
+            // If we still don't have a version, try to query Maven metadata to find available versions
+            if (! $forgeVersion) {
+                try {
+                    \Log::debug('Attempting to get Forge version from Maven metadata', [
+                        'minecraft_version' => $minecraftVersion,
+                    ]);
+
+                    // Query Maven metadata to get available versions
+                    // Forge uses a directory structure based on Minecraft version
+                    // We need to construct the metadata URL for the specific Minecraft version
+                    $metadataUrl = 'https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml';
+                    $metadataResponse = Http::timeout(30)->get($metadataUrl);
+
+                    if ($metadataResponse->successful()) {
+                        $metadataXml = $metadataResponse->body();
+                        // Parse XML to extract version numbers
+                        if (preg_match_all('/<version>([^<]+)<\/version>/', $metadataXml, $matches)) {
+                            $availableVersions = $matches[1];
+                            \Log::debug('Found available Forge versions from Maven', [
+                                'versions_count' => count($availableVersions),
+                                'sample_versions' => array_slice($availableVersions, 0, 10),
+                            ]);
+
+                            // Filter versions that start with the Minecraft version (e.g., "1.19-")
+                            $normalizedRequested = $minecraftVersion;
+                            foreach ($availableVersions as $version) {
+                                if (str_starts_with($version, $normalizedRequested.'-')) {
+                                    // Test if this version's installer exists
+                                    $testInstallerUrl = "https://maven.minecraftforge.net/net/minecraftforge/forge/{$version}/forge-{$version}-installer.jar";
+                                    try {
+                                        $testResponse = Http::timeout(10)->head($testInstallerUrl);
+                                        if ($testResponse->successful()) {
+                                            $forgeVersion = $version;
+                                            \Log::info('Found Forge version from Maven metadata', [
+                                                'version' => $forgeVersion,
+                                                'minecraft_version' => $minecraftVersion,
+                                            ]);
+                                            break;
+                                        }
+                                    } catch (\Exception $e) {
+                                        continue;
+                                    }
+                                }
+                            }
+
+                            // If no exact match, try to find the latest version that might work
+                            if (! $forgeVersion) {
+                                // Sort versions and try the latest ones that start with our Minecraft version
+                                $matchingVersions = array_filter($availableVersions, function ($v) use ($normalizedRequested) {
+                                    return str_starts_with($v, $normalizedRequested.'-');
+                                });
+
+                                if (! empty($matchingVersions)) {
+                                    usort($matchingVersions, 'version_compare');
+                                    $matchingVersions = array_reverse($matchingVersions);
+
+                                    // Try the latest 10 matching versions
+                                    foreach (array_slice($matchingVersions, 0, 10) as $version) {
+                                        $testInstallerUrl = "https://maven.minecraftforge.net/net/minecraftforge/forge/{$version}/forge-{$version}-installer.jar";
+                                        try {
+                                            $testResponse = Http::timeout(10)->head($testInstallerUrl);
+                                            if ($testResponse->successful()) {
+                                                $forgeVersion = $version;
+                                                \Log::info('Found Forge version from Maven (latest matching)', [
+                                                    'version' => $forgeVersion,
+                                                    'minecraft_version' => $minecraftVersion,
+                                                ]);
+                                                break;
+                                            }
+                                        } catch (\Exception $e) {
+                                            continue;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (\Exception $e) {
+                    \Log::debug('Failed to get Forge version from Maven metadata', [
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            // If we still don't have a version, try to construct common version patterns and test them
+            if (! $forgeVersion) {
+                \Log::debug('Attempting to find Forge version by testing common patterns', [
+                    'minecraft_version' => $minecraftVersion,
+                ]);
+
+                // Forge versions typically follow patterns like:
+                // For 1.19: 1.19-41.1.0, 1.19-41.0.0, etc.
+                // For 1.20.1: 1.20.1-47.2.0, 1.20.1-47.1.0, etc.
+                // We'll test common forge version numbers
+                $possibleForgeVersions = [];
+
+                // Extract major and minor from Minecraft version
+                if (preg_match('/^1\.(\d+)(?:\.(\d+))?/', $minecraftVersion, $matches)) {
+                    $major = $matches[1];
+                    $minor = $matches[2] ?? '0';
+
+                    // Common Forge version patterns based on Minecraft version
+                    // For 1.19.x, common versions are 41.x.x
+                    // For 1.20.x, common versions are 47.x.x
+                    // For 1.21.x, common versions are 47.x.x or higher
+                    $baseForgeMajor = null;
+                    if ($major === '19') {
+                        $baseForgeMajor = 41;
+                    } elseif ($major === '20') {
+                        $baseForgeMajor = 47;
+                    } elseif ($major === '21') {
+                        $baseForgeMajor = 47;
+                    } elseif ($major >= '22') {
+                        // For newer versions, try incrementing from 47
+                        $baseForgeMajor = 47 + (intval($major) - 21);
+                    }
+
+                    if ($baseForgeMajor !== null) {
+                        // Generate possible versions
+                        // Test higher minor/patch numbers first (more likely to be the latest)
+                        for ($forgeMinor = 3; $forgeMinor >= 0; $forgeMinor--) {
+                            // Test a wider range of patch versions
+                            for ($forgePatch = 20; $forgePatch >= 0; $forgePatch--) {
+                                $possibleForgeVersions[] = "{$minecraftVersion}-{$baseForgeMajor}.{$forgeMinor}.{$forgePatch}";
+                            }
+                        }
+                    }
+                }
+
+                // Test each possible version
+                foreach ($possibleForgeVersions as $possibleVersion) {
+                    $testInstallerUrl = "https://maven.minecraftforge.net/net/minecraftforge/forge/{$possibleVersion}/forge-{$possibleVersion}-installer.jar";
+                    try {
+                        $testResponse = Http::timeout(10)->head($testInstallerUrl);
+                        if ($testResponse->successful()) {
+                            $forgeVersion = $possibleVersion;
+                            \Log::info('Found Forge version by testing URL patterns', [
+                                'version' => $forgeVersion,
+                                'minecraft_version' => $minecraftVersion,
+                            ]);
+                            break;
+                        }
+                    } catch (\Exception $e) {
+                        continue;
+                    }
+                }
+            }
+
+            // If we still don't have a version, we cannot proceed
+            // Forge version format is required: {minecraft_version}-{forge_version}
+            if (! $forgeVersion) {
+                \Log::error('Could not determine Forge version', [
+                    'minecraft_version' => $minecraftVersion,
+                ]);
+
+                return false;
+            }
+
+            // Download Forge installer from Maven
+            $installerUrl = "https://maven.minecraftforge.net/net/minecraftforge/forge/{$forgeVersion}/forge-{$forgeVersion}-installer.jar";
+
+            \Log::info('Downloading Forge installer JAR', [
+                'url' => $installerUrl,
+                'forge_version' => $forgeVersion,
+            ]);
+
+            $installerDownloadResponse = Http::timeout(120)
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                ])
+                ->get($installerUrl);
+
+            if (! $installerDownloadResponse->successful()) {
+                \Log::error('Failed to download Forge installer', [
+                    'url' => $installerUrl,
+                    'status' => $installerDownloadResponse->status(),
+                ]);
+
+                return false;
+            }
+
+            $installerJar = $installerDownloadResponse->body();
+
+            // Validate installer JAR
+            if (strlen($installerJar) < 4 || substr($installerJar, 0, 2) !== 'PK') {
+                \Log::error('Downloaded Forge installer does not appear to be a valid JAR file', [
+                    'file_size' => strlen($installerJar),
+                    'first_bytes' => bin2hex(substr($installerJar, 0, 10)),
+                ]);
+
+                return false;
+            }
+
+            // Save the installer JAR
+            $installerPath = $runDir.'/forge-installer.jar';
+            $installerWritten = file_put_contents($installerPath, $installerJar);
+
+            if ($installerWritten === false) {
+                \Log::error('Failed to write Forge installer to disk', [
+                    'file_path' => $installerPath,
+                ]);
+
+                return false;
+            }
+
+            // Store installer info for run.sh
+            $installerInfo = [
+                'installer_version' => $forgeVersion,
+                'forge_version' => $forgeVersion,
+                'minecraft_version' => $minecraftVersion,
+            ];
+
+            $infoWritten = file_put_contents($runDir.'/forge-installer-info.txt', json_encode($installerInfo));
+            if ($infoWritten === false) {
+                \Log::error('Failed to write Forge installer info', [
+                    'file_path' => $runDir.'/forge-installer-info.txt',
+                ]);
+
+                return false;
+            }
+
+            \Log::info('Forge installer downloaded successfully', [
+                'installer_path' => $installerPath,
+                'forge_version' => $forgeVersion,
+                'minecraft_version' => $minecraftVersion,
+            ]);
+
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('Error downloading Forge installer', [
+                'minecraft_version' => $minecraftVersion,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Download vanilla Minecraft server JAR for a specific version.
+     */
+    private function downloadVanillaServerJar(string $runDir, string $minecraftVersion): bool
+    {
+        \Log::info('Attempting to download vanilla server JAR', [
+            'run_dir' => $runDir,
+            'minecraft_version' => $minecraftVersion,
+        ]);
+
+        try {
+            // First, get the version manifest from Mojang
+            $manifestUrl = 'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json';
+            $manifestResponse = Http::timeout(30)
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                ])
+                ->get($manifestUrl);
+
+            if (! $manifestResponse->successful()) {
+                \Log::error('Failed to fetch Minecraft version manifest', [
+                    'url' => $manifestUrl,
+                    'status' => $manifestResponse->status(),
+                ]);
+
+                return false;
+            }
+
+            $manifestData = $manifestResponse->json();
+            $versions = $manifestData['versions'] ?? [];
+
+            // Find the version entry for the requested Minecraft version
+            $versionEntry = null;
+            foreach ($versions as $version) {
+                if (($version['id'] ?? '') === $minecraftVersion) {
+                    $versionEntry = $version;
+                    break;
+                }
+            }
+
+            if (! $versionEntry) {
+                \Log::error('Minecraft version not found in manifest', [
+                    'minecraft_version' => $minecraftVersion,
+                ]);
+
+                return false;
+            }
+
+            // Get the version details
+            $versionUrl = $versionEntry['url'] ?? null;
+            if (! $versionUrl) {
+                \Log::error('Version URL not found in manifest entry', [
+                    'version_entry' => $versionEntry,
+                ]);
+
+                return false;
+            }
+
+            $versionResponse = Http::timeout(30)
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                ])
+                ->get($versionUrl);
+
+            if (! $versionResponse->successful()) {
+                \Log::error('Failed to fetch version details', [
+                    'url' => $versionUrl,
+                    'status' => $versionResponse->status(),
+                ]);
+
+                return false;
+            }
+
+            $versionData = $versionResponse->json();
+            $serverJarUrl = $versionData['downloads']['server']['url'] ?? null;
+
+            if (! $serverJarUrl) {
+                \Log::error('Server JAR URL not found in version data', [
+                    'version_data' => $versionData,
+                ]);
+
+                return false;
+            }
+
+            // Download the server JAR
+            \Log::debug('Downloading vanilla server JAR', [
+                'url' => $serverJarUrl,
+            ]);
+
+            $jarResponse = Http::timeout(120) // Longer timeout for large files
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:108.0) Gecko/20100101 Firefox/108.0',
+                    'Accept' => 'application/java-archive, application/octet-stream, */*',
+                ])
+                ->get($serverJarUrl);
+
+            if (! $jarResponse->successful()) {
+                \Log::error('Failed to download vanilla server JAR', [
+                    'url' => $serverJarUrl,
+                    'status' => $jarResponse->status(),
+                ]);
+
+                return false;
+            }
+
+            $jarContent = $jarResponse->body();
+
+            // Validate that we actually got a JAR file (JAR files are ZIP files, check for ZIP magic bytes)
+            if (strlen($jarContent) < 4 || substr($jarContent, 0, 2) !== 'PK') {
+                \Log::error('Downloaded file does not appear to be a valid JAR file (missing ZIP magic bytes)', [
+                    'file_size' => strlen($jarContent),
+                    'first_bytes' => bin2hex(substr($jarContent, 0, 10)),
+                ]);
+
+                return false;
+            }
+
+            // Save the server JAR
+            $serverJarPath = $runDir.'/server.jar';
+            $bytesWritten = file_put_contents($serverJarPath, $jarContent);
+
+            if ($bytesWritten === false) {
+                \Log::error('Failed to write vanilla server JAR to disk', [
+                    'file_path' => $serverJarPath,
+                    'run_dir' => $runDir,
+                    'directory_exists' => is_dir($runDir),
+                    'directory_writable' => is_writable($runDir),
+                ]);
+
+                return false;
+            }
+
+            \Log::info('Successfully downloaded vanilla server JAR', [
+                'minecraft_version' => $minecraftVersion,
+                'file_path' => $serverJarPath,
+                'file_size' => $bytesWritten,
+                'file_exists' => file_exists($serverJarPath),
+            ]);
+
+            return true;
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            \Log::error('Connection error downloading vanilla server JAR', [
+                'minecraft_version' => $minecraftVersion,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        } catch (\Exception $e) {
+            \Log::error('Error downloading vanilla server JAR', [
+                'minecraft_version' => $minecraftVersion,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return false;
         }
     }
 

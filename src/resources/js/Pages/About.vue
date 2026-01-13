@@ -41,6 +41,21 @@
                         <p>
                             {{ t("about.what.p2") }}
                         </p>
+                        <p>
+                            <template
+                                v-for="(part, index) in whatP3Parts"
+                                :key="index"
+                            >
+                                {{ part }}
+                                <Link
+                                    v-if="index < whatP3Parts.length - 1"
+                                    href="/premium"
+                                    class="link"
+                                >
+                                    {{ t("about.what.premium_link_text") }}
+                                </Link>
+                            </template>
+                        </p>
                     </div>
                 </div>
             </section>
@@ -179,4 +194,5 @@ const opensourceP3Parts = computed(() =>
     splitWithLink(t("about.opensource.p3")),
 );
 const supportParts = computed(() => splitWithLink(t("about.support.p2")));
+const whatP3Parts = computed(() => splitWithLink(t("about.what.p3")));
 </script>

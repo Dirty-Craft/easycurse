@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ModPack;
+use App\Models\ModPackRun;
 use App\Models\User;
 use Inertia\Inertia;
 
@@ -14,6 +15,7 @@ class LandingController extends Controller
             'total_mod_packs' => ModPack::count(),
             'total_users' => User::count(),
             'total_downloads' => ModPack::sum('downloads_count'),
+            'total_java_runs' => ModPackRun::count(),
         ];
 
         return Inertia::render('Index', [
@@ -36,5 +38,10 @@ class LandingController extends Controller
         return Inertia::render('Donate', [
             'walletAddress' => env('DONATE_WALLET_ADDRESS'),
         ]);
+    }
+
+    public function premium()
+    {
+        return Inertia::render('Premium');
     }
 }

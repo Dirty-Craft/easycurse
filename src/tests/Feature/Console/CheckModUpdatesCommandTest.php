@@ -85,18 +85,37 @@ class CheckModUpdatesCommandTest extends TestCase
         $this->artisan('mods:check-updates')
             ->assertSuccessful();
 
-        // Verify notification was sent
+        // Verify notification was sent and toMail/toArray methods are called
         Notification::assertSentTo(
             $user,
             ModUpdateAvailable::class,
-            function ($notification) use ($modPack) {
-                return $notification->modName === 'Test Mod'
+            function ($notification) use ($modPack, $user) {
+                // Verify properties
+                $propertiesMatch = $notification->modName === 'Test Mod'
                     && $notification->currentVersion === '1.0.0'
                     && $notification->newVersion === 'Test Mod 1.1.0'
                     && $notification->software === 'forge'
                     && $notification->minecraftVersion === '1.20.1'
                     && $notification->modPackId === $modPack->id
                     && $notification->modPackName === $modPack->name;
+
+                // Call toMail to ensure it's covered (lines 42-52)
+                $mailMessage = $notification->toMail($user);
+                $this->assertNotNull($mailMessage);
+                $this->assertEquals('Mod Update Available', $mailMessage->subject);
+
+                // Call toArray to ensure it's covered (lines 59-69)
+                $array = $notification->toArray($user);
+                $this->assertIsArray($array);
+                $this->assertEquals('Test Mod', $array['mod_name']);
+                $this->assertEquals('1.0.0', $array['current_version']);
+                $this->assertEquals('Test Mod 1.1.0', $array['new_version']);
+                $this->assertEquals('forge', $array['software']);
+                $this->assertEquals('1.20.1', $array['minecraft_version']);
+                $this->assertEquals($modPack->id, $array['mod_pack_id']);
+                $this->assertEquals($modPack->name, $array['mod_pack_name']);
+
+                return $propertiesMatch;
             }
         );
     }
@@ -240,16 +259,27 @@ class CheckModUpdatesCommandTest extends TestCase
         $this->artisan('mods:check-updates')
             ->assertSuccessful();
 
-        // Verify notification was sent
+        // Verify notification was sent and toMail/toArray methods are called
         Notification::assertSentTo(
             $user,
             ModUpdateAvailable::class,
-            function ($notification) use ($modPack) {
-                return $notification->modName === 'Test Mod'
+            function ($notification) use ($modPack, $user) {
+                // Verify properties
+                $propertiesMatch = $notification->modName === 'Test Mod'
                     && $notification->currentVersion === '1.0.0'
                     && $notification->newVersion === '1.1.0'
                     && $notification->modPackId === $modPack->id
                     && $notification->modPackName === $modPack->name;
+
+                // Call toMail to ensure it's covered (lines 42-52)
+                $mailMessage = $notification->toMail($user);
+                $this->assertNotNull($mailMessage);
+
+                // Call toArray to ensure it's covered (lines 59-69)
+                $array = $notification->toArray($user);
+                $this->assertIsArray($array);
+
+                return $propertiesMatch;
             }
         );
     }
@@ -414,5 +444,152 @@ class CheckModUpdatesCommandTest extends TestCase
         $modPackItem->refresh();
         $this->assertNotNull($modPackItem->last_update_notified_at);
         $this->assertTrue($modPackItem->last_update_notified_at->isToday());
+    }
+
+    /**
+     * Test that command skips items when modId is null (line 76).
+     */
+    public function test_command_skips_items_when_mod_id_is_null(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'forge',
+        ]);
+
+        // Create item with both mod IDs null (line 76)
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Test Mod',
+            'mod_version' => '1.0.0',
+            'curseforge_mod_id' => null,
+            'modrinth_project_id' => null,
+            'source' => 'curseforge',
+        ]);
+
+        // Mock ModService - should not be called since modId is null
+        $modServiceMock = $this->createMock(ModService::class);
+        $modServiceMock->expects($this->never())
+            ->method('getLatestModFile');
+
+        $this->app->instance(ModService::class, $modServiceMock);
+
+        Notification::fake();
+
+        $this->artisan('mods:check-updates')
+            ->assertSuccessful();
+
+        // Verify no notifications were sent
+        Notification::assertNothingSent();
+    }
+
+    /**
+     * Test that command skips when extractVersion returns null (line 94).
+     */
+    public function test_command_skips_when_extract_version_returns_null(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'forge',
+        ]);
+
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Test Mod',
+            'mod_version' => '1.0.0',
+            'curseforge_mod_id' => 123456,
+            'source' => 'curseforge',
+        ]);
+
+        // Mock ModService to return a file without displayName or fileName (line 94)
+        $latestFile = [
+            'id' => 1,
+            // No displayName or fileName - extractVersion will return null
+        ];
+
+        $modServiceMock = $this->createMock(ModService::class);
+        $modServiceMock->method('getLatestModFile')
+            ->willReturn($latestFile);
+
+        $this->app->instance(ModService::class, $modServiceMock);
+
+        Notification::fake();
+
+        $this->artisan('mods:check-updates')
+            ->assertSuccessful();
+
+        // Verify no notifications were sent (version extraction failed)
+        Notification::assertNothingSent();
+    }
+
+    /**
+     * Test that command skips when modPackItem is not found (line 119).
+     *
+     * This tests the edge case where findAffectedModPacks returns a modpack
+     * but the ModPackItem query returns null. This can happen in rare cases
+     * due to data inconsistencies or race conditions.
+     */
+    public function test_command_skips_when_mod_pack_item_not_found(): void
+    {
+        $user = User::factory()->create();
+
+        // Create a modpack with a valid item
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'forge',
+        ]);
+
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Test Mod',
+            'mod_version' => '1.0.0',
+            'curseforge_mod_id' => 123456,
+            'source' => 'curseforge',
+        ]);
+
+        // Create another modpack with the same modId but different source
+        // This creates a scenario where the grouped query might find it,
+        // but the individual query might not match due to source mismatch
+        $modPack2 = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'forge',
+        ]);
+
+        // Create item with same modId but different source
+        // The grouped query groups by modId, so it will find both modpacks
+        // But when checking modPack2, if there's a source mismatch in the query,
+        // the ModPackItem might not be found (line 119)
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack2->id,
+            'mod_name' => 'Test Mod 2',
+            'mod_version' => '1.0.0',
+            'curseforge_mod_id' => 123456,
+            'source' => 'modrinth', // Different source - this might cause the query to fail
+        ]);
+
+        // Mock ModService to return a newer version
+        $latestFile = [
+            'displayName' => 'Test Mod 1.1.0',
+            'fileName' => 'test-mod-1.1.0.jar',
+        ];
+
+        $modServiceMock = $this->createMock(ModService::class);
+        $modServiceMock->method('getLatestModFile')
+            ->willReturn($latestFile);
+
+        $this->app->instance(ModService::class, $modServiceMock);
+
+        Notification::fake();
+
+        $this->artisan('mods:check-updates')
+            ->assertSuccessful();
+
+        // Verify notification was sent for modPack (which has matching source)
+        Notification::assertSentTo($user, ModUpdateAvailable::class);
     }
 }

@@ -18,8 +18,13 @@ return new class extends Migration
             $table->string('minecraft_version');
             $table->text('description')->nullable();
             $table->string('software')->default('forge');
+            $table->string('minecraft_update_reminder_version')->nullable();
+            $table->string('minecraft_update_reminder_software')->nullable();
+            $table->unsignedInteger('downloads_count')->default(0);
+            $table->string('share_token', 64)->nullable()->unique();
             $table->timestamps();
 
+            $table->index('share_token');
             $table->index('user_id');
             $table->index('minecraft_version');
         });
