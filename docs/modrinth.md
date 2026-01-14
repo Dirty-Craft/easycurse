@@ -30,16 +30,16 @@ The service is configured in `src/config/services.php` and uses environment vari
 
 ```env
 MODRINTH_BASE_URL=https://api.modrinth.com/v2/
-MODRINTH_USER_AGENT=EasyCurse/1.0.0 (contact@example.com)
+MODRINTH_USER_AGENT=EasyCurse/0.0.1
 ```
 
 Optional configuration (with defaults):
 - `MODRINTH_BASE_URL` - API base URL (default: `https://api.modrinth.com/v2/`)
-- `MODRINTH_USER_AGENT` - User agent string for API requests (default: `EasyCurse/1.0.0 (contact@example.com)`)
+- `MODRINTH_USER_AGENT` - User agent string for API requests (default: `EasyCurse/0.0.1`)
 
 **Note:** Modrinth API requires a User-Agent header for all requests. Make sure to set a proper user agent that identifies your application.
 
-## Usage in Mod Sets
+## Usage in Mod Packs
 
 When adding mods to a mod pack, users can:
 

@@ -122,10 +122,7 @@ Different fonts can be configured per locale:
 
 ```php
 // English uses Poppins
-'font.family' => "'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-
-// Persian uses Vazir
-'font.family' => "'Vazir', 'Tahoma', 'Arial', sans-serif",
+'font.family' => "...",
 ```
 
 ## How It Works

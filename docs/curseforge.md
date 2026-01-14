@@ -36,7 +36,7 @@ Optional configuration (with defaults):
 - `CURSEFORGE_MINECRAFT_GAME_ID` - Minecraft game ID (default: `432`)
 - `CURSEFORGE_MINECRAFT_MODS_CLASS_ID` - Mods class ID (default: `6`)
 
-## Usage in Mod Sets
+## Usage in Mod Packs
 
 When adding mods to a mod pack, users can:
 
@@ -56,7 +56,7 @@ The following endpoints are available for mod pack management:
 
 ## Database Schema
 
-Mod set items store CurseForge metadata:
+Mod pack items store CurseForge metadata:
 
 - `curseforge_mod_id` - The CurseForge mod ID
 - `curseforge_file_id` - The selected file ID

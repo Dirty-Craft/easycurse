@@ -1,5 +1,5 @@
 # Inertia
-We use [Inertia](packages.md) & Vue to implement the Front-End in this project.
+We use Inertia.js & Vue to implement the Front-End in this project.
 
 The `npm run dev` is always running in `npm` docker service. To restart:
 

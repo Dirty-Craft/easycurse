@@ -25,10 +25,10 @@ AD_FA_TEXT=
 AD_FA_LINK=
 ```
 
-Now, the portal will be accessible at http://localhost:9090.
+Now, the portal will be accessible at http://localhost:9091.
 
 ## Port Configuration
-You can change the default 9090 port using the Docker environment file:
+You can change the default 9091 port using the Docker environment file:
 
 ```shell
 $ cp .env.docker .env
@@ -37,8 +37,8 @@ $ cp .env.docker .env
 Then edit `.env` in the root of the project and change the APP_HTTP_PORT:
 
 ```
-APP_HTTP_PORT=9090
-APP_HTTPS_PORT=9093
+APP_HTTP_PORT=9091
+APP_HTTPS_PORT=443
 ...
 ```
 
