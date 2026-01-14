@@ -800,6 +800,30 @@
             <div v-if="selectedRun" class="view-run-modal-content">
                 <div class="run-details-info">
                     <p>{{ t("modpacks.show.view_run_modal.description") }}</p>
+                    <div class="run-status-summary">
+                        <span
+                            v-if="runHasSuccess && !runHasErrors"
+                            class="run-status-badge run-status-success"
+                        >
+                            {{
+                                t("modpacks.show.view_run_modal.status_success")
+                            }}
+                        </span>
+                        <span
+                            v-else-if="runHasErrors"
+                            class="run-status-badge run-status-error"
+                        >
+                            {{ t("modpacks.show.view_run_modal.status_error") }}
+                        </span>
+                        <span
+                            v-else
+                            class="run-status-badge run-status-pending"
+                        >
+                            {{
+                                t("modpacks.show.view_run_modal.status_pending")
+                            }}
+                        </span>
+                    </div>
                     <div class="run-date-info">
                         <span class="run-date-label"
                             >{{
@@ -1694,6 +1718,74 @@ const isCancellingReminder = ref(false);
 const isCreatingRun = ref(false);
 const isStoppingRun = ref(false);
 
+// Analyze logs for success and error states
+const runHasSuccess = computed(() => {
+    if (!runLogs.value) {
+        return false;
+    }
+    return runLogs.value.includes("[Server thread/INFO]: Done");
+});
+
+const runHasErrors = computed(() => {
+    if (!runLogs.value) {
+        return false;
+    }
+
+    // If server completed successfully, don't show error badge
+    // even if there were benign errors during startup
+    if (runHasSuccess.value) {
+        return false;
+    }
+
+    const logs = runLogs.value;
+    const lowerLogs = logs.toLowerCase();
+    const isRunCompleted = selectedRun.value?.is_completed ?? false;
+
+    // During active runs, ONLY show truly fatal errors
+    // For completed runs, also check for non-fatal errors
+
+    // 1. Check for FATAL log levels (case-insensitive) - always show these
+    // Format: [ThreadName/FATAL]:
+    const fatalLogLevelPattern = /\[[^\]]+\/fatal\]:/i;
+    if (fatalLogLevelPattern.test(logs)) {
+        return true;
+    }
+
+    // 2. Check for crash reports (very specific) - always show these
+    if (
+        lowerLogs.includes("crash report") ||
+        lowerLogs.includes("crash-report")
+    ) {
+        return true;
+    }
+
+    // 3. For non-fatal ERROR log levels, ONLY check if run has completed
+    // This prevents showing error badge during startup when errors might be resolved
+    // Format: [ThreadName/ERROR]:
+    if (isRunCompleted) {
+        const errorLogLevelPattern = /\[[^\]]+\/error\]:/i;
+        if (errorLogLevelPattern.test(logs)) {
+            // Exclude benign errors that don't prevent server startup
+            const benignErrorPatterns = [
+                /failed to load properties from file: server\.properties/i,
+                /no such file or directory.*server\.properties/i,
+            ];
+
+            // Only consider it an error if it's not a benign error
+            const hasBenignError = benignErrorPatterns.some((pattern) =>
+                pattern.test(logs),
+            );
+            if (!hasBenignError) {
+                return true;
+            }
+        }
+    }
+
+    // During active runs, don't show error badge for anything else
+    // (no checking for "fatal.*exception" patterns as they're too broad)
+    return false;
+});
+
 // Computed property to get the current active run (from props or newly created)
 const currentActiveRun = computed(() => {
     // If there's a selected run that's not completed, use that
@@ -1740,7 +1832,13 @@ const closeShareModal = () => {
 
 const closeViewRunModal = () => {
     showViewRunModal.value = false;
-    selectedRun.value = null;
+
+    // Keep the selected run while it is still active so the "View Run"
+    // button state stays accurate, but clear it once the run has completed.
+    if (selectedRun.value?.is_completed) {
+        selectedRun.value = null;
+    }
+
     runLogs.value = "";
     stopLogsPolling();
 };

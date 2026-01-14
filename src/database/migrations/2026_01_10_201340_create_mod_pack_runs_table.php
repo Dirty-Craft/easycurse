@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('mod_pack_runs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('mod_pack_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('mod_pack_id')->nullable()->constrained()->nullOnDelete();
             $table->boolean('is_completed')->default(false);
             $table->timestamps();
         });
