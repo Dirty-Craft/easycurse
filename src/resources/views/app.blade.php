@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 @php
     $messages = __('messages');
-    $fontFamily = $messages['font.family'] ?? "'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+    $fontFamily = $messages['font.family'] ?? "monospace";
     $fontFamilyHeading = $messages['font.family_heading'] ?? $fontFamily;
     $direction = $messages['direction'] ?? 'LTR';
 @endphp
@@ -13,7 +13,6 @@
         <title inertia>EasyCurse</title>
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
         <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/font-face.css" rel="stylesheet">
         <link href="https://fonts.cdnfonts.com/css/minecraft-4" rel="stylesheet">
         <style>

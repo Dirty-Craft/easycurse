@@ -41,7 +41,7 @@
 }
 
 .logo-text {
-    font-family: Minecraft, Minecraftia, monospace;
+    font-family: var(--font-family-minecraft);
     font-size: 1.5rem;
     font-weight: 700;
     background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
@@ -178,7 +178,7 @@
 }
 
 html[lang="en"] .hero-title {
-    font-family: Minecraft, Minecraftia, monospace;
+    font-family: var(--font-family-minecraft);
 }
 
 .hero-subtitle {
@@ -402,7 +402,7 @@ html[lang="en"] .hero-title {
     justify-content: center;
     gap: var(--spacing-lg);
     flex-wrap: nowrap;
-    font-family: Minecraft, Minecraftia, monospace;
+    font-family: var(--font-family-minecraft);
     font-size: clamp(1.5rem, 4vw, 2.5rem);
 }
 
@@ -1074,7 +1074,7 @@ html[lang="en"] .hero-title {
 
 /* CTA Section */
 .cta {
-    background: linear-gradient(135deg, #0d4a52 0%, #0a3d44 50%, #0d4a3f 100%);
+    background: var(--color-cta-bg-gradient);
     text-align: center;
     position: relative;
     overflow: hidden;
@@ -1091,7 +1091,7 @@ html[lang="en"] .hero-title {
     position: absolute;
     width: 400px;
     height: 400px;
-    background: rgb(0 217 255 / 8%);
+    background: var(--color-cta-orb);
     border-radius: 50%;
     filter: blur(100px);
     top: -200px;
@@ -1110,13 +1110,13 @@ html[lang="en"] .hero-title {
     font-size: clamp(2rem, 5vw, 3.5rem);
     font-weight: 700;
     margin-bottom: var(--spacing-lg);
-    color: #fff;
+    color: var(--color-cta-text);
     letter-spacing: -0.02em;
 }
 
 .cta-subtitle {
     font-size: clamp(1rem, 2vw, 1.25rem);
-    color: rgb(255 255 255 / 90%);
+    color: var(--color-cta-text-secondary);
     margin-bottom: var(--spacing-2xl);
     line-height: 1.7;
 }
@@ -1130,7 +1130,7 @@ html[lang="en"] .hero-title {
     justify-content: center;
     gap: var(--spacing-xl);
     flex-wrap: wrap;
-    color: rgb(255 255 255 / 80%);
+    color: var(--color-cta-text-muted);
     font-size: 0.875rem;
 }
 

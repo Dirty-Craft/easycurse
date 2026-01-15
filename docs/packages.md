@@ -16,6 +16,12 @@ $ docker compose exec app composer update
 
 ### NPM
 - @inertiajs/vue3
+- @eslint/js
+- @vue/eslint-config-prettier
+- eslint
+- eslint-plugin-vue
+- stylelint
+- stylelint-config-standard
 
 To install/update packages:
 

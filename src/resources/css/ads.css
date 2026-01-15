@@ -4,11 +4,11 @@
 }
 
 .ads-hero {
-    background: linear-gradient(135deg, #0d4a52 0%, #0a3d44 50%, #0d4a3f 100%);
+    background: var(--color-cta-bg-gradient);
     padding: calc(var(--spacing-3xl) + 60px) var(--spacing-md)
         var(--spacing-3xl);
     text-align: center;
-    color: #fff;
+    color: var(--color-cta-text);
     position: relative;
     overflow: hidden;
     margin-top: 80px;
@@ -20,7 +20,7 @@
 }
 
 .ads-title {
-    font-family: Minecraft, Minecraftia, monospace;
+    font-family: var(--font-family-minecraft);
     font-size: clamp(2.5rem, 5vw, 4rem);
     font-weight: 700;
     margin-bottom: var(--spacing-lg);
@@ -29,7 +29,7 @@
 
 .ads-subtitle {
     font-size: clamp(1.125rem, 2vw, 1.5rem);
-    color: rgb(255 255 255 / 90%);
+    color: var(--color-cta-text-secondary);
     line-height: 1.6;
 }
 

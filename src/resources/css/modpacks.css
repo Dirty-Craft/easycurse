@@ -570,7 +570,7 @@
 }
 
 .mod-item-number {
-    font-family: minecraft, monospace;
+    font-family: var(--font-family-minecraft);
     width: 32px;
     height: 32px;
     display: flex;
@@ -791,7 +791,7 @@
 }
 
 .mod-result-slug {
-    font-family: monospace;
+    font-family: var(--font-family-monospace);
 }
 
 .mod-result-downloads {
@@ -844,7 +844,7 @@
 .selected-mod-slug {
     margin: 0;
     color: var(--color-text-secondary);
-    font-family: monospace;
+    font-family: var(--font-family-monospace);
     font-size: 0.875rem;
 }
 
@@ -981,7 +981,7 @@
 }
 
 .share-link-input input {
-    font-family: monospace;
+    font-family: var(--font-family-monospace);
     font-size: 0.875rem;
 }
 
@@ -1569,7 +1569,7 @@
     background: #000;
     color: #fff;
     padding: var(--spacing-md);
-    font-family: 'Courier New', Courier, monospace;
+    font-family: var(--font-family-code);
     font-size: 0.875rem;
     line-height: 1.6;
     margin: 0;

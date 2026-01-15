@@ -71,8 +71,7 @@ const languages = [
     {
         code: "en",
         name: "English",
-        fontFamily:
-            "'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+        fontFamily: "monospace",
     },
     {
         code: "fa",

@@ -10,9 +10,7 @@ export function useFont() {
         const trans =
             typeof translations === "function" ? translations() : translations;
 
-        const fontFamily =
-            trans["font.family"] ||
-            "'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+        const fontFamily = trans["font.family"] || "monospace";
         const fontFamilyHeading = trans["font.family_heading"] || fontFamily;
 
         document.documentElement.style.setProperty(

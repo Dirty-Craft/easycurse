@@ -48,7 +48,7 @@
     margin-bottom: var(--spacing-sm);
     color: var(--color-text-primary);
     letter-spacing: -0.02em;
-    font-family: var(--font-family-heading);
+    font-family: var(--font-family-minecraft);
 }
 
 .auth-subtitle {
@@ -92,12 +92,32 @@
     padding: 0.75rem 1rem;
     margin-bottom: 1rem;
     border-radius: 0.375rem;
+    border: 1px solid;
 }
 
 .alert-success {
-    background-color: #d1fae5;
-    color: #065f46;
-    border: 1px solid #6ee7b7;
+    background-color: var(--color-alert-success-bg);
+    color: var(--color-success);
+    border-color: var(--color-alert-success-border);
+}
+
+.alert-error,
+.alert-danger {
+    background-color: var(--color-alert-error-bg);
+    color: var(--color-error);
+    border-color: var(--color-alert-error-border);
+}
+
+.alert-warning {
+    background-color: var(--color-alert-warning-bg);
+    color: var(--color-warning);
+    border-color: var(--color-alert-warning-border);
+}
+
+.alert-info {
+    background-color: var(--color-alert-info-bg);
+    color: var(--color-info);
+    border-color: var(--color-alert-info-border);
 }
 
 .field-hint {
