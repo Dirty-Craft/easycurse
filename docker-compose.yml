@@ -27,19 +27,21 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-  npm:
+  vite:
     image: easycurse
-    container_name: easycurse-npm
+    container_name: easycurse-vite
     restart: unless-stopped
     working_dir: /var/www
     ports:
-      - "5173:5173"
+      - "${VITE_PORT:-5173}:${VITE_PORT:-5173}"
     volumes:
       - ./src:/var/www
     networks:
       - easycurse-network
     depends_on:
       - app
+    environment:
+      - VITE_PORT=${VITE_PORT:-5173}
     command: sh -c "npm run dev && tail -f /dev/null"
   queue:
     image: easycurse

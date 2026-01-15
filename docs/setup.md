@@ -28,17 +28,18 @@ AD_FA_LINK=
 Now, the portal will be accessible at http://localhost:9091.
 
 ## Port Configuration
-You can change the default 9091 port using the Docker environment file:
+You can change the default ports using the Docker environment file:
 
 ```shell
 $ cp .env.docker .env
 ```
 
-Then edit `.env` in the root of the project and change the APP_HTTP_PORT:
+Then edit `.env` in the root of the project and change the ports:
 
 ```
 APP_HTTP_PORT=9091
 APP_HTTPS_PORT=443
+VITE_PORT=5173
 ...
 ```
 
@@ -73,9 +74,7 @@ You can run any commands in the container:
 
 ```shell
 $ docker compose exec app php artisan make:controller ...
-
-# To run npm commands
-$ docker compose exec npm npm install
+$ docker compose exec app npm install
 ```
 
 ## Container Management

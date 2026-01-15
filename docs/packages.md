@@ -21,7 +21,7 @@ To install/update packages:
 
 ```shell
 $ docker compose exec app npm add ...
-$ docker compose exec npm update
+$ docker compose exec app npm update
 ```
 
 ### PHP
