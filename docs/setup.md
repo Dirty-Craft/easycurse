@@ -10,7 +10,7 @@ $ docker compose exec app bash setup.sh
 # It simply contains standard Laravel setup commands + some additional stuff
 ```
 
-In `src/.env`, add CurseForge API key:
+In `src/.env`, add CurseForge API key (see the [CurseForge guide](https://support.curseforge.com/en/support/solutions/articles/9000208346) on how to get an API key):
 
 ```
 CURSEFORGE_API_KEY=...
