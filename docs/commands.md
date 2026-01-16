@@ -75,6 +75,84 @@ For each mod pack with a reminder set, the command:
 
 Emails include a message indicating that all mods in the mod pack now have compatible versions for the target Minecraft version and loader, with a link to view the mod pack.
 
+### `user:upgrade-premium`
+
+Upgrades a user to premium status or extends their existing premium subscription.
+
+- **Command**: `docker compose exec app php artisan user:upgrade-premium {user} [--until=DATE] [--days=DAYS]`
+- **Implementation**: `src/app/Console/Commands/UpgradeUserToPremium.php`
+- **Schedule**: Not scheduled (manual command only)
+
+#### Usage
+
+The command accepts a user identifier (ID or email) and either a target date (`--until`) or number of days to add (`--days`).
+
+**Basic syntax:**
+```bash
+# Upgrade user by ID, adding 30 days
+docker compose exec app php artisan user:upgrade-premium 123 --days=30
+
+# Upgrade user by email, setting expiration date
+docker compose exec app php artisan user:upgrade-premium user@example.com --until=2024-12-31
+```
+
+#### Parameters
+
+- **`user`** (required): The user ID (numeric) or email address to upgrade
+- **`--until=DATE`** (optional): Set premium expiration to a specific date
+  - Accepts various date formats: `Y-m-d` (e.g., `2024-12-31`), relative dates (e.g., `+30 days`, `next month`)
+  - If the date is in the past, the command will warn and ask for confirmation
+- **`--days=DAYS`** (optional): Add a number of days to the current premium expiration
+  - For non-premium users: Adds days from the current date
+  - For premium users: Extends the current expiration date by the specified number of days
+  - Must be a positive integer
+
+#### How it works
+
+1. **User lookup**: The command first tries to find the user by ID (if numeric), then falls back to email lookup
+2. **Date calculation**: 
+   - If `--until` is provided: Parses the date and validates it
+   - If `--days` is provided: Calculates the new expiration based on current status
+3. **Information display**: Shows a comprehensive preview including:
+   - User details (ID, name, email)
+   - Current premium status (Not Premium, Premium (Active), or Premium (Expired))
+   - Current expiration date (if applicable)
+   - New premium status preview
+   - Days difference or duration
+4. **Confirmation**: Always prompts for confirmation before making changes
+5. **Update**: Updates the `premium_until` field in the `users` table
+
+#### Examples
+
+**Extend premium for 30 days:**
+```bash
+docker compose exec app php artisan user:upgrade-premium 1 --days=30
+```
+
+**Set premium until a specific date:**
+```bash
+docker compose exec app php artisan user:upgrade-premium user@example.com --until=2024-12-31
+```
+
+**Upgrade non-premium user using relative date:**
+```bash
+docker compose exec app php artisan user:upgrade-premium 5 --until="+90 days"
+```
+
+**Extend existing premium subscription:**
+```bash
+# If user's premium expires in 10 days, adding 30 days extends it to 40 days from now
+docker compose exec app php artisan user:upgrade-premium 1 --days=30
+```
+
+#### Safety features
+
+- **Validation**: Validates user existence, date formats, and days values
+- **Confirmation required**: Always asks for confirmation before applying changes
+- **Preview display**: Shows exactly what will change before applying
+- **Past date warning**: Warns and asks for confirmation when setting dates in the past
+- **Error handling**: Provides clear error messages for invalid inputs
+
 ## Running Commands
 
 Commands can be run manually using:
