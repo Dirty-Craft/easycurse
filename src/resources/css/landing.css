@@ -668,6 +668,40 @@ html[lang="en"] .hero-title {
     background: var(--color-background-light);
 }
 
+.demo-video-fullscreen-btn {
+    position: absolute;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    background: rgb(0 0 0 / 60%);
+    border: 1px solid rgb(255 255 255 / 20%);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm);
+    color: var(--color-text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-base);
+    backdrop-filter: blur(8px);
+    z-index: 10;
+}
+
+.demo-video-fullscreen-btn:hover {
+    background: rgb(0 0 0 / 80%);
+    border-color: var(--color-primary);
+    transform: scale(1.1);
+}
+
+.demo-video-fullscreen-btn:active {
+    transform: scale(0.95);
+}
+
+.demo-video-fullscreen-btn svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentcolor;
+}
+
 /* Benefits Section */
 .benefits {
     background: var(--color-background);
@@ -766,12 +800,32 @@ html[lang="en"] .hero-title {
     gap: var(--spacing-lg);
     padding: var(--spacing-lg);
     border-radius: var(--radius-lg);
-    transition: all var(--transition-base);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid transparent;
+}
+
+.visual-item.active {
+    background: rgb(0 217 255 / 15%);
+    border: 2px solid var(--color-primary);
+    box-shadow: 
+        0 0 20px rgb(0 217 255 / 30%),
+        0 4px 12px rgb(0 217 255 / 20%);
+    transform: scale(1.02);
+    will-change: transform, background, border, box-shadow;
 }
 
 .visual-item.updating {
     background: rgb(0 217 255 / 10%);
     border: 1px solid rgb(0 217 255 / 30%);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.visual-item.active.updating {
+    background: rgb(0 217 255 / 15%);
+    border: 2px solid var(--color-primary);
+    box-shadow: 
+        0 0 20px rgb(0 217 255 / 30%),
+        0 4px 12px rgb(0 217 255 / 20%);
     animation: pulse 2s ease-in-out infinite;
 }
 

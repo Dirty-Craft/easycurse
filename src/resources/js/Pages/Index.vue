@@ -162,6 +162,7 @@
                         <div class="demo-video-container">
                             <div class="demo-video-wrapper">
                                 <video
+                                    ref="demoVideo"
                                     class="demo-video"
                                     src="/demo.mp4"
                                     autoplay
@@ -169,6 +170,31 @@
                                     muted
                                     playsinline
                                 ></video>
+                                <button
+                                    class="demo-video-fullscreen-btn"
+                                    :aria-label="
+                                        t(
+                                            'landing.how_it_works.video_fullscreen',
+                                        )
+                                    "
+                                    @click="toggleFullscreen"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="24"
+                                        height="24"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                    >
+                                        <path
+                                            d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"
+                                        ></path>
+                                    </svg>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -294,6 +320,10 @@
                                 <span class="benefit-icon">✓</span>
                                 <span>{{ t("landing.benefits.item5") }}</span>
                             </li>
+                            <li class="benefit-item">
+                                <span class="benefit-icon">✓</span>
+                                <span>{{ t("landing.benefits.item6") }}</span>
+                            </li>
                         </ul>
                         <div class="benefits-visual">
                             <div class="visual-card">
@@ -305,7 +335,10 @@
                                     </div>
                                 </div>
                                 <div class="visual-content">
-                                    <div class="visual-item">
+                                    <div
+                                        class="visual-item"
+                                        :class="{ active: activeStep === 0 }"
+                                    >
                                         <div class="visual-icon">📦</div>
                                         <div class="visual-text">
                                             <div class="visual-title">
@@ -333,7 +366,13 @@
                                         </div>
                                     </div>
                                     <div class="visual-divider"></div>
-                                    <div class="visual-item updating">
+                                    <div
+                                        class="visual-item"
+                                        :class="{
+                                            active: activeStep === 1,
+                                            updating: activeStep === 1,
+                                        }"
+                                    >
                                         <div class="visual-icon">🔄</div>
                                         <div class="visual-text">
                                             <div class="visual-title">
@@ -354,7 +393,10 @@
                                         </div>
                                     </div>
                                     <div class="visual-divider"></div>
-                                    <div class="visual-item">
+                                    <div
+                                        class="visual-item"
+                                        :class="{ active: activeStep === 2 }"
+                                    >
                                         <div class="visual-icon">✅</div>
                                         <div class="visual-text">
                                             <div class="visual-title">
@@ -392,7 +434,9 @@
             <section class="section stats">
                 <div class="container">
                     <div class="section-header">
-                        <div class="section-badge">STATS</div>
+                        <div class="section-badge">
+                            {{ t("landing.stats.badge") }}
+                        </div>
                     </div>
                     <div class="stats-grid">
                         <div class="stat-card">
@@ -403,7 +447,9 @@
                                     )
                                 }}
                             </div>
-                            <div class="stat-label">Mod Packs</div>
+                            <div class="stat-label">
+                                {{ t("landing.stats.mod_packs") }}
+                            </div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-number">
@@ -411,7 +457,9 @@
                                     formatNumber($page.props.stats.total_users)
                                 }}
                             </div>
-                            <div class="stat-label">Users</div>
+                            <div class="stat-label">
+                                {{ t("landing.stats.users") }}
+                            </div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-number">
@@ -421,7 +469,9 @@
                                     )
                                 }}
                             </div>
-                            <div class="stat-label">Downloads</div>
+                            <div class="stat-label">
+                                {{ t("landing.stats.downloads") }}
+                            </div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-number">
@@ -431,7 +481,9 @@
                                     )
                                 }}
                             </div>
-                            <div class="stat-label">Java Runs</div>
+                            <div class="stat-label">
+                                {{ t("landing.stats.java_runs") }}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -486,15 +538,6 @@
                             </h3>
                             <p class="feature-description">
                                 {{ t("landing.features.storage.description") }}
-                            </p>
-                        </div>
-                        <div class="feature-card">
-                            <div class="feature-icon">🛡️</div>
-                            <h3 class="feature-title">
-                                {{ t("landing.features.updated.title") }}
-                            </h3>
-                            <p class="feature-description">
-                                {{ t("landing.features.updated.description") }}
                             </p>
                         </div>
                         <div class="feature-card">
@@ -600,12 +643,30 @@
 </template>
 
 <script setup>
+import { ref, onMounted, onUnmounted } from "vue";
 import { Head } from "@inertiajs/vue3";
 import AppLayout from "../Layouts/AppLayout.vue";
 import Button from "../Components/Button.vue";
 import { useTranslations } from "../composables/useTranslations";
 
 const { t } = useTranslations();
+
+const activeStep = ref(0);
+const demoVideo = ref(null);
+let animationInterval = null;
+
+onMounted(() => {
+    // Cycle through steps 0, 1, 2 every 2 seconds
+    animationInterval = setInterval(() => {
+        activeStep.value = (activeStep.value + 1) % 3;
+    }, 2000);
+});
+
+onUnmounted(() => {
+    if (animationInterval) {
+        clearInterval(animationInterval);
+    }
+});
 
 const formatNumber = (num) => {
     if (num >= 1000000) {
@@ -627,6 +688,22 @@ const scrollToSection = (event) => {
                 block: "start",
             });
         }
+    }
+};
+
+const toggleFullscreen = async () => {
+    if (!demoVideo.value) return;
+
+    try {
+        if (!document.fullscreenElement) {
+            await demoVideo.value.requestFullscreen();
+        } else {
+            await document.exitFullscreen();
+        }
+    } catch (error) {
+        // Fallback for browsers that don't support fullscreen API
+        // eslint-disable-next-line no-console
+        console.error("Error toggling fullscreen:", error);
     }
 };
 </script>
