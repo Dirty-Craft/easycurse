@@ -40,3 +40,7 @@ EasyCurse is a mod management platform that helps Minecraft players build and ma
 - Update entire mod packs in seconds when Minecraft version changes
 
 Watch the demo video: [demo.mp4](src/public/demo.mp4)
+
+## Contributing
+
+If you're interested in contributing to EasyCurse, please read our [Contributing Guide](CONTRIBUTING.md) for branch naming conventions, commit message guidelines, and development requirements.
