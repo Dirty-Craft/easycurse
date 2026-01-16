@@ -13,7 +13,6 @@ services:
     working_dir: /var/www
     volumes:
       - ./src/:/var/www/
-      - ./docs/:/var/www/docs
       - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
       - ./docker/virtual:/shared/virtual
     networks:
