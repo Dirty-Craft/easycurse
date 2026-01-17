@@ -1064,7 +1064,7 @@ html[lang="en"] .hero-title {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: var(--spacing-4xl);
+    gap: var(--spacing-2xl);
     max-width: 900px;
     margin: 0 auto;
     flex-wrap: wrap;
@@ -1076,7 +1076,7 @@ html[lang="en"] .hero-title {
     padding: var(--spacing-lg);
     transition: all var(--transition-base);
     flex: 1;
-    min-width: 150px;
+    min-width: 180px;
 }
 
 .stat-card::after {
