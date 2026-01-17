@@ -2,3 +2,8 @@
 
 /docker/virtual/*
 !/docker/virtual/runner.sh
+
+/docker/backup/*
+!/docker/backup/backup.sh
+
+.DS_Store

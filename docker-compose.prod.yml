@@ -81,7 +81,7 @@ services:
     networks:
       - easycurse-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -u root -p${MARIADB_ROOT_PASSWORD} || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -120,6 +120,29 @@ services:
         echo 'Docker daemon is ready, starting runner.sh...'
         chmod +x /shared/virtual/runner.sh
         exec /shared/virtual/runner.sh
+      "
+  backuper:
+    image: alpine:latest
+    container_name: easycurse-backuper
+    restart: unless-stopped
+    volumes:
+      - ./docker/backup:/backup
+    networks:
+      - easycurse-network
+    environment:
+      DB_HOST: db
+      DB_NAME: ${DB_NAME:-easycurse_db}
+      DB_USER: root
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-toor}
+      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 2 * * *}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "
+        apk add --no-cache mariadb-client zip bash &&
+        chmod +x /backup/backup.sh &&
+        exec /backup/backup.sh
       "
 volumes:
   db_data:
