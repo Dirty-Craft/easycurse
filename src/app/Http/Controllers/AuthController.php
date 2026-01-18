@@ -76,7 +76,9 @@ class AuthController extends Controller
 
         Auth::login($user);
 
-        return redirect('/mod-packs');
+        $user->sendEmailVerificationNotification();
+
+        return redirect()->route('verification.notice')->with('status', __('messages.auth.verification_sent'));
     }
 
     /**
@@ -230,5 +232,67 @@ class AuthController extends Controller
         $user->save();
 
         return back()->with('status', __('messages.auth.profile_updated'));
+    }
+
+    /**
+     * Show the email verification notice page.
+     */
+    public function showVerificationNotice()
+    {
+        $user = Auth::user();
+
+        if ($user->hasVerifiedEmail()) {
+            return redirect('/mod-packs');
+        }
+
+        return Inertia::render('Auth/VerifyEmail', [
+            'user' => $user,
+        ]);
+    }
+
+    /**
+     * Mark the user's email as verified.
+     */
+    public function verify(Request $request, string $id, string $hash)
+    {
+        $user = User::findOrFail($id);
+
+        if (! hash_equals((string) $hash, sha1($user->getEmailForVerification()))) {
+            abort(403);
+        }
+
+        if ($user->hasVerifiedEmail()) {
+            // If user is authenticated and already verified, redirect to mod-packs
+            if (Auth::check() && Auth::id() === $user->id) {
+                return redirect('/mod-packs')->with('status', __('messages.auth.email_already_verified'));
+            }
+
+            return redirect()->route('login')->with('status', __('messages.auth.email_already_verified'));
+        }
+
+        if ($user->markEmailAsVerified()) {
+            event(new \Illuminate\Auth\Events\Verified($user));
+        }
+
+        // If user is authenticated, redirect to mod-packs, otherwise to login
+        if (Auth::check() && Auth::id() === $user->id) {
+            return redirect('/mod-packs')->with('status', __('messages.auth.email_verified'));
+        }
+
+        return redirect()->route('login')->with('status', __('messages.auth.email_verified'));
+    }
+
+    /**
+     * Resend the email verification notification.
+     */
+    public function resendVerification(Request $request)
+    {
+        if ($request->user()->hasVerifiedEmail()) {
+            return redirect('/mod-packs');
+        }
+
+        $request->user()->sendEmailVerificationNotification();
+
+        return redirect()->route('verification.notice')->with('status', __('messages.auth.verification_sent'));
     }
 }

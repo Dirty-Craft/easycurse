@@ -30,8 +30,17 @@ Route::middleware('guest')->group(function () {
     Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.update');
 });
 
+// Email verification route (accessible to both guests and authenticated users)
+Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verify'])->middleware('signed')->name('verification.verify');
+
+// Email verification routes
 Route::middleware('auth')->group(function () {
+    Route::get('/email/verify', [AuthController::class, 'showVerificationNotice'])->name('verification.notice');
+    Route::post('/email/verification-notification', [AuthController::class, 'resendVerification'])->name('verification.send');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile', [AuthController::class, 'showProfile'])->name('profile');
     Route::put('/profile', [AuthController::class, 'updateProfile'])->name('profile.update');
     Route::get('/change-password', [AuthController::class, 'showChangePassword'])->name('password.change');

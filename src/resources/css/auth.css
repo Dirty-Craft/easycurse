@@ -57,6 +57,21 @@
     font-family: var(--font-family-base);
 }
 
+.auth-content {
+    margin-bottom: var(--spacing-xl);
+}
+
+.auth-text {
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.6;
+    margin-bottom: var(--spacing-md);
+}
+
+.auth-text:last-child {
+    margin-bottom: 0;
+}
+
 .auth-form {
     display: flex;
     flex-direction: column;
@@ -87,11 +102,29 @@
     color: var(--color-primary-light);
 }
 
+.auth-link-text {
+    color: var(--color-primary);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color var(--transition-base);
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: inherit;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.auth-link-text:hover {
+    color: var(--color-primary-light);
+    text-decoration: underline;
+}
+
 /* Alert Styles */
 .alert {
     padding: 0.75rem 1rem;
-    margin-bottom: 1rem;
-    border-radius: 0.375rem;
+    margin-bottom: var(--spacing-lg);
+    border-radius: var(--radius-md);
     border: 1px solid;
 }
 

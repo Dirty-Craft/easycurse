@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class RegisterTest extends TestCase
@@ -42,6 +43,8 @@ class RegisterTest extends TestCase
      */
     public function test_user_can_register_with_valid_data(): void
     {
+        Notification::fake();
+
         $response = $this->post('/register', [
             'name' => 'Test User',
             'email' => 'test@example.com',
@@ -49,12 +52,16 @@ class RegisterTest extends TestCase
             'password_confirmation' => 'password123',
         ]);
 
-        $response->assertRedirect('/mod-packs');
+        $response->assertRedirect('/email/verify');
         $this->assertDatabaseHas('users', [
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
         $this->assertAuthenticated();
+
+        $user = User::where('email', 'test@example.com')->first();
+        $this->assertNull($user->email_verified_at);
+        Notification::assertSentTo($user, \App\Notifications\VerifyEmailNotification::class);
     }
 
     /**

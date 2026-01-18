@@ -142,4 +142,26 @@ class LoginTest extends TestCase
 
         $response->assertRedirect('/mod-packs');
     }
+
+    /**
+     * Test unverified users are redirected to verification notice when accessing protected routes.
+     */
+    public function test_unverified_users_are_redirected_to_verification_notice(): void
+    {
+        $user = User::factory()->unverified()->create([
+            'email' => 'test@example.com',
+            'password' => Hash::make('password123'),
+        ]);
+
+        $this->post('/login', [
+            'email' => 'test@example.com',
+            'password' => 'password123',
+        ]);
+
+        $this->assertAuthenticatedAs($user);
+
+        // Try to access a protected route - should redirect to verification notice
+        $response = $this->get('/mod-packs');
+        $response->assertRedirect('/email/verify');
+    }
 }
