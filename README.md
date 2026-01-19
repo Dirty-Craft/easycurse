@@ -44,3 +44,7 @@ Watch the demo video: [demo.mp4](src/public/demo.mp4)
 ## Contributing
 
 If you're interested in contributing to EasyCurse, please read our [Contributing Guide](CONTRIBUTING.md) for branch naming conventions, commit message guidelines, and development requirements.
+
+## Security
+
+For information about reporting security vulnerabilities, please see our [Security Policy](SECURITY.md).
