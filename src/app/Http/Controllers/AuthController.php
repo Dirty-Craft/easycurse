@@ -37,7 +37,7 @@ class AuthController extends Controller
         if (Auth::attempt($request->only('email', 'password'), $request->boolean('remember'))) {
             $request->session()->regenerate();
 
-            return redirect()->intended('/mod-packs');
+            return Inertia::location('/mod-packs');
         }
 
         throw ValidationException::withMessages([
@@ -78,7 +78,9 @@ class AuthController extends Controller
 
         $user->sendEmailVerificationNotification();
 
-        return redirect()->route('verification.notice')->with('status', __('messages.auth.verification_sent'));
+        $request->session()->flash('status', __('messages.auth.verification_sent'));
+
+        return Inertia::location(route('verification.notice'));
     }
 
     /**
@@ -91,7 +93,7 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return Inertia::location('/');
     }
 
     /**
