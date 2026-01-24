@@ -51,8 +51,11 @@ $ docker compose -f docker-compose.prod.yml up -d
 $ docker compose exec app bash setup.sh
 ```
 
-### Database Backups
-The production setup includes an automated database backup service that runs daily. Backups are stored in the `docker/backup` directory as ZIP files containing the full database dump.
+### Backups
+The production setup includes an automated database backup service that runs daily. Backups are stored in the `docker/backup` directory as ZIP files containing:
+
+- The full database dump
+- All `logs.txt` files from `docker/virtual` directory (preserving directory structure)
 
 The backup schedule can be configured in your Docker environment file (`.env`):
 
@@ -67,6 +70,8 @@ BACKUP_SCHEDULE=0 2 * * *  # Default: 2 AM daily
 ```
 
 Backup files are named with timestamps: `backup_YYYYMMDD_HHMMSS.zip`
+
+The backup includes only `logs.txt` files from the `docker/virtual` directory, maintaining the original directory structure (e.g., `docker/virtual/subdir/logs.txt` will be backed up as `virtual/subdir/logs.txt` in the ZIP file).
 
 ## SSL
 If you are deploying this project to a server with a domain, the Docker setup can automatically handle the SSL for you.

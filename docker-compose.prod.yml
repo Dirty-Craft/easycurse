@@ -127,6 +127,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./docker/backup:/backup
+      - ./docker/virtual:/virtual
     networks:
       - easycurse-network
     environment:

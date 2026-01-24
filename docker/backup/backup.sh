@@ -53,12 +53,42 @@ perform_backup() {
     
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] Database dump created successfully"
     
-    # Create zip file
+    # Create zip file with database backup
     cd "${BACKUP_DIR}"
     if ! zip -q "${ZIP_FILE}" "${BACKUP_FILE}"; then
         echo "[$(date +'%Y-%m-%d %H:%M:%S')] Error: Failed to compress backup"
         set +e
         return 1
+    fi
+    
+    # Add logs.txt files from docker/virtual directory, preserving directory structure
+    VIRTUAL_DIR="/virtual"
+    if [ -d "${VIRTUAL_DIR}" ]; then
+        echo "[$(date +'%Y-%m-%d %H:%M:%S')] Adding logs.txt files from virtual directory..."
+        cd "${VIRTUAL_DIR}"
+        # Find all logs.txt files and add them to zip preserving directory structure
+        # Create a temporary directory to build the virtual/ structure
+        TEMP_DIR=$(mktemp -d)
+        find . -type f -name "logs.txt" | while read -r log_file; do
+            # Remove leading ./ from path
+            relative_path="${log_file#./}"
+            # Create directory structure in temp dir
+            dir_path=$(dirname "${relative_path}")
+            mkdir -p "${TEMP_DIR}/virtual/${dir_path}"
+            # Copy file to temp structure
+            cp "${log_file}" "${TEMP_DIR}/virtual/${relative_path}"
+        done
+        # Add the virtual directory structure to zip if any logs.txt files were found
+        if [ -d "${TEMP_DIR}/virtual" ] && [ "$(find "${TEMP_DIR}/virtual" -type f | wc -l)" -gt 0 ]; then
+            cd "${TEMP_DIR}"
+            zip -q -r "${ZIP_FILE}" virtual/ 2>/dev/null || true
+            echo "[$(date +'%Y-%m-%d %H:%M:%S')] Added logs.txt files to backup"
+        else
+            echo "[$(date +'%Y-%m-%d %H:%M:%S')] No logs.txt files found in virtual directory"
+        fi
+        rm -rf "${TEMP_DIR}"
+    else
+        echo "[$(date +'%Y-%m-%d %H:%M:%S')] Virtual directory not found, skipping logs.txt files"
     fi
     
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] Backup compressed: ${ZIP_FILE}"
