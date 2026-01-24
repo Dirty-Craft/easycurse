@@ -1,9 +1,26 @@
 #!/bin/sh
 
+# Function to cleanup directory, keeping only logs.txt
+cleanup_directory() {
+    local dir=$1
+    local logs_file="$dir/logs.txt"
+    
+    if [ ! -d "$dir" ]; then
+        return
+    fi
+    
+    echo "Cleaning up directory: $dir (keeping logs.txt)"
+    # Delete all files except logs.txt
+    find "$dir" -type f ! -name "logs.txt" -delete
+    # Delete all subdirectories
+    find "$dir" -mindepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
+}
+
 # Function to monitor logs and kill container when server is done
 monitor_and_kill() {
     local container_name=$1
     local logs_file=$2
+    local parent_dir=$(dirname "$logs_file")
     local wait_timeout=60  # Wait up to 60 seconds for log file to appear
     local monitor_timeout=300  # Monitor for up to 5 minutes
     local elapsed=0
@@ -17,6 +34,7 @@ monitor_and_kill() {
     if [ ! -f "$logs_file" ]; then
         echo "Warning: Log file not created for $container_name after ${wait_timeout}s, stopping container"
         docker stop "$container_name" > /dev/null 2>&1
+        cleanup_directory "$parent_dir"
         return
     fi
     
@@ -26,6 +44,7 @@ monitor_and_kill() {
         if grep -q "\[Server thread/INFO\]: Done" "$logs_file" 2>/dev/null; then
             echo "Server initialization complete for $container_name, stopping container..."
             docker stop "$container_name" > /dev/null 2>&1
+            cleanup_directory "$parent_dir"
             return
         fi
         sleep 1
@@ -35,6 +54,7 @@ monitor_and_kill() {
     # Timeout reached, kill the container
     echo "Timeout reached for $container_name (${monitor_timeout}s), stopping container..."
     docker stop "$container_name" > /dev/null 2>&1
+    cleanup_directory "$parent_dir"
 }
 
 # Function to start a Minecraft server run

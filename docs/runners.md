@@ -9,7 +9,7 @@ The runners system provides:
 - **Automated server execution**: Runs Minecraft servers in isolated Docker containers
 - **Mod pack validation**: Verifies that mod packs can start successfully
 - **Log monitoring**: Tracks server initialization and completion
-- **Resource cleanup**: Automatically stops containers when servers finish initializing
+- **Resource cleanup**: Automatically stops containers when servers finish initializing and deletes all files except `logs.txt`
 
 ## Architecture
 
@@ -40,6 +40,7 @@ The `runner.sh` script (`docker/virtual/runner.sh`) runs continuously in the `vi
 - Monitors server logs for completion message `[Server thread/INFO]: Done`
 - Automatically stops the container after server initialization completes
 - Handles timeouts (5 minutes) if completion message is not detected
+- Cleans up run directory after completion, deleting all files except `logs.txt`
 
 ### Container Execution
 
@@ -86,7 +87,7 @@ The following endpoints manage runs:
 
 ## File Structure
 
-Each run creates the following directory structure:
+Each run creates the following directory structure during execution:
 
 ```
 /shared/virtual/{run_id}/
@@ -94,12 +95,19 @@ Each run creates the following directory structure:
 │   └── {mod_files}.jar
 ├── eula.txt
 ├── run.sh
-├── runner.pick (created when ready)
+├── runner.pick (created when ready, removed before execution)
 ├── logs.txt (generated during execution)
 ├── {loader}-installer.jar (Fabric/Quilt/Forge/NeoForge)
 ├── {loader}-installer-info.txt
 ├── server.jar (vanilla or generated)
 └── {loader}-server-launch.jar (Fabric/Quilt, generated)
+```
+
+**After run completion**, the runner script automatically deletes all files and subdirectories except `logs.txt`, leaving only:
+
+```
+/shared/virtual/{run_id}/
+└── logs.txt
 ```
 
 ## Run Limits
@@ -165,6 +173,7 @@ The `runner.sh` script:
 3. Server logs written to `logs.txt`
 4. Monitoring process watches for completion
 5. Container stopped when done or timeout reached
+6. Run directory cleaned up: all files and subdirectories deleted except `logs.txt`
 
 ## Best Practices
 
@@ -172,7 +181,7 @@ When working with the runners system:
 
 1. Always check `is_completed` status before considering a run finished
 2. Handle timeout scenarios gracefully in the frontend
-3. Monitor disk space in `/shared/virtual` as runs accumulate
+3. Disk space usage is minimized as run directories are automatically cleaned up after completion (only `logs.txt` remains)
 4. Ensure Docker daemon is running in the `virtual` container
 5. Verify volume mounts are correctly configured in docker-compose
 
