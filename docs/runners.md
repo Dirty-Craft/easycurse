@@ -10,6 +10,7 @@ The runners system provides:
 - **Mod pack validation**: Verifies that mod packs can start successfully
 - **Log monitoring**: Tracks server initialization and completion
 - **Resource cleanup**: Automatically stops containers when servers finish initializing and deletes all files except `logs.txt`
+- **User-initiated stop**: The stop button in the UI signals the runner to stop the container (not just the database); the app writes `runner.stop` and the runner stops the container within about a second
 
 ## Architecture
 
@@ -36,8 +37,10 @@ When a user creates a run via `POST /mod-packs/{id}/runs`:
 The `runner.sh` script (`docker/virtual/runner.sh`) runs continuously in the `virtual` Docker container:
 
 - Polls for `runner.pick` files every second
-- When found, removes the pick file and starts a server container
+- Before starting a run, checks for `runner.stop` in that run directory; if present, removes both files and skips starting (user stopped before the run was picked)
+- When a run is picked, removes the pick file and starts a server container
 - Monitors server logs for completion message `[Server thread/INFO]: Done`
+- **User-requested stop**: Each second the monitor also checks for `runner.stop` in the run directory; if the app wrote this file (user clicked Stop), the runner runs `docker stop` on the container and cleans up
 - Automatically stops the container after server initialization completes
 - Handles timeouts (5 minutes) if completion message is not detected
 - Cleans up run directory after completion, deleting all files except `logs.txt`
@@ -81,7 +84,7 @@ The `mod_pack_runs` table tracks run execution:
 The following endpoints manage runs:
 
 - `POST /mod-packs/{id}/runs` - Create a new run
-- `POST /mod-packs/{id}/runs/{runId}/stop` - Mark a run as completed
+- `POST /mod-packs/{id}/runs/{runId}/stop` - Stop a run: marks it completed in the database and writes `runner.stop` so the virtual runner stops the container (when the run directory exists)
 - `GET /mod-packs/{id}/runs` - Get run history for a mod pack
 - `GET /mod-packs/{id}/runs/{runId}/logs` - Retrieve server logs for a run
 
@@ -96,6 +99,7 @@ Each run creates the following directory structure during execution:
 ├── eula.txt
 ├── run.sh
 ├── runner.pick (created when ready, removed before execution)
+├── runner.stop (created by app when user clicks Stop; runner removes it when stopping the container)
 ├── logs.txt (generated during execution)
 ├── {loader}-installer.jar (Fabric/Quilt/Forge/NeoForge)
 ├── {loader}-installer-info.txt
@@ -123,6 +127,8 @@ The runner script monitors `logs.txt` for the completion message:
 ```
 
 When detected, the container is automatically stopped. If the message is not found within 5 minutes, the container is stopped due to timeout.
+
+**User-requested stop**: When the user clicks Stop in the UI, the app marks the run completed and writes `runner.stop` in the run directory. The runner’s monitor loop checks for this file every second and, when present, runs `docker stop` on the container and cleans up. The container typically stops within about a second.
 
 ## Error Handling
 
@@ -161,9 +167,10 @@ The `ModPackController::createRun()` method:
 The `runner.sh` script:
 
 - Runs in an infinite loop checking for `runner.pick` files
+- Before starting a run, skips if `runner.stop` exists (user already stopped)
 - Uses `find` to locate pick files across all run directories
 - Starts server containers in background
-- Spawns monitoring processes to watch logs
+- Spawns monitoring processes to watch logs; each iteration checks for `runner.stop` and stops the container if present
 - Handles cleanup on script termination (SIGINT/SIGTERM)
 
 ### Container Lifecycle
@@ -171,9 +178,17 @@ The `runner.sh` script:
 1. Container starts with `docker run` command
 2. Executes `run.sh` which starts Minecraft server
 3. Server logs written to `logs.txt`
-4. Monitoring process watches for completion
-5. Container stopped when done or timeout reached
+4. Monitoring process watches for completion and for `runner.stop` (user-requested stop)
+5. Container stopped when done, timeout reached, or user requested stop
 6. Run directory cleaned up: all files and subdirectories deleted except `logs.txt`
+
+### Stop Run (User-requested)
+
+`ModPackController::stopRun()`:
+
+1. Authorizes and loads the run, then sets `is_completed = true`
+2. If the run directory `/shared/virtual/{runId}` exists, writes `runner.stop` there so the virtual runner (which shares the volume) stops the container
+3. Returns JSON success; the runner typically stops the container within about a second
 
 ## Best Practices
 

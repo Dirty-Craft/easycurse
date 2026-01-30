@@ -25,8 +25,14 @@ monitor_and_kill() {
     local monitor_timeout=300  # Monitor for up to 5 minutes
     local elapsed=0
     
-    # Wait for log file to be created
+    # Wait for log file to be created (and check for user-requested stop)
     while [ ! -f "$logs_file" ] && [ $elapsed -lt $wait_timeout ]; do
+        if [ -f "$parent_dir/runner.stop" ]; then
+            echo "User requested stop for $container_name, stopping container..."
+            docker stop "$container_name" > /dev/null 2>&1
+            cleanup_directory "$parent_dir"
+            return
+        fi
         sleep 1
         elapsed=$((elapsed + 1))
     done
@@ -38,9 +44,15 @@ monitor_and_kill() {
         return
     fi
     
-    # Monitor log file for completion message
+    # Monitor log file for completion message or user-requested stop
     elapsed=0
     while [ $elapsed -lt $monitor_timeout ]; do
+        if [ -f "$parent_dir/runner.stop" ]; then
+            echo "User requested stop for $container_name, stopping container..."
+            docker stop "$container_name" > /dev/null 2>&1
+            cleanup_directory "$parent_dir"
+            return
+        fi
         if grep -q "\[Server thread/INFO\]: Done" "$logs_file" 2>/dev/null; then
             echo "Server initialization complete for $container_name, stopping container..."
             docker stop "$container_name" > /dev/null 2>&1
@@ -99,12 +111,16 @@ while true; do
     if [ -n "$files" ]; then
         for file in $files; do
             if [ -f "$file" ]; then
-                echo "Processing: $file"
                 parent_dir=$(dirname "$file")
-                
+                # If user already requested stop, skip starting this run
+                if [ -f "$parent_dir/runner.stop" ]; then
+                    echo "Skipping run (stop requested): $parent_dir"
+                    rm -f "$file" "$parent_dir/runner.stop"
+                    continue
+                fi
+                echo "Processing: $file"
                 # Remove the pick file before starting to avoid reprocessing
                 rm "$file"
-                
                 # Start the server run
                 start_server_run "$parent_dir"
             fi

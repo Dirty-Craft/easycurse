@@ -18,8 +18,8 @@ class ModPackRunnerTest extends TestCase
     {
         parent::setUp();
 
-        // Mock the base directory to use a test directory
-        $this->baseDir = storage_path('app/testing/virtual');
+        // Use a test directory for virtual runs (createRun, stopRun, getRunLogs use this)
+        $this->baseDir = '/shared/virtual';
         if (! is_dir($this->baseDir)) {
             File::makeDirectory($this->baseDir, 0755, true);
         }
@@ -27,11 +27,7 @@ class ModPackRunnerTest extends TestCase
 
     protected function tearDown(): void
     {
-        // Clean up test directories
-        if (is_dir($this->baseDir)) {
-            File::deleteDirectory($this->baseDir);
-        }
-
+        // Do not delete /shared/virtual here: parallel tests (e.g. PremiumTest) may be using it.
         parent::tearDown();
     }
 
@@ -282,8 +278,7 @@ class ModPackRunnerTest extends TestCase
             'mod_pack_id' => $modPack->id,
         ]);
 
-        // Create a mock logs file
-        $logsPath = '/shared/virtual/'.$run->id.'/logs.txt';
+        $logsPath = $this->baseDir.'/'.$run->id.'/logs.txt';
         $logsDir = dirname($logsPath);
         if (! is_dir($logsDir)) {
             File::makeDirectory($logsDir, 0755, true);
@@ -358,6 +353,8 @@ class ModPackRunnerTest extends TestCase
 
     /**
      * Test that user can stop a run for their mod pack.
+     * Stop marks the run completed and, when the run directory exists,
+     * writes runner.stop so the virtual runner stops the container.
      */
     public function test_user_can_stop_run(): void
     {
@@ -383,7 +380,32 @@ class ModPackRunnerTest extends TestCase
     }
 
     /**
+     * Test that stopping a run writes runner.stop when the run directory exists,
+     * so the virtual runner (docker/virtual/runner.sh) stops the container.
+     */
+    public function test_stop_run_writes_runner_stop_when_run_directory_exists(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+        $run = ModPackRun::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'is_completed' => false,
+        ]);
+
+        $runDir = $this->baseDir.'/'.$run->id;
+        if (! is_dir($runDir)) {
+            File::makeDirectory($runDir, 0755, true);
+        }
+
+        $this->actingAs($user)->post("/mod-packs/{$modPack->id}/runs/{$run->id}/stop");
+
+        $this->assertFileExists($runDir.'/runner.stop');
+        $this->assertSame('1', file_get_contents($runDir.'/runner.stop'));
+    }
+
+    /**
      * Test that stopping a run requires authentication.
+     * Unauthenticated requests are redirected to login.
      */
     public function test_stopping_run_requires_authentication(): void
     {
@@ -398,7 +420,8 @@ class ModPackRunnerTest extends TestCase
     }
 
     /**
-     * Test that user cannot stop run for other user's mod pack.
+     * Test that user cannot stop run for another user's mod pack.
+     * Returns 404 when the mod pack does not belong to the authenticated user.
      */
     public function test_user_cannot_stop_run_for_other_user_mod_pack(): void
     {
