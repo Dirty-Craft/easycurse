@@ -373,4 +373,76 @@ class UpgradeUserToPremiumCommandTest extends TestCase
         $user->refresh();
         $this->assertNotNull($user->premium_until);
     }
+
+    /**
+     * Test that the command displays extension days when extending premium.
+     * Covers displayUserInfo branch for "Extension: +X days".
+     */
+    public function test_command_displays_extension_days_when_extending_premium(): void
+    {
+        $currentExpiration = Carbon::now()->addDays(10);
+        $user = User::factory()->create([
+            'premium_until' => $currentExpiration,
+        ]);
+
+        $this->artisan('user:upgrade-premium', [
+            'user' => $user->id,
+            '--days' => '30',
+        ])
+            ->expectsOutputToContain('Extension')
+            ->expectsConfirmation('Do you want to proceed with this upgrade?', 'yes')
+            ->assertSuccessful();
+
+        $user->refresh();
+        $expectedExpiration = $currentExpiration->copy()->addDays(30);
+        $this->assertEquals($expectedExpiration->format('Y-m-d'), $user->premium_until->format('Y-m-d'));
+    }
+
+    /**
+     * Test that the command displays "No change" when --until equals current expiration.
+     * Covers displayUserInfo branch for "No change".
+     */
+    public function test_command_displays_no_change_when_until_equals_current_expiration(): void
+    {
+        $currentExpiration = Carbon::today()->addDays(15);
+        $user = User::factory()->create([
+            'premium_until' => $currentExpiration,
+        ]);
+
+        $this->artisan('user:upgrade-premium', [
+            'user' => $user->id,
+            '--until' => $currentExpiration->format('Y-m-d'),
+        ])
+            ->expectsOutputToContain('No change')
+            ->expectsConfirmation('Do you want to proceed with this upgrade?', 'yes')
+            ->assertSuccessful();
+
+        $user->refresh();
+        $this->assertEquals($currentExpiration->format('Y-m-d'), $user->premium_until->format('Y-m-d'));
+    }
+
+    /**
+     * Test that the command displays "Change" (negative days) when --until is before current expiration.
+     * Covers displayUserInfo branch for "Change: X days".
+     */
+    public function test_command_displays_change_when_until_shortens_premium(): void
+    {
+        $currentExpiration = Carbon::now()->addDays(30);
+        $user = User::factory()->create([
+            'premium_until' => $currentExpiration,
+        ]);
+
+        $soonerDate = Carbon::now()->addDays(10);
+
+        $this->artisan('user:upgrade-premium', [
+            'user' => $user->id,
+            '--until' => $soonerDate->format('Y-m-d'),
+        ])
+            ->expectsOutputToContain('Change:')
+            ->expectsConfirmation('Do you want to proceed with this upgrade?', 'yes')
+            ->assertSuccessful();
+
+        $user->refresh();
+        $this->assertEquals($soonerDate->format('Y-m-d'), $user->premium_until->format('Y-m-d'));
+    }
 }

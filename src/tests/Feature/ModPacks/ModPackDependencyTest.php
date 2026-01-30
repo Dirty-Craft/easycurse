@@ -395,6 +395,189 @@ class ModPackDependencyTest extends TestCase
     }
 
     /**
+     * Test that dependency endpoint returns tree for Modrinth source.
+     * Covers DependencyResolutionService and ModrinthService getVersionDependencies.
+     */
+    public function test_dependency_endpoint_returns_tree_for_modrinth_source(): void
+    {
+        Cache::flush();
+
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'fabric',
+        ]);
+
+        Http::fake([
+            'api.modrinth.com/v2/version/main-version-id*' => Http::response([
+                'id' => 'main-version-id',
+                'project_id' => 'main-mod',
+                'version_number' => '1.0.0',
+                'dependencies' => [
+                    ['project_id' => 'fabric-api', 'dependency_type' => 'required'],
+                ],
+                'game_versions' => ['1.20.1'],
+                'loaders' => ['fabric'],
+                'files' => [['url' => 'https://cdn.example.com/main.jar', 'filename' => 'main.jar']],
+            ], 200),
+            'api.modrinth.com/v2/project/fabric-api/version*' => Http::response([
+                [
+                    'id' => 'dep-version-id',
+                    'project_id' => 'fabric-api',
+                    'version_number' => '0.91.0',
+                    'dependencies' => [],
+                    'game_versions' => ['1.20.1'],
+                    'loaders' => ['fabric'],
+                    'files' => [['url' => 'https://cdn.example.com/fabric-api.jar', 'filename' => 'fabric-api.jar']],
+                ],
+            ], 200),
+            'api.modrinth.com/v2/version/dep-version-id*' => Http::response([
+                'id' => 'dep-version-id',
+                'project_id' => 'fabric-api',
+                'version_number' => '0.91.0',
+                'dependencies' => [],
+                'game_versions' => ['1.20.1'],
+                'loaders' => ['fabric'],
+                'files' => [['url' => 'https://cdn.example.com/fabric-api.jar', 'filename' => 'fabric-api.jar']],
+            ], 200),
+            'api.modrinth.com/v2/project/main-mod*' => Http::response([
+                'id' => 'main-mod',
+                'slug' => 'main-mod',
+                'title' => 'Main Mod',
+            ], 200),
+            'api.modrinth.com/v2/project/fabric-api*' => Http::response([
+                'id' => 'fabric-api',
+                'slug' => 'fabric-api',
+                'title' => 'Fabric API',
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/mod-dependencies?mod_id=main-mod&file_id=main-version-id&source=modrinth");
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'tree' => [
+                'mod_id',
+                'file_id',
+                'source',
+                'dependencies' => [
+                    'required',
+                    'optional',
+                    'embedded',
+                    'incompatible',
+                ],
+            ],
+            'conflicts',
+        ]);
+
+        $data = $response->json();
+        $this->assertEquals('main-mod', $data['tree']['mod_id']);
+        $this->assertEquals('main-version-id', $data['tree']['file_id']);
+        $this->assertEquals('modrinth', $data['tree']['source']);
+        $this->assertCount(1, $data['tree']['dependencies']['required']);
+        $this->assertEquals('fabric-api', $data['tree']['dependencies']['required'][0]['mod_id']);
+    }
+
+    /**
+     * Test that dependencies are automatically added when adding a Modrinth mod.
+     * Covers ModPackController addRequiredDependencies with modrinth and ModrinthService.
+     */
+    public function test_dependencies_are_automatically_added_when_adding_modrinth_mod(): void
+    {
+        Cache::flush();
+
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'fabric',
+        ]);
+
+        Http::fake([
+            'api.modrinth.com/v2/version/main-mod-version-id*' => Http::response([
+                'id' => 'main-mod-version-id',
+                'project_id' => 'main-mod',
+                'version_number' => '1.0.0',
+                'dependencies' => [
+                    ['project_id' => 'fabric-api', 'dependency_type' => 'required'],
+                ],
+                'game_versions' => ['1.20.1'],
+                'loaders' => ['fabric'],
+                'files' => [['url' => 'https://cdn.example.com/main.jar', 'filename' => 'main.jar']],
+            ], 200),
+            'api.modrinth.com/v2/version/fabric-api-version-id*' => Http::response([
+                'id' => 'fabric-api-version-id',
+                'project_id' => 'fabric-api',
+                'version_number' => '0.91.0',
+                'dependencies' => [],
+                'game_versions' => ['1.20.1'],
+                'loaders' => ['fabric'],
+                'files' => [['url' => 'https://cdn.example.com/fabric-api.jar', 'filename' => 'fabric-api.jar']],
+            ], 200),
+            'api.modrinth.com/v2/project/main-mod/version*' => Http::response([
+                [
+                    'id' => 'main-mod-version-id',
+                    'project_id' => 'main-mod',
+                    'version_number' => '1.0.0',
+                    'dependencies' => [
+                        ['project_id' => 'fabric-api', 'dependency_type' => 'required'],
+                    ],
+                    'game_versions' => ['1.20.1'],
+                    'loaders' => ['fabric'],
+                    'files' => [['url' => 'https://cdn.example.com/main.jar', 'filename' => 'main.jar']],
+                ],
+            ], 200),
+            'api.modrinth.com/v2/project/fabric-api/version*' => Http::response([
+                [
+                    'id' => 'fabric-api-version-id',
+                    'project_id' => 'fabric-api',
+                    'version_number' => '0.91.0',
+                    'dependencies' => [],
+                    'game_versions' => ['1.20.1'],
+                    'loaders' => ['fabric'],
+                    'files' => [['url' => 'https://cdn.example.com/fabric-api.jar', 'filename' => 'fabric-api.jar']],
+                ],
+            ], 200),
+            'api.modrinth.com/v2/project/main-mod*' => Http::response([
+                'id' => 'main-mod',
+                'slug' => 'main-mod',
+                'title' => 'Main Mod',
+            ], 200),
+            'api.modrinth.com/v2/project/fabric-api*' => Http::response([
+                'id' => 'fabric-api',
+                'slug' => 'fabric-api',
+                'title' => 'Fabric API',
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/items", [
+            'mod_name' => 'Main Mod',
+            'mod_version' => '1.0.0',
+            'modrinth_project_id' => 'main-mod',
+            'modrinth_version_id' => 'main-mod-version-id',
+            'modrinth_slug' => 'main-mod',
+            'source' => 'modrinth',
+        ]);
+
+        $response->assertRedirect();
+
+        $this->assertDatabaseHas('mod_pack_items', [
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Main Mod',
+            'modrinth_project_id' => 'main-mod',
+            'is_auto_added' => false,
+        ]);
+
+        $this->assertDatabaseHas('mod_pack_items', [
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Fabric API',
+            'modrinth_project_id' => 'fabric-api',
+            'is_auto_added' => true,
+        ]);
+    }
+
+    /**
      * Test that bulk delete prevents removal if mods are required.
      */
     public function test_bulk_delete_prevents_removal_if_mods_required(): void
