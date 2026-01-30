@@ -75,7 +75,7 @@ The project includes a simple HTTP deployer (`docker/deployer.php`) that, when c
    Trigger a deployment by opening: `http://<your-host>:1234/?key=your-secret-key-here`. If the `key` matches `DEPLOYER_SECRET`, the deployer runs and responds with “Deployment successful”; otherwise it returns 401.
 
 3. **Deploy from GitHub**  
-   A [GitHub Actions workflow](.github/workflows/deploy.yml) runs on every **tag push** (e.g. `v1.0.0`) and calls your deployer as a webhook. To use it, add a **repository secret** in GitHub:
+   A [GitHub Actions workflow](../.github/workflows/deploy.yml) runs on every **tag push** (e.g. `v1.0.0`) and calls your deployer as a webhook. To use it, add a **repository secret** in GitHub:
 
    - **Settings → Secrets and variables → Actions → New repository secret**
    - Name: `DEPLOY_WEBHOOK_URL`
