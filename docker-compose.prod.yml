@@ -98,6 +98,22 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+  mail:
+    image: analogic/poste.io:latest
+    container_name: easycurse-mail
+    restart: unless-stopped
+    hostname: ${DOMAIN:-localhost}
+    volumes:
+      - poste_data:/data
+    ports:
+      - "${MAIL_SMTP_PORT:-25}:25"
+      - "${MAIL_SUBMISSION_PORT:-587}:587"
+      - "${MAIL_SMTPS_PORT:-465}:465"
+      - "${MAIL_IMAP_PORT:-143}:143"
+      - "${MAIL_IMAPS_PORT:-993}:993"
+      - "${MAIL_WEB_PORT:-8080}:80"
+    networks:
+      - easycurse-network
   virtual:
     image: docker:dind
     container_name: easycurse-virtual
@@ -149,6 +165,7 @@ volumes:
   db_data:
   redis_data:
   virtual_data:
+  poste_data:
 networks:
   easycurse-network:
     driver: bridge
