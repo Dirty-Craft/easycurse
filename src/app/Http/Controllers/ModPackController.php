@@ -1275,6 +1275,13 @@ class ModPackController extends Controller
             // Save other required files after mod loader is successfully downloaded
             $filename = $modPack->software.'.jar';
 
+            // Ensure run directory exists (e.g. may have been removed by parallel test cleanup)
+            if (! is_dir($runDir)) {
+                if (! @mkdir($runDir, 0755, true) && ! is_dir($runDir)) {
+                    throw new \RuntimeException("Failed to create run directory: {$runDir}");
+                }
+            }
+
             // Write eula.txt
             $eulaWritten = file_put_contents($runDir.'/eula.txt', 'eula=true');
             if ($eulaWritten === false) {
@@ -1568,6 +1575,7 @@ class ModPackController extends Controller
 
     /**
      * Stop (complete) a run for a mod pack.
+     * Updates DB and signals the virtual runner to stop the container via runner.stop file.
      */
     public function stopRun(Request $request, string $id, string $runId)
     {
@@ -1578,6 +1586,18 @@ class ModPackController extends Controller
         $run->update([
             'is_completed' => true,
         ]);
+
+        // Signal the virtual runner (docker/virtual/runner.sh) to stop the container
+        $virtualRunDir = '/shared/virtual/'.$runId;
+        if (is_dir($virtualRunDir)) {
+            $stopFile = $virtualRunDir.'/runner.stop';
+            if (@file_put_contents($stopFile, '1') === false) {
+                \Log::warning('Failed to write runner.stop for virtual run', [
+                    'run_id' => $runId,
+                    'path' => $stopFile,
+                ]);
+            }
+        }
 
         return response()->json([
             'message' => 'Run stopped successfully',
