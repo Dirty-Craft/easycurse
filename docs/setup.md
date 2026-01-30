@@ -51,6 +51,38 @@ $ docker compose -f docker-compose.prod.yml up -d
 $ docker compose exec app bash setup.sh
 ```
 
+### Deployer
+The project includes a simple HTTP deployer (`docker/deployer.php`) that, when called with the correct secret, runs `git pull` and redeploys the production stack.
+
+1. **Set the secret in `.env`** (copy from `.env.docker` in the root of the project if you don’t have one yet):
+
+   ```shell
+   $ cp .env.docker .env
+   ```
+
+   Then edit `.env` in the root and set:
+
+   ```
+   DEPLOYER_SECRET=your-secret-key-here
+   ```
+
+2. **Run the deployer server** (e.g. on the host or in a separate process):
+
+   ```shell
+   $ php -S 0.0.0.0:1234 docker/deployer.php
+   ```
+
+   Trigger a deployment by opening: `http://<your-host>:1234/?key=your-secret-key-here`. If the `key` matches `DEPLOYER_SECRET`, the deployer runs and responds with “Deployment successful”; otherwise it returns 401.
+
+3. **Deploy from GitHub**  
+   A [GitHub Actions workflow](.github/workflows/deploy.yml) runs on every **tag push** (e.g. `v1.0.0`) and calls your deployer as a webhook. To use it, add a **repository secret** in GitHub:
+
+   - **Settings → Secrets and variables → Actions → New repository secret**
+   - Name: `DEPLOY_WEBHOOK_URL`
+   - Value: the full deployer URL including the key, e.g. `http://your-server:1234/?key=your-secret-key-here`
+
+   When you push a tag (e.g. `git tag v1.0.0 && git push origin v1.0.0`), the workflow triggers the webhook and your server redeploys.
+
 ### Backups
 The production setup includes an automated database backup service that runs daily. Backups are stored in the `docker/backup` directory as ZIP files containing:
 
