@@ -73,6 +73,63 @@ Backup files are named with timestamps: `backup_YYYYMMDD_HHMMSS.zip`
 
 The backup includes only `logs.txt` files from the `docker/virtual` directory, maintaining the original directory structure (e.g., `docker/virtual/subdir/logs.txt` will be backed up as `virtual/subdir/logs.txt` in the ZIP file).
 
+### Mail (Poste.io)
+The production setup includes **Poste.io**, a full mail server with SMTP, IMAP, and webmail. You get:
+
+- **Sending from the app** as `noreply@easycurse.com` (Laravel uses the mail server to send transactional email).
+- **Real mailboxes** (e.g. `support@easycurse.com`, `ads@easycurse.com`, `upgrade@easycurse.com`) that can **receive** mail from the internet. Each mailbox has its own password.
+- **Webmail** where admins log in with a mailbox address and password to read inbox, reply, and manage mail.
+
+#### First-time setup (Poste.io)
+
+1. Open the mail web UI at `http://<your-host>:<MAIL_WEB_PORT>` (default port `8080`). Use your existing domain/SSL setup if you put something in front of it.
+
+2. Complete the **Poste.io first-run wizard**: set the server hostname (e.g. `mail.easycurse.com` for MX/DNS), add your domain (e.g. `easycurse.com`), and create the **admin** account.
+
+3. In the Poste.io **admin panel**, create these mailboxes (or the ones you need), each with its own password:
+   - `support@easycurse.com`
+   - `ads@easycurse.com`
+   - `upgrade@easycurse.com`
+   - `noreply@easycurse.com` (used by the app to send mail; can be send-only or a normal mailbox).
+
+4. In **`src/.env`**, set the app’s mail config so it can send as `noreply@`:
+
+   ```
+   MAIL_MAILER=smtp
+   MAIL_HOST=mail
+   MAIL_PORT=587
+   MAIL_USERNAME=noreply@easycurse.com
+   MAIL_PASSWORD=<password you set for noreply@ in Poste.io>
+   MAIL_ENCRYPTION=tls
+   MAIL_FROM_ADDRESS="noreply@easycurse.com"
+   MAIL_FROM_NAME="${APP_NAME}"
+   ```
+
+   These match `src/.env.example` except you must set `MAIL_PASSWORD`.
+
+5. **DNS (for receiving mail and deliverability):** Point your domain’s **MX** record to the host that runs the mail container (e.g. `mail.easycurse.com`). In Poste.io, use the DNS/SPF/DKIM wizards and add the records they show (SPF, DKIM, and optionally DMARC) to your domain.
+
+#### Ports and Docker env
+
+Copy the Docker env file and adjust ports if needed:
+
+```shell
+$ cp .env.docker .env
+```
+
+Relevant variables in `.env`:
+
+```
+MAIL_SMTP_PORT=25
+MAIL_SUBMISSION_PORT=587
+MAIL_SMTPS_PORT=465
+MAIL_IMAP_PORT=143
+MAIL_IMAPS_PORT=993
+MAIL_WEB_PORT=8080
+```
+
+Admins use **webmail** at `http://<your-host>:<MAIL_WEB_PORT>` (default `8080`), logging in with e.g. `support@easycurse.com` and that mailbox’s password to read and reply to mail.
+
 ## SSL
 If you are deploying this project to a server with a domain, the Docker setup can automatically handle the SSL for you.
 

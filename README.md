@@ -1,5 +1,5 @@
 # EasyCurse
-This repository contains the codebase for EasyCurse project licensed under [MIT](LICENSE).
+This repository contains the codebase for [EasyCurse](https://easycurse.com) project licensed under [MIT](LICENSE).
 
 ## Get Started
 To run the project quickly, run these commands:
