@@ -63,6 +63,7 @@ class UpgradeUserToPremiumCommandTest extends TestCase
 
     /**
      * Test that the command upgrades a non-premium user with --days option.
+     * Covers line 158: return Carbon::now()->addDays($days) when user has no/expired premium.
      */
     public function test_command_upgrades_non_premium_user_with_days(): void
     {
@@ -312,6 +313,7 @@ class UpgradeUserToPremiumCommandTest extends TestCase
 
     /**
      * Test that the command displays expired premium status correctly.
+     * Covers line 158: return Carbon::now()->addDays($days) when user has expired premium.
      */
     public function test_command_displays_expired_premium_status(): void
     {
@@ -328,6 +330,10 @@ class UpgradeUserToPremiumCommandTest extends TestCase
             ->expectsOutputToContain($expiredDate->format('Y-m-d'))
             ->expectsConfirmation('Do you want to proceed with this upgrade?', 'yes')
             ->assertSuccessful();
+
+        $user->refresh();
+        $expectedFromNow = Carbon::now()->addDays(30);
+        $this->assertEquals($expectedFromNow->format('Y-m-d'), $user->premium_until->format('Y-m-d'));
     }
 
     /**

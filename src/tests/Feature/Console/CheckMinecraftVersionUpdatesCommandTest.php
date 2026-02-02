@@ -241,6 +241,7 @@ class CheckMinecraftVersionUpdatesCommandTest extends TestCase
 
     /**
      * Test that command handles items without source metadata.
+     * Covers inferring source from curseforge_mod_id (line 60) and modrinth_project_id (line 63).
      */
     public function test_command_handles_items_without_source(): void
     {
@@ -253,6 +254,7 @@ class CheckMinecraftVersionUpdatesCommandTest extends TestCase
             'minecraft_update_reminder_software' => 'fabric',
         ]);
 
+        // Item with null source and curseforge_mod_id (covers line 60: $source = 'curseforge')
         ModPackItem::factory()->create([
             'mod_pack_id' => $modPack->id,
             'mod_name' => 'Test Mod',
@@ -260,12 +262,23 @@ class CheckMinecraftVersionUpdatesCommandTest extends TestCase
             'source' => null, // No source set
         ]);
 
-        // Mock ModService to return files
+        // Item with null source and only modrinth_project_id (covers line 63: $source = 'modrinth')
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Test Modrinth Mod Inferred',
+            'curseforge_mod_id' => null,
+            'modrinth_project_id' => 'inferred-modrinth-id',
+            'source' => null,
+        ]);
+
+        // Mock ModService to return files for both mods
         $modServiceMock = $this->createMock(ModService::class);
         $modServiceMock->method('getModFiles')
-            ->willReturn([
-                ['id' => 1, 'displayName' => 'Test Mod 1.0.0'],
-            ]);
+            ->willReturnCallback(function ($modId, $version, $software, $source) {
+                return [
+                    $source === 'curseforge' ? ['id' => 1, 'displayName' => 'Test Mod 1.0.0'] : ['id' => 'v1', 'version_number' => '1.0.0'],
+                ];
+            });
 
         $this->app->instance(ModService::class, $modServiceMock);
 
@@ -274,7 +287,7 @@ class CheckMinecraftVersionUpdatesCommandTest extends TestCase
         $this->artisan('minecraft:check-version-updates')
             ->assertSuccessful();
 
-        // Verify notification was sent
+        // Verify notification was sent (all mods compatible)
         Notification::assertSentTo(
             $user,
             MinecraftVersionUpdateAvailable::class

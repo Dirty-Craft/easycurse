@@ -18,6 +18,7 @@ class CheckModUpdatesCommandTest extends TestCase
 
     /**
      * Test that the command runs successfully.
+     * Also covers line 76: source inferred as 'modrinth' when source is null and curseforge_mod_id is null.
      */
     public function test_command_runs_successfully(): void
     {
@@ -34,6 +35,16 @@ class CheckModUpdatesCommandTest extends TestCase
             'mod_version' => '1.0.0',
             'curseforge_mod_id' => 123456,
             'source' => 'curseforge',
+        ]);
+
+        // Item with null source and only modrinth_project_id (covers line 76: $source = 'modrinth')
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Test Modrinth Mod',
+            'mod_version' => '1.0.0',
+            'curseforge_mod_id' => null,
+            'modrinth_project_id' => 'null-source-modrinth-id',
+            'source' => null,
         ]);
 
         // Mock ModService to return null (no update available)
@@ -224,6 +235,7 @@ class CheckModUpdatesCommandTest extends TestCase
 
     /**
      * Test that Modrinth mods are also checked.
+     * Uses source=null so line 76 is hit: $source = $item->source ?? ($item->curseforge_mod_id ? 'curseforge' : 'modrinth') => 'modrinth'.
      */
     public function test_modrinth_mods_are_checked(): void
     {
@@ -238,8 +250,9 @@ class CheckModUpdatesCommandTest extends TestCase
             'mod_pack_id' => $modPack->id,
             'mod_name' => 'Test Mod',
             'mod_version' => '1.0.0',
+            'curseforge_mod_id' => null,
             'modrinth_project_id' => 'test-mod-id',
-            'source' => 'modrinth',
+            'source' => null, // Infer source from modrinth_project_id (line 76)
         ]);
 
         // Mock ModService to return a newer version
@@ -526,17 +539,14 @@ class CheckModUpdatesCommandTest extends TestCase
     }
 
     /**
-     * Test that command skips when modPackItem is not found (line 119).
-     *
-     * This tests the edge case where findAffectedModPacks returns a modpack
-     * but the ModPackItem query returns null. This can happen in rare cases
-     * due to data inconsistencies or race conditions.
+     * Test that when same mod id appears with different sources, only the matching source row is processed.
+     * ModPack has curseforge 123456; ModPack2 has same id with source=modrinth (no modrinth_project_id).
+     * Only the curseforge grouped row yields a notification (line 119 is defensive when item lookup fails).
      */
     public function test_command_skips_when_mod_pack_item_not_found(): void
     {
         $user = User::factory()->create();
 
-        // Create a modpack with a valid item
         $modPack = ModPack::factory()->create([
             'user_id' => $user->id,
             'minecraft_version' => '1.20.1',
@@ -551,28 +561,25 @@ class CheckModUpdatesCommandTest extends TestCase
             'source' => 'curseforge',
         ]);
 
-        // Create another modpack with the same modId but different source
-        // This creates a scenario where the grouped query might find it,
-        // but the individual query might not match due to source mismatch
         $modPack2 = ModPack::factory()->create([
             'user_id' => $user->id,
             'minecraft_version' => '1.20.1',
             'software' => 'forge',
         ]);
 
-        // Create item with same modId but different source
-        // The grouped query groups by modId, so it will find both modpacks
-        // But when checking modPack2, if there's a source mismatch in the query,
-        // the ModPackItem might not be found (line 119)
+        // Same mod id but stored with source=modrinth (no modrinth_project_id). Grouped rows:
+        // (123456, null, curseforge) and (123456, null, modrinth). For modrinth row we get
+        // modId=123456, source=modrinth. findAffectedModPacks(123456, 'modrinth') returns mod packs
+        // with modrinth_project_id=123456. This item has modrinth_project_id=null, so modPack2
+        // is not returned. So only curseforge row is processed; one notification.
         ModPackItem::factory()->create([
             'mod_pack_id' => $modPack2->id,
             'mod_name' => 'Test Mod 2',
             'mod_version' => '1.0.0',
             'curseforge_mod_id' => 123456,
-            'source' => 'modrinth', // Different source - this might cause the query to fail
+            'source' => 'modrinth',
         ]);
 
-        // Mock ModService to return a newer version
         $latestFile = [
             'displayName' => 'Test Mod 1.1.0',
             'fileName' => 'test-mod-1.1.0.jar',
@@ -589,7 +596,6 @@ class CheckModUpdatesCommandTest extends TestCase
         $this->artisan('mods:check-updates')
             ->assertSuccessful();
 
-        // Verify notification was sent for modPack (which has matching source)
         Notification::assertSentTo($user, ModUpdateAvailable::class);
     }
 }
