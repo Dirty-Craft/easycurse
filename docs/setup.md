@@ -38,7 +38,6 @@ Then edit `.env` in the root of the project and change the ports:
 
 ```
 APP_HTTP_PORT=9091
-APP_HTTPS_PORT=443
 VITE_PORT=5173
 ...
 ```
@@ -114,7 +113,7 @@ The production setup includes **Poste.io**, a full mail server with SMTP, IMAP, 
 
 #### First-time setup (Poste.io)
 
-1. Open the mail web UI at `http://<your-host>:<MAIL_WEB_PORT>` (default port `8080`). Use your existing domain/SSL setup if you put something in front of it.
+1. Open the mail web UI at `http://<your-host>:<MAIL_WEB_PORT>` (default port `8080`).
 
 2. Complete the **Poste.io first-run wizard**: set the server hostname (e.g. `mail.easycurse.com` for MX/DNS), add your domain (e.g. `easycurse.com`), and create the **admin** account.
 
@@ -161,24 +160,6 @@ MAIL_WEB_PORT=8080
 ```
 
 Admins use **webmail** at `http://<your-host>:<MAIL_WEB_PORT>` (default `8080`), logging in with e.g. `support@easycurse.com` and that mailbox’s password to read and reply to mail.
-
-## SSL
-If you are deploying this project to a server with a domain, the Docker setup can automatically handle the SSL for you.
-
-In Docker env file:
-
-```shell
-$ cp .env.docker .env
-```
-
-Set these 2:
-
-```
-APP_HTTPS_PORT=443
-DOMAIN=...
-```
-
-The certificates will automatically be generated and configured on the webserver.
 
 ## Running Commands
 You can run any commands in the container:
