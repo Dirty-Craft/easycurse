@@ -55,7 +55,7 @@ services:
     container_name: easycurse-webserver
     restart: unless-stopped
     ports:
-      - "${APP_HTTP_PORT:-80}:80"
+      - "${APP_HTTP_PORT:-9091}:80"
     environment:
       DOMAIN: ${DOMAIN:-localhost}
     volumes:
