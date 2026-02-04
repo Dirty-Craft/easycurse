@@ -5,8 +5,8 @@ This repository contains the codebase for [EasyCurse](https://easycurse.com) pro
 To run the project quickly, run these commands:
 
 ```shell
-$ docker compose up -d
-$ docker compose exec app bash setup.sh
+docker compose up -d
+docker compose exec app bash setup.sh
 ```
 
 In `src/.env`, add CurseForge API key:

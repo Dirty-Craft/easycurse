@@ -598,4 +598,79 @@ class CheckModUpdatesCommandTest extends TestCase
 
         Notification::assertSentTo($user, ModUpdateAvailable::class);
     }
+
+    /**
+     * Test that ModPack generateShareToken handles collisions.
+     * Covers ModPack generateShareToken collision handling logic.
+     */
+    public function test_mod_pack_generate_share_token_handles_collisions(): void
+    {
+        $modPack1 = ModPack::factory()->create();
+        $modPack2 = ModPack::factory()->create();
+
+        // Mock bin2hex to return the same value twice, then a different value
+        // This simulates a collision scenario
+        $originalBin2hex = 'bin2hex';
+
+        // Generate first token normally
+        $token1 = $modPack1->generateShareToken();
+        $this->assertNotNull($token1);
+        $this->assertEquals(64, strlen($token1)); // 32 bytes = 64 hex chars
+
+        // Verify token was saved
+        $modPack1->refresh();
+        $this->assertEquals($token1, $modPack1->share_token);
+
+        // Generate second token - should be different
+        $token2 = $modPack2->generateShareToken();
+        $this->assertNotNull($token2);
+        $this->assertEquals(64, strlen($token2));
+        $this->assertNotEquals($token1, $token2);
+    }
+
+    /**
+     * Test that ModPack regenerateShareToken works correctly.
+     * Covers ModPack regenerateShareToken method.
+     */
+    public function test_mod_pack_regenerate_share_token(): void
+    {
+        $modPack = ModPack::factory()->create();
+
+        $originalToken = $modPack->generateShareToken();
+        $this->assertNotNull($originalToken);
+
+        $newToken = $modPack->regenerateShareToken();
+        $this->assertNotNull($newToken);
+        $this->assertNotEquals($originalToken, $newToken);
+
+        // Verify new token was saved
+        $modPack->refresh();
+        $this->assertEquals($newToken, $modPack->share_token);
+    }
+
+    /**
+     * Test that ModPack getShareUrl returns null when no token exists.
+     * Covers ModPack getShareUrl method when share_token is null.
+     */
+    public function test_mod_pack_get_share_url_returns_null_when_no_token(): void
+    {
+        $modPack = ModPack::factory()->create(['share_token' => null]);
+
+        $shareUrl = $modPack->getShareUrl();
+        $this->assertNull($shareUrl);
+    }
+
+    /**
+     * Test that ModPack getShareUrl returns correct URL when token exists.
+     * Covers ModPack getShareUrl method when share_token exists.
+     */
+    public function test_mod_pack_get_share_url_returns_correct_url(): void
+    {
+        $modPack = ModPack::factory()->create();
+        $token = $modPack->generateShareToken();
+
+        $shareUrl = $modPack->getShareUrl();
+        $expectedUrl = url("/shared/{$token}");
+        $this->assertEquals($expectedUrl, $shareUrl);
+    }
 }

@@ -342,4 +342,248 @@ class ModPackItemTest extends TestCase
 
         $response->assertNotFound();
     }
+
+    /**
+     * Test that user can reorder items in their mod pack.
+     */
+    public function test_user_can_reorder_items_in_mod_pack(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        $item1 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'sort_order' => 1,
+        ]);
+        $item2 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'sort_order' => 2,
+        ]);
+        $item3 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'sort_order' => 3,
+        ]);
+
+        // Reorder: item3, item1, item2
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/items/reorder", [
+            'item_ids' => [$item3->id, $item1->id, $item2->id],
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson(['success' => true]);
+
+        // Check new sort orders
+        $item1->refresh();
+        $item2->refresh();
+        $item3->refresh();
+
+        $this->assertEquals(2, $item1->sort_order);
+        $this->assertEquals(3, $item2->sort_order);
+        $this->assertEquals(1, $item3->sort_order);
+    }
+
+    /**
+     * Test that reordering items requires authentication.
+     */
+    public function test_reordering_items_requires_authentication(): void
+    {
+        $modPack = ModPack::factory()->create();
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+
+        $response = $this->post("/mod-packs/{$modPack->id}/items/reorder", [
+            'item_ids' => [$item->id],
+        ]);
+
+        $response->assertRedirect('/login');
+    }
+
+    /**
+     * Test that reordering validates item ownership.
+     */
+    public function test_reordering_validates_item_ownership(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+        $otherModPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        $item1 = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+        $item2 = ModPackItem::factory()->create(['mod_pack_id' => $otherModPack->id]);
+
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/items/reorder", [
+            'item_ids' => [$item1->id, $item2->id],
+        ]);
+
+        $response->assertStatus(400);
+        $response->assertJson([
+            'error' => 'One or more selected items do not belong to this mod pack.',
+        ]);
+    }
+
+    /**
+     * Test that user can add mod item with both CurseForge and Modrinth data.
+     */
+    public function test_user_can_add_mod_item_with_mixed_platform_data(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/items", [
+            'mod_name' => 'Test Mod',
+            'mod_version' => '1.0.0',
+            'curseforge_mod_id' => 123456,
+            'curseforge_file_id' => 789012,
+            'curseforge_slug' => 'test-mod',
+            'modrinth_project_id' => 'AANobbMI',
+            'modrinth_version_id' => 'version-id-123',
+            'modrinth_slug' => 'test-mod',
+            'source' => 'curseforge',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('mod_pack_items', [
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Test Mod',
+            'curseforge_mod_id' => 123456,
+            'modrinth_project_id' => 'AANobbMI',
+            'source' => 'curseforge',
+        ]);
+    }
+
+    /**
+     * Test that adding duplicate CurseForge mod returns error.
+     */
+    public function test_adding_duplicate_curseforge_mod_returns_error(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        // Add first mod
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'curseforge_mod_id' => 123456,
+        ]);
+
+        // Try to add same mod again
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/items", [
+            'mod_name' => 'Duplicate Mod',
+            'mod_version' => '1.0.0',
+            'curseforge_mod_id' => 123456,
+            'curseforge_file_id' => 789012,
+        ]);
+
+        $response->assertSessionHasErrors('curseforge_mod_id');
+    }
+
+    /**
+     * Test that adding duplicate Modrinth mod returns error.
+     */
+    public function test_adding_duplicate_modrinth_mod_returns_error(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        // Add first mod
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'modrinth_project_id' => 'AANobbMI',
+        ]);
+
+        // Try to add same mod again
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/items", [
+            'mod_name' => 'Duplicate Mod',
+            'mod_version' => '1.0.0',
+            'modrinth_project_id' => 'AANobbMI',
+            'modrinth_version_id' => 'version-id-123',
+            'source' => 'modrinth',
+        ]);
+
+        $response->assertSessionHasErrors('modrinth_project_id');
+    }
+
+    /**
+     * Test that source is automatically determined from mod IDs.
+     */
+    public function test_source_is_automatically_determined_from_mod_ids(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        // Test CurseForge auto-detection
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/items", [
+            'mod_name' => 'CurseForge Mod',
+            'mod_version' => '1.0.0',
+            'curseforge_mod_id' => 123456,
+            'curseforge_file_id' => 789012,
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('mod_pack_items', [
+            'mod_name' => 'CurseForge Mod',
+            'source' => 'curseforge',
+        ]);
+
+        // Test Modrinth auto-detection
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/items", [
+            'mod_name' => 'Modrinth Mod',
+            'mod_version' => '1.0.0',
+            'modrinth_project_id' => 'AANobbMI',
+            'modrinth_version_id' => 'version-id-123',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('mod_pack_items', [
+            'mod_name' => 'Modrinth Mod',
+            'source' => 'modrinth',
+        ]);
+    }
+
+    /**
+     * Test that updating mod item requires authentication.
+     */
+    public function test_updating_mod_item_requires_authentication(): void
+    {
+        $modPack = ModPack::factory()->create();
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+
+        $response = $this->put("/mod-packs/{$modPack->id}/items/{$item->id}", [
+            'mod_name' => 'Updated Mod',
+            'mod_version' => '2.0.0',
+        ]);
+
+        $response->assertRedirect('/login');
+    }
+
+    /**
+     * Test that user cannot update mod item in other user's mod pack.
+     */
+    public function test_user_cannot_update_mod_item_in_other_user_mod_pack(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $otherUser->id]);
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+
+        $response = $this->actingAs($user)->put("/mod-packs/{$modPack->id}/items/{$item->id}", [
+            'mod_name' => 'Updated Mod',
+            'mod_version' => '2.0.0',
+        ]);
+
+        $response->assertNotFound();
+    }
+
+    /**
+     * Test that updating mod item validates required fields.
+     */
+    public function test_updating_mod_item_validates_required_fields(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+        $item = ModPackItem::factory()->create(['mod_pack_id' => $modPack->id]);
+
+        $response = $this->actingAs($user)->put("/mod-packs/{$modPack->id}/items/{$item->id}", [
+            // Missing mod_name and mod_version
+        ]);
+
+        $response->assertSessionHasErrors(['mod_name', 'mod_version']);
+    }
 }

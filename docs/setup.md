@@ -4,8 +4,8 @@ This project uses **Docker** and **Docker Compose** for the setup process in bot
 Then, you can simply set up the project using these commands in the root of the project:
 
 ```shell
-$ docker compose up -d
-$ docker compose exec app bash setup.sh
+docker compose up -d
+docker compose exec app bash setup.sh
 # Re-running this command will not ruin anything, so feel free to do that to get a clean setup anytime (e.g. after pulling someone else's branch) instead of running each command manually
 # It simply contains standard Laravel setup commands + some additional stuff
 ```
@@ -31,7 +31,7 @@ Now, the portal will be accessible at http://localhost:9091.
 You can change the default ports using the Docker environment file:
 
 ```shell
-$ cp .env.docker .env
+cp .env.docker .env
 ```
 
 Then edit `.env` in the root of the project and change the ports:
@@ -47,8 +47,8 @@ VITE_PORT=5173
 If you want to set up the project on a production server, you should use a different Docker Compose file:
 
 ```shell
-$ docker compose -f docker-compose.prod.yml up -d
-$ docker compose exec app bash setup.sh
+docker compose -f docker-compose.prod.yml up -d
+docker compose exec app bash setup.sh
 ```
 
 ### Deployer
@@ -57,7 +57,7 @@ The project includes a simple HTTP deployer (`docker/deployer.php`) that, when c
 1. **Set the secret in `.env`** (copy from `.env.docker` in the root of the project if you don’t have one yet):
 
    ```shell
-   $ cp .env.docker .env
+   cp .env.docker .env
    ```
 
    Then edit `.env` in the root and set:
@@ -92,7 +92,7 @@ The production setup includes an automated database backup service that runs dai
 The backup schedule can be configured in your Docker environment file (`.env`):
 
 ```shell
-$ cp .env.docker .env
+cp .env.docker .env
 ```
 
 Then set the backup schedule (cron format: `MINUTE HOUR * * *`):
@@ -146,7 +146,7 @@ The production setup includes **Poste.io**, a full mail server with SMTP, IMAP, 
 Copy the Docker env file and adjust ports if needed:
 
 ```shell
-$ cp .env.docker .env
+cp .env.docker .env
 ```
 
 Relevant variables in `.env`:
@@ -168,7 +168,7 @@ If you are deploying this project to a server with a domain, the Docker setup ca
 In Docker env file:
 
 ```shell
-$ cp .env.docker .env
+cp .env.docker .env
 ```
 
 Set these 2:
@@ -184,17 +184,17 @@ The certificates will automatically be generated and configured on the webserver
 You can run any commands in the container:
 
 ```shell
-$ docker compose exec app php artisan make:controller ...
-$ docker compose exec app npm install
+docker compose exec app php artisan make:controller ...
+docker compose exec app npm install
 ```
 
 ## Container Management
 To stop/restart/rebuild the containers:
 
 ```shell
-$ docker compose down
-$ docker compose restart
-$ docker compose build
+docker compose down
+docker compose restart
+docker compose build
 ```
 
 ## Directory Structure

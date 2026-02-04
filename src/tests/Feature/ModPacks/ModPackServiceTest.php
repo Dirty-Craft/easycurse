@@ -116,6 +116,172 @@ class ModPackServiceTest extends TestCase
     }
 
     /**
+     * Test that ModService handles exceptions in getModFiles gracefully.
+     * Covers ModService exception handling in getModFiles method.
+     */
+    public function test_mod_service_handles_get_mod_files_exceptions(): void
+    {
+        // Mock CurseForgeService to throw exception
+        $curseForgeServiceMock = $this->createMock(\App\Services\CurseForgeService::class);
+        $curseForgeServiceMock->method('getModFiles')
+            ->willThrowException(new \Exception('API Error'));
+
+        $modrinthServiceMock = $this->createMock(\App\Services\ModrinthService::class);
+        $modrinthServiceMock->method('getProjectVersions')
+            ->willReturn([]);
+
+        $modService = new \App\Services\ModService($curseForgeServiceMock, $modrinthServiceMock);
+
+        // Should handle exception gracefully and return empty array
+        $result = $modService->getModFiles(123456, '1.20.1', 'forge', 'curseforge');
+        $this->assertIsArray($result);
+        $this->assertEmpty($result);
+    }
+
+    /**
+     * Test that ModService handles exceptions in getModFiles for Modrinth.
+     * Covers ModService exception handling in getModFiles method for Modrinth.
+     */
+    public function test_mod_service_handles_modrinth_get_mod_files_exceptions(): void
+    {
+        // Mock ModrinthService to throw exception
+        $modrinthServiceMock = $this->createMock(\App\Services\ModrinthService::class);
+        $modrinthServiceMock->method('getProjectVersions')
+            ->willThrowException(new \Exception('API Error'));
+
+        $curseForgeServiceMock = $this->createMock(\App\Services\CurseForgeService::class);
+        $curseForgeServiceMock->method('getModFiles')
+            ->willReturn([]);
+
+        $modService = new \App\Services\ModService($curseForgeServiceMock, $modrinthServiceMock);
+
+        // Should handle exception gracefully and return empty array
+        $result = $modService->getModFiles('test-mod', '1.20.1', 'fabric', 'modrinth');
+        $this->assertIsArray($result);
+        $this->assertEmpty($result);
+    }
+
+    /**
+     * Test that ModService getMod method handles both sources correctly.
+     * Covers ModService getMod method with different source parameters.
+     */
+    public function test_mod_service_get_mod_handles_both_sources(): void
+    {
+        // Test CurseForge source
+        $curseForgeServiceMock = $this->createMock(\App\Services\CurseForgeService::class);
+        $curseForgeServiceMock->method('getMod')
+            ->with(123456)
+            ->willReturn([
+                'id' => 123456,
+                'title' => 'Test Mod',
+                'slug' => 'test-mod',
+            ]);
+
+        $modrinthServiceMock = $this->createMock(\App\Services\ModrinthService::class);
+
+        $modService = new \App\Services\ModService($curseForgeServiceMock, $modrinthServiceMock);
+
+        $result = $modService->getMod(123456, 'curseforge');
+        $this->assertIsArray($result);
+        $this->assertEquals(123456, $result['id']);
+        $this->assertEquals('Test Mod', $result['name']); // Normalized from 'title'
+        $this->assertEquals('curseforge', $result['_source']);
+
+        // Test Modrinth source
+        $modrinthServiceMock->method('getProject')
+            ->with('test-mod')
+            ->willReturn([
+                'project_id' => 'test-mod',
+                'title' => 'Test Mod',
+                'slug' => 'test-mod',
+            ]);
+
+        $result = $modService->getMod('test-mod', 'modrinth');
+        $this->assertIsArray($result);
+        $this->assertEquals('test-mod', $result['id']); // Normalized from 'project_id'
+        $this->assertEquals('Test Mod', $result['name']); // Normalized from 'title'
+        $this->assertEquals('modrinth', $result['_source']);
+    }
+
+    /**
+     * Test that ModService searchModBySlug normalizes field names correctly.
+     * Covers ModService searchModBySlug field normalization logic.
+     */
+    public function test_mod_service_search_mod_by_slug_normalizes_fields(): void
+    {
+        $curseForgeServiceMock = $this->createMock(\App\Services\CurseForgeService::class);
+        $curseForgeServiceMock->method('searchModBySlug')
+            ->with('test-mod')
+            ->willReturn([
+                'id' => 123456,
+                'title' => 'Test Mod', // Will be normalized to 'name'
+                'slug' => 'test-mod',
+            ]);
+
+        $modrinthServiceMock = $this->createMock(\App\Services\ModrinthService::class);
+        $modrinthServiceMock->method('searchModBySlug')
+            ->with('test-mod')
+            ->willReturn([
+                'project_id' => 'test-mod', // Will be normalized to 'id'
+                'title' => 'Test Mod', // Will be normalized to 'name'
+                'slug' => 'test-mod',
+            ]);
+
+        $modService = new \App\Services\ModService($curseForgeServiceMock, $modrinthServiceMock);
+
+        $results = $modService->searchModBySlug('test-mod');
+        $this->assertCount(2, $results);
+
+        // Check CurseForge result
+        $this->assertEquals('Test Mod', $results[0]['name']);
+        $this->assertEquals('curseforge', $results[0]['_source']);
+
+        // Check Modrinth result
+        $this->assertEquals('test-mod', $results[1]['id']);
+        $this->assertEquals('Test Mod', $results[1]['name']);
+        $this->assertEquals('modrinth', $results[1]['_source']);
+    }
+
+    /**
+     * Test that ModService getFileDependencies method works correctly.
+     * Covers ModService getFileDependencies method.
+     */
+    public function test_mod_service_get_file_dependencies_works_correctly(): void
+    {
+        $curseForgeServiceMock = $this->createMock(\App\Services\CurseForgeService::class);
+        $curseForgeServiceMock->method('getFileDependencies')
+            ->willReturn([
+                'required' => [123456],
+                'optional' => [789012],
+                'embedded' => [],
+                'incompatible' => [],
+            ]);
+
+        $modrinthServiceMock = $this->createMock(\App\Services\ModrinthService::class);
+        $modrinthServiceMock->method('getVersionDependencies')
+            ->willReturn([
+                'required' => ['fabric-api'],
+                'optional' => ['mod-menu'],
+                'embedded' => [],
+                'incompatible' => [],
+            ]);
+
+        $modService = new \App\Services\ModService($curseForgeServiceMock, $modrinthServiceMock);
+
+        // Test CurseForge file
+        $fileData = ['id' => 789012, 'dependencies' => []];
+        $result = $modService->getFileDependencies($fileData, 'curseforge');
+        $this->assertIsArray($result);
+        $this->assertContains(123456, $result['required']);
+
+        // Test Modrinth version
+        $versionData = ['id' => 'version-123', 'dependencies' => []];
+        $result = $modService->getFileDependencies($versionData, 'modrinth');
+        $this->assertIsArray($result);
+        $this->assertContains('fabric-api', $result['required']);
+    }
+
+    /**
      * Test that mod items without CurseForge IDs are copied as-is.
      */
     public function test_mod_items_without_curseforge_ids_are_copied_as_is(): void

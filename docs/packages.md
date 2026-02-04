@@ -9,9 +9,9 @@ Here is a list of additionally installed [Composer packages](../src/composer.jso
 To install/update packages:
 
 ```shell
-$ docker compose exec app composer require ...
-$ docker compose exec app composer install
-$ docker compose exec app composer update
+docker compose exec app composer require ...
+docker compose exec app composer install
+docker compose exec app composer update
 ```
 
 ### NPM
@@ -26,8 +26,8 @@ $ docker compose exec app composer update
 To install/update packages:
 
 ```shell
-$ docker compose exec app npm add ...
-$ docker compose exec app npm update
+docker compose exec app npm add ...
+docker compose exec app npm update
 ```
 
 ### PHP
