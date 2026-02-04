@@ -16,10 +16,10 @@ if (!isset($deployerSecret)) {
 }
 
 if ($secret === $deployerSecret) {
-    exec('git pull');
-    exec('docker-compose -f docker-compose.prod.yml down');
-    exec('docker-compose -f docker-compose.prod.yml up -d --build --force-recreate');
-    exec('docker-compose -f docker-compose.prod.yml exec app bash setup.sh');
+    system('git pull');
+    system('docker-compose -f docker-compose.prod.yml down');
+    system('docker-compose -f docker-compose.prod.yml up -d --build --force-recreate');
+    system('docker-compose -f docker-compose.prod.yml exec app bash setup.sh');
     echo 'Deployment successful';
 } else {
     http_response_code(401);
