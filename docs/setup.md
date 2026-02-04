@@ -75,13 +75,13 @@ The project includes a simple HTTP deployer (`docker/deployer.php`) that, when c
    Trigger a deployment by opening: `http://<your-host>:1234/?key=your-secret-key-here`. If the `key` matches `DEPLOYER_SECRET`, the deployer runs and responds with “Deployment successful”; otherwise it returns 401.
 
 3. **Deploy from GitHub**  
-   A [GitHub Actions workflow](../.github/workflows/deploy.yml) runs on every **tag push** (e.g. `v1.0.0`) and calls your deployer as a webhook. To use it, add a **repository secret** in GitHub:
+   A [GitHub Actions workflow](../.github/workflows/deploy.yml) runs on every **push to the production branch** and calls your deployer as a webhook. To use it, add a **repository secret** in GitHub:
 
    - **Settings → Secrets and variables → Actions → New repository secret**
    - Name: `DEPLOY_WEBHOOK_URL`
    - Value: the full deployer URL including the key, e.g. `http://your-server:1234/?key=your-secret-key-here`
 
-   When you push a tag (e.g. `git tag v1.0.0 && git push origin v1.0.0`), the workflow triggers the webhook and your server redeploys.
+   When you push to the production branch (e.g. `git push origin production`), the workflow triggers the webhook and your server redeploys.
 
 ### Backups
 The production setup includes an automated database backup service that runs daily. Backups are stored in the `docker/backup` directory as ZIP files containing:
