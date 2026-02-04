@@ -9,7 +9,7 @@ services:
     environment:
       SERVICE_NAME: app
       SERVICE_TAGS: dev
-      IS_PROD: true
+      IS_PROD: "true"
     working_dir: /var/www
     volumes:
       - ./src/:/var/www/
