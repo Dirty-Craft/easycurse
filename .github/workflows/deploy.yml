@@ -2,8 +2,8 @@ name: Deploy
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - "production"
 
 jobs:
   deploy:
@@ -11,11 +11,4 @@ jobs:
     steps:
       - name: Trigger deployment webhook
         run: |
-          response=$(curl -s -w "\n%{http_code}" "${{ secrets.DEPLOY_WEBHOOK_URL }}")
-          http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | sed '$d')
-          echo "$body"
-          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
-            echo "Webhook returned HTTP $http_code"
-            exit 1
-          fi
+          curl --fail --connect-timeout 10 "${{ secrets.DEPLOY_WEBHOOK_URL }}"

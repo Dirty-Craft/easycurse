@@ -66,9 +66,7 @@ services:
     depends_on:
       - app
   webserver:
-    build:
-      context: .
-      dockerfile: docker/nginx/Dockerfile
+    image: nginx:alpine
     container_name: easycurse-webserver
     restart: unless-stopped
     ports:
@@ -78,7 +76,6 @@ services:
     volumes:
       - ./src:/var/www
       - ./docker/nginx/:/etc/nginx/conf.d/
-      - ./docker/ssl:/etc/letsencrypt
     networks:
       - easycurse-network
     depends_on:
