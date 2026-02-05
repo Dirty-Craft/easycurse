@@ -17,11 +17,10 @@ if [[ -z "$APP_KEY" ]]; then
 fi
 
 php artisan storage:link
-php artisan migrate
+php artisan migrate --force
 composer lint
-php artisan db:seed
-npm run build
 php artisan optimize:clear
+npm run build
 
 echo ""
 echo "Checking critical environment variables..."
