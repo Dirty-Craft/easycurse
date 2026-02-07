@@ -165,9 +165,8 @@
                                     ref="demoVideo"
                                     class="demo-video"
                                     src="/demo.mp4"
-                                    autoplay
+                                    controls
                                     loop
-                                    muted
                                     playsinline
                                 ></video>
                                 <button
