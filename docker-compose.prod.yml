@@ -101,7 +101,6 @@ services:
     hostname: ${DOMAIN:-localhost}
     environment:
       HTTPS: "OFF"
-      HTTP_PORT: 8080
     volumes:
       - poste_data:/data
     ports:
