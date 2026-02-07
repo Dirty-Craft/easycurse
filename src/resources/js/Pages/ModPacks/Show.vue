@@ -247,6 +247,9 @@
                             <Button @click="showAddModModal = true">
                                 {{ t("modpacks.show.add_mod") }}
                             </Button>
+                            <Button variant="secondary">
+                                {{ t("modpacks.show.import_mods") }}
+                            </Button>
                         </div>
                     </div>
 

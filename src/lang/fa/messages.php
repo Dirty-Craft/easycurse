@@ -268,6 +268,7 @@ return [
     'modpacks.show.downloading' => 'در حال دانلود...',
     'modpacks.show.download' => 'دانلود',
     'modpacks.show.add_mod' => '+ افزودن ماد',
+    'modpacks.show.import_mods' => 'وارد کردن مادها',
     'modpacks.show.empty' => 'هنوز مادی اضافه نشده. اولین مادت رو اضافه کن!',
     'modpacks.show.search_mods_placeholder' => 'جستجوی مادها بر اساس نام، نسخه یا slug...',
     'modpacks.show.no_search_results' => 'هیچ مادی مطابق با جستجوی شما پیدا نشد.',

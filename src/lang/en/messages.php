@@ -300,6 +300,7 @@ return [
     'modpacks.show.export_csv' => '📊 CSV',
     'modpacks.show.export_failed' => 'Export failed: :error',
     'modpacks.show.add_mod' => '+ Add Mod',
+    'modpacks.show.import_mods' => 'Import Mods',
     'modpacks.show.empty' => 'No mods added yet. Add your first mod to get started!',
     'modpacks.show.search_mods_placeholder' => 'Search mods by name, version, or slug...',
     'modpacks.show.no_search_results' => 'No mods found matching your search.',

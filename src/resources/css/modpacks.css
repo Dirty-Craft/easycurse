@@ -999,7 +999,7 @@
 }
 
 /* Responsive styles for mobile */
-@media (width <= 868px) {
+@media (width <= 988px) {
     .header-actions button {
         flex: 1;
         min-width: 0;
