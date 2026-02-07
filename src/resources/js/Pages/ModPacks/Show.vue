@@ -1824,14 +1824,114 @@ const openEditModal = () => {
     showEditModal.value = true;
 };
 
-const handleImportMods = () => {
+/**
+ * Calculate SHA-1 hash for Modrinth API
+ * @param {File} file - The file to hash
+ * @returns {Promise<string>} SHA-1 hash (40 character hex string)
+ */
+const calculateModrinthHash = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest("SHA-1", arrayBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+    return hashHex;
+};
+
+/**
+ * Calculate CurseForge fingerprint using MurmurHash2 with whitespace normalization
+ * @param {File} file - The file to hash
+ * @returns {Promise<number>} CurseForge fingerprint (32-bit unsigned integer)
+ */
+const calculateCurseForgeFingerprint = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = new Uint8Array(arrayBuffer);
+    const bufferLength = buffer.length;
+
+    // Count non-whitespace characters
+    let normalizedLength = 0;
+    for (let i = 0; i < bufferLength; i++) {
+        const byte = buffer[i];
+        if (!isWhitespace(byte)) {
+            normalizedLength++;
+        }
+    }
+
+    // Constants
+    const HASH_MULTIPLIER = 1540483477;
+
+    // Initialize hash
+    let hashAccumulator = uint32(1 ^ normalizedLength);
+    let currentWord = 0;
+    let bitShiftCount = 0;
+
+    // Process each byte
+    for (let index = 0; index < bufferLength; index++) {
+        const byte = buffer[index];
+
+        // Skip whitespace characters (tab, newline, carriage return, space)
+        if (!isWhitespace(byte)) {
+            currentWord = uint32(currentWord | (byte << bitShiftCount));
+            bitShiftCount += 8;
+
+            // When we've accumulated 32 bits, mix it into the hash
+            if (bitShiftCount === 32) {
+                const mixedValue = uint32(currentWord * HASH_MULTIPLIER);
+                const rotatedValue = uint32(
+                    uint32(mixedValue ^ (mixedValue >>> 24)) * HASH_MULTIPLIER,
+                );
+
+                // Update the hash accumulator
+                hashAccumulator = uint32(
+                    uint32(hashAccumulator * HASH_MULTIPLIER) ^ rotatedValue,
+                );
+
+                // Reset for next 32-bit block
+                currentWord = 0;
+                bitShiftCount = 0;
+            }
+        }
+    }
+
+    // Handle remaining bits
+    if (bitShiftCount > 0) {
+        hashAccumulator = uint32(
+            uint32(hashAccumulator ^ currentWord) * HASH_MULTIPLIER,
+        );
+    }
+
+    // Finalize the hash
+    const finalHashValue = uint32(
+        uint32(hashAccumulator ^ (hashAccumulator >>> 13)) * HASH_MULTIPLIER,
+    );
+    return uint32(finalHashValue ^ (finalHashValue >>> 15));
+};
+
+/**
+ * Check if a byte is a whitespace character
+ * Whitespace: tab (9), newline (10), carriage return (13), space (32)
+ */
+const isWhitespace = (byte) => {
+    return byte === 9 || byte === 10 || byte === 13 || byte === 32;
+};
+
+/**
+ * Convert to 32-bit unsigned integer (simulate uint32_t behavior)
+ */
+const uint32 = (value) => {
+    // Use unsigned right shift to ensure 32-bit unsigned integer
+    return value >>> 0;
+};
+
+const handleImportMods = async () => {
     const input = document.createElement("input");
     input.type = "file";
     input.webkitdirectory = true;
     input.directory = true;
     input.multiple = true;
 
-    input.onchange = (event) => {
+    input.onchange = async (event) => {
         const files = Array.from(event.target.files);
         const jarFiles = files.filter((file) => file.name.endsWith(".jar"));
 
@@ -1840,12 +1940,40 @@ const handleImportMods = () => {
             return;
         }
 
-        // Create a list of jar file names with their relative paths
-        const jarFileNames = jarFiles
-            .map((file) => file.webkitRelativePath || file.name)
-            .join("\n");
+        // Calculate hashes for all jar files
+        const results = [];
+        for (const file of jarFiles) {
+            try {
+                const modrinthHash = await calculateModrinthHash(file);
+                const curseforgeFingerprint =
+                    await calculateCurseForgeFingerprint(file);
+
+                results.push({
+                    path: file.webkitRelativePath || file.name,
+                    modrinthHash,
+                    curseforgeFingerprint,
+                });
+            } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error(`Error processing ${file.name}:`, error);
+                results.push({
+                    path: file.webkitRelativePath || file.name,
+                    modrinthHash: "ERROR",
+                    curseforgeFingerprint: "ERROR",
+                });
+            }
+        }
+
+        // Format output
+        const output = results
+            .map(
+                (r) =>
+                    `${r.path}\n  Modrinth (SHA-1): ${r.modrinthHash}\n  CurseForge: ${r.curseforgeFingerprint}`,
+            )
+            .join("\n\n");
+
         alert(
-            `Found ${jarFiles.length} .jar file(s) in directory:\n\n${jarFileNames}`,
+            `Found ${jarFiles.length} .jar file(s) with hashes:\n\n${output}`,
         );
     };
 
