@@ -23,6 +23,8 @@ Read the full setup guide and technical documentation [here](docs/README.md).
 
 EasyCurse is a mod management platform that helps Minecraft players build and manage their own personal modpacks. Unlike the CurseForge App which is designed for installing published modpacks, EasyCurse empowers you to create custom modpacks with mods from both CurseForge and Modrinth, automatically resolve version compatibility, and download everything as ready-to-use ZIP files.
 
+![Screenshot](src/screenshot.png)
+
 **Three Simple Steps:**
 
 1. **Create Your Mod Pack** - Build unlimited mod packs with your favorite mods from CurseForge and Modrinth. Organize them for different playstyles, servers, or Minecraft versions.
