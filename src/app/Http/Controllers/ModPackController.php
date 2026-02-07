@@ -4207,4 +4207,150 @@ class ModPackController extends Controller
             'data' => $results,
         ]);
     }
+
+    /**
+     * Import identified mods into the mod pack with version matching and dependency resolution.
+     */
+    public function importIdentifiedMods(Request $request, string $id)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())
+            ->with('items')
+            ->findOrFail($id);
+
+        $validated = $request->validate([
+            'mods' => ['required', 'array'],
+            'mods.*.source' => ['required', 'string', 'in:curseforge,modrinth'],
+            'mods.*.project_id' => ['nullable', 'string'],
+            'mods.*.mod_id' => ['nullable', 'integer'],
+            'mods.*.version_id' => ['nullable', 'string'],
+            'mods.*.file_id' => ['nullable', 'integer'],
+            'mods.*.name' => ['nullable', 'string'],
+            'mods.*.version_number' => ['nullable', 'string'],
+            'mods.*.display_name' => ['nullable', 'string'],
+            'mods.*.file_name' => ['nullable', 'string'],
+        ]);
+
+        $modService = app(ModService::class);
+        $results = [
+            'added' => [],
+            'skipped' => [],
+            'failed' => [],
+        ];
+
+        $maxSortOrder = (int) (ModPackItem::where('mod_pack_id', $modPack->id)->max('sort_order') ?? 0);
+
+        foreach ($validated['mods'] as $modData) {
+            $source = $modData['source'];
+            $modId = $source === 'curseforge' ? ($modData['mod_id'] ?? null) : ($modData['project_id'] ?? null);
+            $uploadedFileId = $source === 'curseforge' ? ($modData['file_id'] ?? null) : ($modData['version_id'] ?? null);
+            $uploadedName = $modData['name'] ?? $modData['display_name'] ?? $modData['file_name'] ?? 'Unknown';
+
+            if (! $modId) {
+                $results['failed'][] = [
+                    'name' => $uploadedName,
+                    'reason' => 'Missing mod ID',
+                ];
+
+                continue;
+            }
+
+            // Check if mod is already in the mod pack
+            if ($source === 'curseforge') {
+                $existingItem = ModPackItem::where('mod_pack_id', $modPack->id)
+                    ->where('curseforge_mod_id', $modId)
+                    ->first();
+            } else {
+                $existingItem = ModPackItem::where('mod_pack_id', $modPack->id)
+                    ->where('modrinth_project_id', $modId)
+                    ->first();
+            }
+
+            if ($existingItem) {
+                $results['skipped'][] = [
+                    'name' => $uploadedName,
+                    'reason' => 'Already in mod pack',
+                ];
+
+                continue;
+            }
+
+            // Get mod details
+            $mod = $modService->getMod($modId, $source);
+            if (! $mod) {
+                $results['failed'][] = [
+                    'name' => $uploadedName,
+                    'reason' => 'Mod not found',
+                ];
+
+                continue;
+            }
+
+            // Find compatible version for the mod pack's MC version and software
+            $compatibleFiles = $modService->getModFiles(
+                $modId,
+                $modPack->minecraft_version,
+                $modPack->software,
+                $source
+            );
+
+            if (empty($compatibleFiles)) {
+                $results['failed'][] = [
+                    'name' => $mod['name'] ?? $uploadedName,
+                    'reason' => "No compatible version found for {$modPack->minecraft_version} ({$modPack->software})",
+                ];
+
+                continue;
+            }
+
+            // Use the first (latest) compatible version
+            $compatibleFile = $compatibleFiles[0];
+            $fileId = $compatibleFile['id'];
+
+            // Get mod name and version string
+            $modName = $mod['name'] ?? $mod['title'] ?? $uploadedName;
+            $modSlug = $mod['slug'] ?? null;
+
+            if ($source === 'curseforge') {
+                $modVersion = $compatibleFile['displayName'] ?? $compatibleFile['fileName'] ?? 'Unknown Version';
+            } else {
+                $modVersion = $compatibleFile['version_number'] ?? $compatibleFile['name'] ?? 'Unknown Version';
+            }
+
+            try {
+                // Add the mod to the mod pack
+                ModPackItem::create([
+                    'mod_pack_id' => $modPack->id,
+                    'mod_name' => $modName,
+                    'mod_version' => $modVersion,
+                    'curseforge_mod_id' => $source === 'curseforge' ? $modId : null,
+                    'curseforge_file_id' => $source === 'curseforge' ? $fileId : null,
+                    'curseforge_slug' => ($source === 'curseforge' && $modSlug) ? $modSlug : null,
+                    'modrinth_project_id' => $source === 'modrinth' ? $modId : null,
+                    'modrinth_version_id' => $source === 'modrinth' ? $fileId : null,
+                    'modrinth_slug' => ($source === 'modrinth' && $modSlug) ? $modSlug : null,
+                    'source' => $source,
+                    'sort_order' => ++$maxSortOrder,
+                ]);
+
+                // Add required dependencies
+                $dependenciesAdded = $this->addRequiredDependencies($modPack, $modId, $fileId, $source);
+
+                $results['added'][] = [
+                    'name' => $modName,
+                    'version' => $modVersion,
+                    'dependencies_added' => $dependenciesAdded,
+                ];
+            } catch (\Exception $e) {
+                $results['failed'][] = [
+                    'name' => $modName,
+                    'reason' => 'Failed to add: '.$e->getMessage(),
+                ];
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'results' => $results,
+        ]);
+    }
 }

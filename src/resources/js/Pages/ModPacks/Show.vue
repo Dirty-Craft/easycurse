@@ -2250,19 +2250,59 @@ const importSelectedMods = async () => {
         });
 
         // Send import request to server
-        await axios.post(
+        const response = await axios.post(
             `/mod-packs/${props.modPack.id}/import-identified-mods`,
             {
                 mods: modsToImport,
             },
         );
 
+        const results = response.data.results;
+
+        // Build a summary message
+        let message = "";
+        if (results.added.length > 0) {
+            message += `✅ Successfully added ${results.added.length} mod(s):\n`;
+            results.added.forEach((mod) => {
+                const depMsg =
+                    mod.dependencies_added > 0
+                        ? ` (+ ${mod.dependencies_added} dependencies)`
+                        : "";
+                message += `  • ${mod.name} (${mod.version})${depMsg}\n`;
+            });
+        }
+
+        if (results.skipped.length > 0) {
+            message += `\n⚠️ Skipped ${results.skipped.length} mod(s):\n`;
+            results.skipped.forEach((mod) => {
+                message += `  • ${mod.name}: ${mod.reason}\n`;
+            });
+        }
+
+        if (results.failed.length > 0) {
+            message += `\n❌ Failed to import ${results.failed.length} mod(s):\n`;
+            results.failed.forEach((mod) => {
+                message += `  • ${mod.name}: ${mod.reason}\n`;
+            });
+        }
+
+        // Show the summary
+        alert(message);
+
         // Reload the page to show the newly imported mods
-        window.location.reload();
+        if (results.added.length > 0) {
+            window.location.reload();
+        } else {
+            // Close modal if nothing was added
+            showIdentifiedModsModal.value = false;
+        }
     } catch (error) {
         // eslint-disable-next-line no-console
         console.error("Error importing mods:", error);
-        alert("Failed to import mods. Please try again.");
+        const errorMsg =
+            error.response?.data?.message ||
+            "Failed to import mods. Please try again.";
+        alert(errorMsg);
     } finally {
         isImportingMods.value = false;
     }
