@@ -11,6 +11,7 @@ use App\Services\ModService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class ModPackController extends Controller
@@ -4151,5 +4152,59 @@ class ModPackController extends Controller
         }
 
         return $filename;
+    }
+
+    /**
+     * Identify mods from file hashes.
+     * Accepts arrays of Modrinth SHA-1 hashes and CurseForge Murmur2 fingerprints.
+     */
+    public function identifyModsFromHashes(Request $request, string $id)
+    {
+        $modPack = ModPack::where('user_id', Auth::id())->findOrFail($id);
+
+        $validated = $request->validate([
+            'modrinth_hashes' => ['nullable', 'array'],
+            'modrinth_hashes.*' => ['string'],
+            'curseforge_fingerprints' => ['nullable', 'array'],
+            'curseforge_fingerprints.*' => ['integer'],
+        ]);
+
+        $modrinthHashes = $validated['modrinth_hashes'] ?? [];
+        $curseforgeFingerprints = $validated['curseforge_fingerprints'] ?? [];
+
+        $results = [
+            'modrinth' => [],
+            'curseforge' => [],
+        ];
+
+        // Identify Modrinth mods
+        if (! empty($modrinthHashes)) {
+            $modrinthService = app(\App\Services\ModrinthService::class);
+            $modrinthResults = $modrinthService->identifyVersionsFromHashes($modrinthHashes, 'sha1');
+            $results['modrinth'] = $modrinthResults;
+
+            // Log which mods were identified
+            Log::info('Modrinth identified mods', [
+                'count' => count($modrinthResults),
+                'mods' => array_map(function ($version) {
+                    return [
+                        'name' => $version['name'] ?? 'Unknown',
+                        'project_id' => $version['project_id'] ?? null,
+                        'version_number' => $version['version_number'] ?? null,
+                    ];
+                }, array_values($modrinthResults)),
+            ]);
+        }
+
+        // Identify CurseForge mods
+        if (! empty($curseforgeFingerprints)) {
+            $curseforgeService = app(\App\Services\CurseForgeService::class);
+            $curseforgeResults = $curseforgeService->identifyFilesFromFingerprints($curseforgeFingerprints);
+            $results['curseforge'] = $curseforgeResults;
+        }
+
+        return response()->json([
+            'data' => $results,
+        ]);
     }
 }

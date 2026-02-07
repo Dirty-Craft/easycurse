@@ -1639,6 +1639,193 @@
                 </Button>
             </template>
         </Modal>
+
+        <!-- Identified Mods Modal -->
+        <Modal
+            v-model:show="showIdentifiedModsModal"
+            :title="t('modpacks.show.identified_mods_modal.title')"
+            size="large"
+        >
+            <div v-if="isIdentifyingMods" class="loading-preview">
+                <p>{{ t("modpacks.show.identified_mods_modal.loading") }}</p>
+            </div>
+            <div v-else>
+                <div class="identified-mods-content">
+                    <!-- Merged Mods List -->
+                    <div
+                        v-if="mergedIdentifiedMods.length > 0"
+                        class="identified-section"
+                    >
+                        <h3 class="identified-section-title">
+                            {{
+                                t(
+                                    "modpacks.show.identified_mods_modal.mods_found",
+                                )
+                            }}
+                            ({{ mergedIdentifiedMods.length }})
+                        </h3>
+                        <div class="mod-results-list">
+                            <div
+                                v-for="mod in mergedIdentifiedMods"
+                                :key="mod.uniqueId"
+                                class="mod-result-item"
+                                :class="{
+                                    'mod-result-item-selected':
+                                        selectedIdentifiedMods.has(
+                                            mod.uniqueId,
+                                        ),
+                                }"
+                                @click="
+                                    toggleIdentifiedMod(
+                                        mod.uniqueId,
+                                        mod.data,
+                                        mod.source,
+                                    )
+                                "
+                            >
+                                <div class="mod-result-checkbox">
+                                    <input
+                                        type="checkbox"
+                                        :checked="
+                                            selectedIdentifiedMods.has(
+                                                mod.uniqueId,
+                                            )
+                                        "
+                                        @click.stop="
+                                            toggleIdentifiedMod(
+                                                mod.uniqueId,
+                                                mod.data,
+                                                mod.source,
+                                            )
+                                        "
+                                    />
+                                </div>
+                                <div class="mod-result-content">
+                                    <div class="mod-result-name">
+                                        <div class="mod-result-platform-logo">
+                                            <img
+                                                v-if="mod.source === 'modrinth'"
+                                                class="platform-logo platform-logo-modrinth"
+                                                src="https://cdn.modrinth.com/logo.svg"
+                                                alt="Modrinth"
+                                                title="Modrinth"
+                                                @error="handleLogoError"
+                                            />
+                                            <img
+                                                v-else
+                                                class="platform-logo platform-logo-curseforge"
+                                                src="https://static-beta.curseforge.com/images/favicon.ico"
+                                                alt="CurseForge"
+                                                title="CurseForge"
+                                                @error="handleLogoError"
+                                            />
+                                        </div>
+                                        <div class="mod-result-name-text">
+                                            {{ mod.displayName }}
+                                            <a
+                                                :href="mod.url"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                class="curseforge-link"
+                                                @click.stop
+                                            >
+                                                <svg
+                                                    class="curseforge-icon"
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    width="16"
+                                                    height="16"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                >
+                                                    <path
+                                                        d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                                                    ></path>
+                                                    <polyline
+                                                        points="15 3 21 3 21 9"
+                                                    ></polyline>
+                                                    <line
+                                                        x1="10"
+                                                        y1="14"
+                                                        x2="21"
+                                                        y2="3"
+                                                    ></line>
+                                                </svg>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div class="mod-result-meta">
+                                        <span class="mod-result-slug">
+                                            {{ mod.version }}
+                                        </span>
+                                        <span
+                                            v-if="mod.downloads"
+                                            class="mod-result-downloads"
+                                        >
+                                            {{ formatDownloads(mod.downloads) }}
+                                            downloads
+                                        </span>
+                                        <span
+                                            v-if="mod.matchType === 'partial'"
+                                            class="mod-result-match-type"
+                                        >
+                                            (Partial Match)
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- No Results -->
+                    <div
+                        v-if="mergedIdentifiedMods.length === 0"
+                        class="empty-state"
+                    >
+                        <p>
+                            {{
+                                t(
+                                    "modpacks.show.identified_mods_modal.no_results",
+                                )
+                            }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <template #footer>
+                <Button
+                    variant="primary"
+                    :disabled="
+                        selectedIdentifiedMods.size === 0 || isImportingMods
+                    "
+                    :class="{ 'btn-loading': isImportingMods }"
+                    @click="importSelectedMods"
+                >
+                    <span v-if="!isImportingMods">
+                        {{
+                            t(
+                                "modpacks.show.identified_mods_modal.import_selected",
+                                {
+                                    count: selectedIdentifiedMods.size,
+                                },
+                            )
+                        }}
+                    </span>
+                    <span v-else class="loading-text">
+                        {{ t("modpacks.show.importing") }}
+                    </span>
+                </Button>
+                <Button
+                    variant="secondary"
+                    @click="showIdentifiedModsModal = false"
+                >
+                    {{ t("modpacks.show.edit_modal.cancel") }}
+                </Button>
+            </template>
+        </Modal>
     </AppLayout>
 </template>
 
@@ -1700,6 +1887,7 @@ const showShareModal = ref(false);
 const showUpdatePreviewModal = ref(false);
 const showViewRunModal = ref(false);
 const showRunLogsModal = ref(false);
+const showIdentifiedModsModal = ref(false);
 const selectedRun = ref(null);
 const runHistory = ref([]);
 const isLoadingRunHistory = ref(false);
@@ -1723,6 +1911,74 @@ const isSettingReminder = ref(false);
 const isCancellingReminder = ref(false);
 const isCreatingRun = ref(false);
 const isStoppingRun = ref(false);
+const identifiedMods = ref({
+    modrinth: {},
+    curseforge: {
+        exactMatches: [],
+        partialMatches: [],
+        unmatchedFingerprints: [],
+    },
+});
+const isIdentifyingMods = ref(false);
+const isImportingMods = ref(false);
+const selectedIdentifiedMods = ref(new Set());
+
+// Merge all identified mods into a single list (CurseForge first, then Modrinth)
+const mergedIdentifiedMods = computed(() => {
+    const merged = [];
+
+    // Add CurseForge exact matches first
+    if (identifiedMods.value.curseforge?.exactMatches) {
+        identifiedMods.value.curseforge.exactMatches.forEach((match) => {
+            merged.push({
+                uniqueId: `curseforge-${match.file.id}`,
+                source: "curseforge",
+                displayName: match.file.displayName,
+                version: match.file.fileName,
+                url: `https://www.curseforge.com/minecraft/mc-mods/${match.file.modId}`,
+                downloads: match.file.downloadCount,
+                matchType: "exact",
+                data: match,
+            });
+        });
+    }
+
+    // Add CurseForge partial matches
+    if (identifiedMods.value.curseforge?.partialMatches) {
+        identifiedMods.value.curseforge.partialMatches.forEach((match) => {
+            merged.push({
+                uniqueId: `curseforge-partial-${match.file.id}`,
+                source: "curseforge",
+                displayName: match.file.displayName,
+                version: match.file.fileName,
+                url: `https://www.curseforge.com/minecraft/mc-mods/${match.file.modId}`,
+                downloads: match.file.downloadCount,
+                matchType: "partial",
+                data: match,
+            });
+        });
+    }
+
+    // Add Modrinth mods last
+    if (identifiedMods.value.modrinth) {
+        Object.entries(identifiedMods.value.modrinth).forEach(
+            ([_hash, version]) => {
+                merged.push({
+                    uniqueId: `modrinth-${version.id}`,
+                    source: "modrinth",
+                    displayName: version.name,
+                    version: version.version_number,
+                    url: `https://modrinth.com/mod/${version.project_id}`,
+                    downloads: null,
+                    matchType: "exact",
+                    data: version,
+                });
+            },
+        );
+    }
+
+    return merged;
+});
 
 // Analyze logs for success and error states
 const runHasSuccess = computed(() => {
@@ -1831,7 +2087,7 @@ const openEditModal = () => {
  */
 const calculateModrinthHash = async (file) => {
     const arrayBuffer = await file.arrayBuffer();
-    const hashBuffer = await crypto.subtle.digest("SHA-1", arrayBuffer);
+    const hashBuffer = await window.crypto.subtle.digest("SHA-1", arrayBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashHex = hashArray
         .map((b) => b.toString(16).padStart(2, "0"))
@@ -1839,89 +2095,17 @@ const calculateModrinthHash = async (file) => {
     return hashHex;
 };
 
+import { cf_fingerprint } from "cf-fingerprint";
+
 /**
- * Calculate CurseForge fingerprint using MurmurHash2 with whitespace normalization
- * @param {File} file - The file to hash
+ * Calculate CurseForge fingerprint using the official cf-fingerprint library
+ * @param {File} file - The JAR/ZIP file to hash
  * @returns {Promise<number>} CurseForge fingerprint (32-bit unsigned integer)
  */
 const calculateCurseForgeFingerprint = async (file) => {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = new Uint8Array(arrayBuffer);
-    const bufferLength = buffer.length;
-
-    // Count non-whitespace characters
-    let normalizedLength = 0;
-    for (let i = 0; i < bufferLength; i++) {
-        const byte = buffer[i];
-        if (!isWhitespace(byte)) {
-            normalizedLength++;
-        }
-    }
-
-    // Constants
-    const HASH_MULTIPLIER = 1540483477;
-
-    // Initialize hash
-    let hashAccumulator = uint32(1 ^ normalizedLength);
-    let currentWord = 0;
-    let bitShiftCount = 0;
-
-    // Process each byte
-    for (let index = 0; index < bufferLength; index++) {
-        const byte = buffer[index];
-
-        // Skip whitespace characters (tab, newline, carriage return, space)
-        if (!isWhitespace(byte)) {
-            currentWord = uint32(currentWord | (byte << bitShiftCount));
-            bitShiftCount += 8;
-
-            // When we've accumulated 32 bits, mix it into the hash
-            if (bitShiftCount === 32) {
-                const mixedValue = uint32(currentWord * HASH_MULTIPLIER);
-                const rotatedValue = uint32(
-                    uint32(mixedValue ^ (mixedValue >>> 24)) * HASH_MULTIPLIER,
-                );
-
-                // Update the hash accumulator
-                hashAccumulator = uint32(
-                    uint32(hashAccumulator * HASH_MULTIPLIER) ^ rotatedValue,
-                );
-
-                // Reset for next 32-bit block
-                currentWord = 0;
-                bitShiftCount = 0;
-            }
-        }
-    }
-
-    // Handle remaining bits
-    if (bitShiftCount > 0) {
-        hashAccumulator = uint32(
-            uint32(hashAccumulator ^ currentWord) * HASH_MULTIPLIER,
-        );
-    }
-
-    // Finalize the hash
-    const finalHashValue = uint32(
-        uint32(hashAccumulator ^ (hashAccumulator >>> 13)) * HASH_MULTIPLIER,
-    );
-    return uint32(finalHashValue ^ (finalHashValue >>> 15));
-};
-
-/**
- * Check if a byte is a whitespace character
- * Whitespace: tab (9), newline (10), carriage return (13), space (32)
- */
-const isWhitespace = (byte) => {
-    return byte === 9 || byte === 10 || byte === 13 || byte === 32;
-};
-
-/**
- * Convert to 32-bit unsigned integer (simulate uint32_t behavior)
- */
-const uint32 = (value) => {
-    // Use unsigned right shift to ensure 32-bit unsigned integer
-    return value >>> 0;
+    return cf_fingerprint(buffer);
 };
 
 const handleImportMods = async () => {
@@ -1940,44 +2124,148 @@ const handleImportMods = async () => {
             return;
         }
 
+        isIdentifyingMods.value = true;
+
         // Calculate hashes for all jar files
-        const results = [];
+        const modrinthHashes = [];
+        const curseforgeFingerprints = [];
+
         for (const file of jarFiles) {
             try {
                 const modrinthHash = await calculateModrinthHash(file);
                 const curseforgeFingerprint =
                     await calculateCurseForgeFingerprint(file);
 
-                results.push({
-                    path: file.webkitRelativePath || file.name,
-                    modrinthHash,
-                    curseforgeFingerprint,
-                });
+                modrinthHashes.push(modrinthHash);
+                curseforgeFingerprints.push(curseforgeFingerprint);
+
+                // eslint-disable-next-line no-console
+                console.log(
+                    `${file.name}:`,
+                    `\n  Modrinth SHA1: ${modrinthHash}`,
+                    `\n  CurseForge fingerprint: ${curseforgeFingerprint}`,
+                    `\n  File size: ${file.size} bytes`,
+                );
             } catch (error) {
                 // eslint-disable-next-line no-console
                 console.error(`Error processing ${file.name}:`, error);
-                results.push({
-                    path: file.webkitRelativePath || file.name,
-                    modrinthHash: "ERROR",
-                    curseforgeFingerprint: "ERROR",
-                });
             }
         }
 
-        // Format output
-        const output = results
-            .map(
-                (r) =>
-                    `${r.path}\n  Modrinth (SHA-1): ${r.modrinthHash}\n  CurseForge: ${r.curseforgeFingerprint}`,
-            )
-            .join("\n\n");
+        // Send hashes to server for identification
+        try {
+            const response = await axios.post(
+                `/mod-packs/${props.modPack.id}/identify-mods`,
+                {
+                    modrinth_hashes: modrinthHashes,
+                    curseforge_fingerprints: curseforgeFingerprints,
+                },
+            );
 
-        alert(
-            `Found ${jarFiles.length} .jar file(s) with hashes:\n\n${output}`,
-        );
+            // eslint-disable-next-line no-console
+            console.log("Identification response:", response.data);
+            // eslint-disable-next-line no-console
+            console.log(
+                "CurseForge fingerprints sent:",
+                curseforgeFingerprints.slice(0, 5),
+            );
+
+            identifiedMods.value = response.data.data;
+
+            // Pre-select all CurseForge mods (exact and partial matches)
+            selectedIdentifiedMods.value = new Set();
+            if (identifiedMods.value.curseforge?.exactMatches) {
+                identifiedMods.value.curseforge.exactMatches.forEach(
+                    (match) => {
+                        selectedIdentifiedMods.value.add(
+                            `curseforge-${match.file.id}`,
+                        );
+                    },
+                );
+            }
+            if (identifiedMods.value.curseforge?.partialMatches) {
+                identifiedMods.value.curseforge.partialMatches.forEach(
+                    (match) => {
+                        selectedIdentifiedMods.value.add(
+                            `curseforge-partial-${match.file.id}`,
+                        );
+                    },
+                );
+            }
+
+            showIdentifiedModsModal.value = true;
+        } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error("Error identifying mods:", error);
+            alert("Failed to identify mods. Please try again.");
+        } finally {
+            isIdentifyingMods.value = false;
+        }
     };
 
     input.click();
+};
+
+const toggleIdentifiedMod = (id) => {
+    if (selectedIdentifiedMods.value.has(id)) {
+        selectedIdentifiedMods.value.delete(id);
+    } else {
+        selectedIdentifiedMods.value.add(id);
+    }
+    // Force reactivity update
+    selectedIdentifiedMods.value = new Set(selectedIdentifiedMods.value);
+};
+
+const importSelectedMods = async () => {
+    if (selectedIdentifiedMods.value.size === 0) {
+        return;
+    }
+
+    isImportingMods.value = true;
+
+    try {
+        // Prepare the mods data for import
+        const modsToImport = [];
+
+        mergedIdentifiedMods.value.forEach((mod) => {
+            if (selectedIdentifiedMods.value.has(mod.uniqueId)) {
+                if (mod.source === "modrinth") {
+                    modsToImport.push({
+                        source: "modrinth",
+                        project_id: mod.data.project_id,
+                        version_id: mod.data.id,
+                        name: mod.data.name,
+                        version_number: mod.data.version_number,
+                    });
+                } else if (mod.source === "curseforge") {
+                    modsToImport.push({
+                        source: "curseforge",
+                        mod_id: mod.data.file.modId,
+                        file_id: mod.data.file.id,
+                        display_name: mod.data.file.displayName,
+                        file_name: mod.data.file.fileName,
+                    });
+                }
+            }
+        });
+
+        // Send import request to server
+        await axios.post(
+            `/mod-packs/${props.modPack.id}/import-identified-mods`,
+            {
+                mods: modsToImport,
+            },
+        );
+
+        // Reload the page to show the newly imported mods
+        window.location.reload();
+    } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Error importing mods:", error);
+        alert("Failed to import mods. Please try again.");
+    } finally {
+        isImportingMods.value = false;
+    }
 };
 
 const openShareModal = async () => {
