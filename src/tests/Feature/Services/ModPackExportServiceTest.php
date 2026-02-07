@@ -6,14 +6,11 @@ use App\Models\ModPack;
 use App\Models\ModPackItem;
 use App\Models\User;
 use App\Services\ModPackExportService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ModPackExportServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that exportAsCurseForge handles mods without CurseForge IDs.
      * Covers ModPackExportService exportAsCurseForge with missing CurseForge data.

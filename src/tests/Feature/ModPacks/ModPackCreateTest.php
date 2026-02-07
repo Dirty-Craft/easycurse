@@ -3,13 +3,10 @@
 namespace Tests\Feature\ModPacks;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ModPackCreateTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that user can create a mod pack.
      */

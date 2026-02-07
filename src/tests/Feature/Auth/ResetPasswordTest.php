@@ -3,15 +3,12 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Tests\TestCase;
 
 class ResetPasswordTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test reset password page is accessible with token.
      */

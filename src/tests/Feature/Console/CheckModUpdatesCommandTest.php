@@ -8,14 +8,11 @@ use App\Models\User;
 use App\Notifications\ModUpdateAvailable;
 use App\Services\ModService;
 use Carbon\Carbon;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class CheckModUpdatesCommandTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that the command runs successfully.
      * Also covers line 76: source inferred as 'modrinth' when source is null and curseforge_mod_id is null.

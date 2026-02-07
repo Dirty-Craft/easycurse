@@ -5,14 +5,11 @@ namespace Tests\Feature\ModPacks;
 use App\Models\ModPack;
 use App\Models\ModPackItem;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ModPackDownloadTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that user can get download links for mod pack items.
      */

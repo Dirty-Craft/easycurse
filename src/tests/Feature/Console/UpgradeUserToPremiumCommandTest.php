@@ -4,13 +4,10 @@ namespace Tests\Feature\Console;
 
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class UpgradeUserToPremiumCommandTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that the command fails when user is not found.
      */

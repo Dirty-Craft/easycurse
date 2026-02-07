@@ -3,14 +3,11 @@
 namespace Tests\Feature\Services;
 
 use App\Services\ModrinthService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ModrinthServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that getProject handles API errors gracefully.
      * Covers ModrinthService getProject error handling.

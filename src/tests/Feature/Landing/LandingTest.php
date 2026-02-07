@@ -4,13 +4,10 @@ namespace Tests\Feature\Landing;
 
 use App\Models\ModPack;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class LandingTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * A basic test example.
      */

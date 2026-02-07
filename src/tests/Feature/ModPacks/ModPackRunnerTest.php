@@ -5,15 +5,12 @@ namespace Tests\Feature\ModPacks;
 use App\Models\ModPack;
 use App\Models\ModPackRun;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ModPackRunnerTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected function setUp(): void
     {
         parent::setUp();

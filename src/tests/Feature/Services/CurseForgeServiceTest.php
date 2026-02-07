@@ -3,14 +3,11 @@
 namespace Tests\Feature\Services;
 
 use App\Services\CurseForgeService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class CurseForgeServiceTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that getModFiles handles API errors gracefully.
      * Covers CurseForgeService getModFiles error handling.

@@ -7,14 +7,11 @@ use App\Models\ModPackItem;
 use App\Models\User;
 use App\Notifications\MinecraftVersionUpdateAvailable;
 use App\Services\ModService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class CheckMinecraftVersionUpdatesCommandTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that the command runs successfully when no reminders are set.
      */

@@ -2,13 +2,10 @@
 
 namespace Tests\Feature\Landing;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class PremiumTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that premium page is accessible.
      */
