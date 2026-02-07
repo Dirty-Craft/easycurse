@@ -9,6 +9,7 @@
 - [Dependency Handling System](dependencies.md)
 - [Console Commands](commands.md)
 - [Runners](runners.md)
+- [Import Mods](importing.md)
 - [Linter](linter.md)
 - [Styles](styles.md)
 - [Localization](localization.md)

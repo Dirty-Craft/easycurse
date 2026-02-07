@@ -22,6 +22,8 @@ docker compose exec app composer update
 - eslint-plugin-vue
 - stylelint
 - stylelint-config-standard
+- client-zip (for creating ZIP archives on the client-side)
+- cf-fingerprint (official CurseForge fingerprint calculation library for mod identification)
 
 To install/update packages:
 

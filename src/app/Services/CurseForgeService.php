@@ -864,4 +864,70 @@ class CurseForgeService
             }
         });
     }
+
+    /**
+     * Identify mod files from fingerprints using CurseForge API.
+     * This endpoint accepts Murmur2 fingerprints and returns matching file information.
+     *
+     * @param  array  $fingerprints  Array of Murmur2 fingerprints (integers)
+     * @return array Array with 'exactMatches', 'partialMatches', and 'unmatchedFingerprints'
+     */
+    public function identifyFilesFromFingerprints(array $fingerprints): array
+    {
+        if (empty($fingerprints)) {
+            return [
+                'exactMatches' => [],
+                'partialMatches' => [],
+                'unmatchedFingerprints' => [],
+            ];
+        }
+
+        try {
+            $response = $this->client()->post($this->baseUrl.'fingerprints/'.$this->minecraftGameId, [
+                'fingerprints' => $fingerprints,
+            ]);
+
+            $response->throw();
+
+            $data = $response->json('data', []);
+
+            // Handle unmatchedFingerprints being null (CurseForge returns null when no matches found)
+            $unmatchedFingerprints = $data['unmatchedFingerprints'];
+            if ($unmatchedFingerprints === null) {
+                // If null, it means none of the fingerprints matched - return all as unmatched
+                $unmatchedFingerprints = $fingerprints;
+            }
+
+            Log::info('CurseForge fingerprint identification results', [
+                'requested_count' => count($fingerprints),
+                'exact_matches' => count($data['exactMatches'] ?? []),
+                'partial_matches' => count($data['partialMatches'] ?? []),
+                'unmatched' => count($unmatchedFingerprints),
+                'fingerprints_sample' => array_slice($fingerprints, 0, 3),
+                'api_returned_null_unmatched' => $data['unmatchedFingerprints'] === null,
+                'note' => $data['unmatchedFingerprints'] === null
+                    ? 'CurseForge returned null for unmatchedFingerprints - these mods may not exist on CurseForge'
+                    : 'Normal response',
+            ]);
+
+            return [
+                'exactMatches' => $data['exactMatches'] ?? [],
+                'partialMatches' => $data['partialMatches'] ?? [],
+                'unmatchedFingerprints' => $unmatchedFingerprints,
+            ];
+        } catch (RequestException $e) {
+            Log::error('CurseForge API error identifying files from fingerprints', [
+                'fingerprint_count' => count($fingerprints),
+                'error' => $e->getMessage(),
+                'response_body' => $e->response?->body(),
+                'status_code' => $e->response?->status(),
+            ]);
+
+            return [
+                'exactMatches' => [],
+                'partialMatches' => [],
+                'unmatchedFingerprints' => $fingerprints,
+            ];
+        }
+    }
 }

@@ -76,4 +76,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/mod-packs/{id}/runs', [\App\Http\Controllers\ModPackController::class, 'getRunHistory'])->name('mod-packs.runs.history');
     Route::get('/mod-packs/{id}/runs/{runId}/logs', [\App\Http\Controllers\ModPackController::class, 'getRunLogs'])->name('mod-packs.runs.logs');
     Route::post('/mod-packs/{id}/runs/{runId}/stop', [\App\Http\Controllers\ModPackController::class, 'stopRun'])->name('mod-packs.runs.stop');
+    Route::post('/mod-packs/{id}/identify-mods', [\App\Http\Controllers\ModPackController::class, 'identifyModsFromHashes'])->name('mod-packs.identify-mods');
+    Route::post('/mod-packs/{id}/import-identified-mods', [\App\Http\Controllers\ModPackController::class, 'importIdentifiedMods'])->name('mod-packs.import-identified-mods');
 });

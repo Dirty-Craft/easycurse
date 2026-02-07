@@ -35,6 +35,7 @@ EasyCurse is a mod management platform that helps Minecraft players build and ma
 - Automatic version matching from CurseForge and Modrinth APIs
 - Cloud storage for all your mod packs
 - One-click download as ready-to-use ZIP files
+- Import mods from existing mod files to quickly build your mod packs
 - Share mod packs with friends and the community via unique links
 - Email notifications when new compatible versions are available
 - Update entire mod packs in seconds when Minecraft version changes

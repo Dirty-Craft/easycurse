@@ -674,4 +674,45 @@ class ModrinthService
             }
         });
     }
+
+    /**
+     * Identify versions from file hashes using Modrinth API.
+     * This endpoint accepts SHA-1 or SHA-512 hashes and returns version information.
+     *
+     * @param  array  $hashes  Array of SHA-1 or SHA-512 hashes
+     * @param  string  $algorithm  Hash algorithm used ('sha1' or 'sha512')
+     * @return array Array of identified versions keyed by hash
+     */
+    public function identifyVersionsFromHashes(array $hashes, string $algorithm = 'sha1'): array
+    {
+        if (empty($hashes)) {
+            return [];
+        }
+
+        try {
+            $response = $this->client()->post($this->baseUrl.'version_files', [
+                'hashes' => $hashes,
+                'algorithm' => $algorithm,
+            ]);
+
+            $response->throw();
+
+            $data = $response->json();
+
+            Log::info('Modrinth hash identification results', [
+                'requested_count' => count($hashes),
+                'identified_count' => count($data ?? []),
+            ]);
+
+            return is_array($data) ? $data : [];
+        } catch (RequestException $e) {
+            Log::error('Modrinth API error identifying versions from hashes', [
+                'hash_count' => count($hashes),
+                'algorithm' => $algorithm,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
+        }
+    }
 }
