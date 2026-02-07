@@ -247,7 +247,10 @@
                             <Button @click="showAddModModal = true">
                                 {{ t("modpacks.show.add_mod") }}
                             </Button>
-                            <Button variant="secondary">
+                            <Button
+                                variant="secondary"
+                                @click="handleImportMods"
+                            >
                                 {{ t("modpacks.show.import_mods") }}
                             </Button>
                         </div>
@@ -1819,6 +1822,34 @@ const openEditModal = () => {
     editForm.description = props.modPack.description || "";
     editForm.clearErrors();
     showEditModal.value = true;
+};
+
+const handleImportMods = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.webkitdirectory = true;
+    input.directory = true;
+    input.multiple = true;
+
+    input.onchange = (event) => {
+        const files = Array.from(event.target.files);
+        const jarFiles = files.filter((file) => file.name.endsWith(".jar"));
+
+        if (jarFiles.length === 0) {
+            alert("No .jar files found in the selected directory.");
+            return;
+        }
+
+        // Create a list of jar file names with their relative paths
+        const jarFileNames = jarFiles
+            .map((file) => file.webkitRelativePath || file.name)
+            .join("\n");
+        alert(
+            `Found ${jarFiles.length} .jar file(s) in directory:\n\n${jarFileNames}`,
+        );
+    };
+
+    input.click();
 };
 
 const openShareModal = async () => {
