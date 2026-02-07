@@ -2,13 +2,10 @@
 
 namespace Tests\Feature\Landing;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class AdsTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that ads page is accessible.
      */

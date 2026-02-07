@@ -44,8 +44,8 @@ The format `fix(module): description` allows you to specify the affected module 
 This project is fully dockerized. All changes must be compatible with the Docker setup. Test your changes using:
 
 ```shell
-$ docker compose up -d
-$ docker compose exec app bash setup.sh
+docker compose up -d
+docker compose exec app bash setup.sh
 ```
 
 See the [Setup Guide](docs/setup.md) for more details.
@@ -55,7 +55,7 @@ See the [Setup Guide](docs/setup.md) for more details.
 **Always run linters before committing code.** Use:
 
 ```shell
-$ docker compose exec app composer lint
+docker compose exec app composer lint
 ```
 
 This runs Pint, ESLint, and Stylelint. See the [Linter documentation](docs/linter.md) for details.
@@ -65,7 +65,7 @@ This runs Pint, ESLint, and Stylelint. See the [Linter documentation](docs/linte
 **All features must have tests.** Write feature tests for any new functionality. Run tests using:
 
 ```shell
-$ docker compose exec app composer test
+docker compose exec app composer test
 ```
 
 See the [Testing documentation](docs/testing.md) for more information.

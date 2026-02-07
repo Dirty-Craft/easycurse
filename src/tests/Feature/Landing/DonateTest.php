@@ -2,13 +2,10 @@
 
 namespace Tests\Feature\Landing;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class DonateTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that donate page is accessible.
      */

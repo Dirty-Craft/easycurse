@@ -2,13 +2,10 @@
 
 namespace Tests\Feature\Landing;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class AboutTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that about page is accessible.
      */

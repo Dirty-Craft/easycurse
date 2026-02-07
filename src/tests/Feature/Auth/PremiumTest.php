@@ -5,13 +5,10 @@ namespace Tests\Feature\Auth;
 use App\Models\ModPack;
 use App\Models\ModPackRun;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class PremiumTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that free user can create runs up to the limit.
      */

@@ -4,13 +4,10 @@ namespace Tests\Feature\ModPacks;
 
 use App\Models\ModPack;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ModPackReminderTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that user can set a reminder for Minecraft version update.
      */

@@ -5,15 +5,12 @@ namespace Tests\Feature\ModPacks;
 use App\Models\ModPack;
 use App\Models\ModPackItem;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ModPackExportTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -408,6 +405,114 @@ class ModPackExportTest extends TestCase
 
         $response->assertStatus(200);
         $this->assertStringContainsString('text/plain', $response->headers->get('Content-Type'));
+
+        $modPack->refresh();
+        $this->assertEquals(1, $modPack->downloads_count);
+    }
+
+    /**
+     * Test that shared modpack can be exported as CurseForge format without authentication.
+     * Covers ModPackController exportShared with format=curseforge.
+     */
+    public function test_shared_modpack_can_be_exported_as_curseforge(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'name' => 'Shared Pack',
+            'minecraft_version' => '1.20.1',
+            'software' => 'forge',
+        ]);
+
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'JEI',
+            'mod_version' => '11.6.0.1015',
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 4638256,
+            'source' => 'curseforge',
+        ]);
+
+        $token = $modPack->generateShareToken();
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/238222/files/4638256' => Http::response([
+                'data' => [
+                    'id' => 4638256,
+                    'fileName' => 'jei-1.20.1-11.6.0.1015.jar',
+                    'downloadUrl' => 'https://mediafilez.forgecdn.net/files/4638/256/jei-1.20.1-11.6.0.1015.jar',
+                ],
+            ], 200),
+            'api.curseforge.com/v1/files/4638256/download-url' => Http::response([
+                'data' => [
+                    'downloadUrl' => 'https://mediafilez.forgecdn.net/files/4638/256/jei-1.20.1-11.6.0.1015.jar',
+                ],
+            ], 200),
+            'mediafilez.forgecdn.net/files/4638/256/*' => Http::response('fake jar content', 200, ['Content-Type' => 'application/java-archive']),
+        ]);
+
+        $response = $this->get("/shared/{$token}/export/curseforge");
+
+        $response->assertStatus(200);
+        $response->assertHeader('Content-Type', 'application/zip');
+        $this->assertTrue(
+            str_contains($response->headers->get('Content-Disposition'), 'Shared_Pack-curseforge.zip'),
+            'Content-Disposition should contain filename'
+        );
+
+        $modPack->refresh();
+        $this->assertEquals(1, $modPack->downloads_count);
+    }
+
+    /**
+     * Test that shared modpack can be exported as MultiMC format without authentication.
+     * Covers ModPackController exportShared with format=multimc.
+     */
+    public function test_shared_modpack_can_be_exported_as_multimc(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'name' => 'Shared Pack',
+            'minecraft_version' => '1.20.1',
+            'software' => 'forge',
+        ]);
+
+        ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'JEI',
+            'mod_version' => '11.6.0.1015',
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 4638256,
+            'source' => 'curseforge',
+        ]);
+
+        $token = $modPack->generateShareToken();
+
+        Http::fake([
+            'api.curseforge.com/v1/mods/238222/files/4638256' => Http::response([
+                'data' => [
+                    'id' => 4638256,
+                    'fileName' => 'jei-1.20.1-11.6.0.1015.jar',
+                    'downloadUrl' => 'https://mediafilez.forgecdn.net/files/4638/256/jei-1.20.1-11.6.0.1015.jar',
+                ],
+            ], 200),
+            'api.curseforge.com/v1/files/4638256/download-url' => Http::response([
+                'data' => [
+                    'downloadUrl' => 'https://mediafilez.forgecdn.net/files/4638/256/jei-1.20.1-11.6.0.1015.jar',
+                ],
+            ], 200),
+            'mediafilez.forgecdn.net/files/4638/256/*' => Http::response('fake jar content', 200),
+        ]);
+
+        $response = $this->get("/shared/{$token}/export/multimc");
+
+        $response->assertStatus(200);
+        $response->assertHeader('Content-Type', 'application/zip');
+        $this->assertTrue(
+            str_contains($response->headers->get('Content-Disposition'), 'Shared_Pack-multimc.zip'),
+            'Content-Disposition should contain filename'
+        );
 
         $modPack->refresh();
         $this->assertEquals(1, $modPack->downloads_count);

@@ -5,15 +5,12 @@ namespace Tests\Feature\ModPacks;
 use App\Models\ModPack;
 use App\Models\ModPackRun;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ModPackRunnerTest extends TestCase
 {
-    use RefreshDatabase;
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -510,5 +507,376 @@ class ModPackRunnerTest extends TestCase
         $this->assertEquals($run3->id, $data[0]['id']);
         $this->assertEquals($run2->id, $data[1]['id']);
         $this->assertEquals($run1->id, $data[2]['id']);
+    }
+
+    /**
+     * Test that creating run handles mod pack with items.
+     */
+    public function test_creating_run_handles_mod_pack_with_items(): void
+    {
+        $user = User::factory()->create([
+            'premium_until' => now()->addDays(30),
+        ]);
+
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'software' => 'fabric',
+            'minecraft_version' => '1.20.1',
+        ]);
+
+        // Add some items to the mod pack
+        \App\Models\ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'JEI',
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 4638256,
+            'source' => 'curseforge',
+        ]);
+
+        \App\Models\ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Sodium',
+            'modrinth_project_id' => 'AANobbMI',
+            'modrinth_version_id' => 'version123',
+            'source' => 'modrinth',
+        ]);
+
+        // Mock mod loader download
+        Http::fake([
+            'meta.fabricmc.net/v2/versions/installer' => Http::response([
+                [
+                    'version' => '0.15.0',
+                    'stable' => true,
+                ],
+            ], 200),
+            'maven.fabricmc.net/*' => Http::response('fake installer content', 200),
+            'meta.fabricmc.net/v2/versions/loader/1.20.1' => Http::response([
+                [
+                    'loader' => [
+                        'version' => '0.14.21',
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        // Mock mod downloads
+        Http::fake([
+            'api.curseforge.com/v1/mods/238222/files/4638256' => Http::response([
+                'data' => [
+                    'downloadUrl' => 'https://mediafilez.forgecdn.net/files/4638/256/jei-1.20.1-11.6.0.1015.jar',
+                ],
+            ], 200),
+            'api.modrinth.com/v2/version/version123' => Http::response([
+                'files' => [
+                    [
+                        'url' => 'https://cdn.modrinth.com/data/AANobbMI/versions/version123/sodium-fabric-0.5.3.jar',
+                        'filename' => 'sodium-fabric-0.5.3.jar',
+                    ],
+                ],
+            ], 200),
+            'mediafilez.forgecdn.net/*' => Http::response('fake mod content', 200),
+            'cdn.modrinth.com/*' => Http::response('fake mod content', 200),
+        ]);
+
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/runs");
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('mod_pack_runs', [
+            'mod_pack_id' => $modPack->id,
+            'is_completed' => false,
+        ]);
+    }
+
+    /**
+     * Test that creating run handles different mod loader types.
+     */
+    public function test_creating_run_handles_different_mod_loader_types(): void
+    {
+        $user = User::factory()->create([
+            'premium_until' => now()->addDays(30),
+        ]);
+
+        // Test with Forge
+        $forgeModPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'software' => 'forge',
+            'minecraft_version' => '1.20.1',
+        ]);
+
+        Http::fake([
+            'serverjars.com/api/fetchLatest/modded/forge/1.20.1' => Http::response([
+                'response' => [
+                    'build' => '47.2.0',
+                ],
+            ], 200),
+            'serverjars.com/api/fetchJar/modded/forge/1.20.1/47.2.0' => Http::response('fake forge jar', 200),
+        ]);
+
+        $response = $this->actingAs($user)->post("/mod-packs/{$forgeModPack->id}/runs");
+        $response->assertRedirect();
+
+        // Test with NeoForge
+        $neoforgeModPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'software' => 'neoforge',
+            'minecraft_version' => '1.20.1',
+        ]);
+
+        Http::fake([
+            'serverjars.com/api/fetchLatest/modded/neoforge/1.20.1' => Http::response([
+                'response' => [
+                    'build' => '20.1.0',
+                ],
+            ], 200),
+            'serverjars.com/api/fetchJar/modded/neoforge/1.20.1/20.1.0' => Http::response('fake neoforge jar', 200),
+        ]);
+
+        $response = $this->actingAs($user)->post("/mod-packs/{$neoforgeModPack->id}/runs");
+        $response->assertRedirect();
+
+        // Test with Quilt
+        $quiltModPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'software' => 'quilt',
+            'minecraft_version' => '1.20.1',
+        ]);
+
+        Http::fake([
+            'meta.quiltmc.org/v3/versions/installer' => Http::response([
+                [
+                    'version' => '0.19.2',
+                ],
+            ], 200),
+            'maven.quiltmc.org/*' => Http::response('fake quilt installer', 200),
+            'meta.quiltmc.org/v3/versions/loader/1.20.1' => Http::response([
+                [
+                    'loader' => [
+                        'version' => '0.20.2',
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->post("/mod-packs/{$quiltModPack->id}/runs");
+        $response->assertRedirect();
+    }
+
+    /**
+     * Test that creating run handles mod download failures gracefully.
+     */
+    public function test_creating_run_handles_mod_download_failures_gracefully(): void
+    {
+        $user = User::factory()->create([
+            'premium_until' => now()->addDays(30),
+        ]);
+
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'software' => 'fabric',
+            'minecraft_version' => '1.20.1',
+        ]);
+
+        // Add item that will fail to download
+        \App\Models\ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Failing Mod',
+            'curseforge_mod_id' => 999999,
+            'curseforge_file_id' => 999999,
+            'source' => 'curseforge',
+        ]);
+
+        // Mock successful mod loader download
+        Http::fake([
+            'meta.fabricmc.net/v2/versions/installer' => Http::response([
+                [
+                    'version' => '0.15.0',
+                    'stable' => true,
+                ],
+            ], 200),
+            'maven.fabricmc.net/*' => Http::response('fake installer content', 200),
+            'meta.fabricmc.net/v2/versions/loader/1.20.1' => Http::response([
+                [
+                    'loader' => [
+                        'version' => '0.14.21',
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        // Mock failed mod download
+        Http::fake([
+            'api.curseforge.com/v1/mods/999999/files/999999' => Http::response(['error' => 'Not found'], 404),
+        ]);
+
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/runs");
+
+        // Should still succeed even if mod download fails
+        $response->assertRedirect();
+        $this->assertDatabaseHas('mod_pack_runs', [
+            'mod_pack_id' => $modPack->id,
+            'is_completed' => false,
+        ]);
+    }
+
+    /**
+     * Test that creating run handles mod loader download failures.
+     */
+    public function test_creating_run_handles_mod_loader_download_failures(): void
+    {
+        $user = User::factory()->create([
+            'premium_until' => now()->addDays(30),
+        ]);
+
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'software' => 'fabric',
+            'minecraft_version' => '1.20.1',
+        ]);
+
+        // Mock failed mod loader download
+        Http::fake([
+            'meta.fabricmc.net/v2/versions/installer' => Http::response(['error' => 'Service unavailable'], 503),
+        ]);
+
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/runs");
+
+        // Should still create run even if mod loader download fails
+        $response->assertRedirect();
+        $this->assertDatabaseHas('mod_pack_runs', [
+            'mod_pack_id' => $modPack->id,
+            'is_completed' => false,
+        ]);
+    }
+
+    /**
+     * Test that stopping run handles non-existent run directory.
+     */
+    public function test_stopping_run_handles_non_existent_run_directory(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+        $run = ModPackRun::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'is_completed' => false,
+        ]);
+
+        // Don't create the run directory - test that it handles missing directory gracefully
+
+        $response = $this->actingAs($user)->post("/mod-packs/{$modPack->id}/runs/{$run->id}/stop");
+
+        $response->assertStatus(200);
+        $this->assertDatabaseHas('mod_pack_runs', [
+            'id' => $run->id,
+            'is_completed' => true,
+        ]);
+    }
+
+    /**
+     * Test that getting logs handles empty logs file.
+     */
+    public function test_getting_logs_handles_empty_logs_file(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+        $run = ModPackRun::factory()->create([
+            'mod_pack_id' => $modPack->id,
+        ]);
+
+        $logsPath = $this->baseDir.'/'.$run->id.'/logs.txt';
+        $logsDir = dirname($logsPath);
+        if (! is_dir($logsDir)) {
+            File::makeDirectory($logsDir, 0755, true);
+        }
+        // Create empty logs file
+        file_put_contents($logsPath, '');
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/runs/{$run->id}/logs");
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'data' => '',
+        ]);
+
+        // Clean up
+        if (file_exists($logsPath)) {
+            unlink($logsPath);
+        }
+    }
+
+    /**
+     * Test that creating run with JSON request includes download counts.
+     */
+    public function test_creating_run_with_json_request_includes_download_counts(): void
+    {
+        $user = User::factory()->create([
+            'premium_until' => now()->addDays(30),
+        ]);
+
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'software' => 'fabric',
+            'minecraft_version' => '1.20.1',
+        ]);
+
+        // Add items to test download counts
+        \App\Models\ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Working Mod',
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 4638256,
+            'source' => 'curseforge',
+        ]);
+
+        \App\Models\ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Failing Mod',
+            'curseforge_mod_id' => 999999,
+            'curseforge_file_id' => 999999,
+            'source' => 'curseforge',
+        ]);
+
+        // Mock mod loader download
+        Http::fake([
+            'meta.fabricmc.net/v2/versions/installer' => Http::response([
+                [
+                    'version' => '0.15.0',
+                    'stable' => true,
+                ],
+            ], 200),
+            'maven.fabricmc.net/*' => Http::response('fake installer content', 200),
+            'meta.fabricmc.net/v2/versions/loader/1.20.1' => Http::response([
+                [
+                    'loader' => [
+                        'version' => '0.14.21',
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        // Mock mod downloads - one success, one failure
+        Http::fake([
+            'api.curseforge.com/v1/mods/238222/files/4638256' => Http::response([
+                'data' => [
+                    'downloadUrl' => 'https://mediafilez.forgecdn.net/files/4638/256/jei-1.20.1-11.6.0.1015.jar',
+                ],
+            ], 200),
+            'api.curseforge.com/v1/mods/999999/files/999999' => Http::response(['error' => 'Not found'], 404),
+            'mediafilez.forgecdn.net/*' => Http::response('fake mod content', 200),
+        ]);
+
+        $response = $this->actingAs($user)
+            ->withHeader('Accept', 'application/json')
+            ->postJson("/mod-packs/{$modPack->id}/runs");
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'data' => ['id', 'mod_pack_id', 'is_completed'],
+            'downloaded_count',
+            'failed_count',
+        ]);
+
+        // Should have 1 successful download and 1 failed download
+        $this->assertEquals(1, $response->json('downloaded_count'));
+        $this->assertEquals(1, $response->json('failed_count'));
     }
 }

@@ -5,15 +5,12 @@ namespace Tests\Feature\ModPacks;
 use App\Models\ModPack;
 use App\Models\ModPackItem;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ModPackFilesTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that user can get mod files.
      */
@@ -155,6 +152,54 @@ class ModPackFilesTest extends TestCase
         // Should return empty array on error
         $this->assertIsArray($data);
         $this->assertCount(0, $data);
+    }
+
+    /**
+     * Test that user can get mod files for Modrinth source.
+     * Covers ModrinthService getProjectVersions and ModService getModFiles with source=modrinth.
+     */
+    public function test_user_can_get_mod_files_for_modrinth(): void
+    {
+        Cache::flush();
+
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'fabric',
+        ]);
+
+        Http::fake([
+            'api.modrinth.com/v2/project/fabric-api/version*' => Http::response([
+                [
+                    'id' => 'version-abc',
+                    'project_id' => 'fabric-api',
+                    'version_number' => '0.91.0',
+                    'game_versions' => ['1.20.1'],
+                    'loaders' => ['fabric'],
+                    'files' => [
+                        [
+                            'url' => 'https://cdn.modrinth.com/data/P7dR8mSH/versions/version-abc/fabric-api-0.91.0.jar',
+                            'filename' => 'fabric-api-0.91.0.jar',
+                        ],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/mod-files?mod_id=fabric-api&source=modrinth");
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'data' => [
+                '*' => ['id', 'version_number', 'game_versions', 'loaders'],
+            ],
+        ]);
+
+        $data = $response->json('data');
+        $this->assertCount(1, $data);
+        $this->assertEquals('version-abc', $data[0]['id']);
+        $this->assertEquals('0.91.0', $data[0]['version_number']);
     }
 
     /**

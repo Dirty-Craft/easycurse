@@ -4,13 +4,10 @@ namespace Tests\Feature\ModPacks;
 
 use App\Models\ModPack;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ModPackRelationshipsTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that mod pack user relationship works.
      */

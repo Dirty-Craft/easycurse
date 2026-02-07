@@ -5,14 +5,11 @@ namespace Tests\Feature\ModPacks;
 use App\Models\ModPack;
 use App\Models\ModPackItem;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ModPackShowTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that user can view their mod pack.
      */
@@ -386,5 +383,97 @@ class ModPackShowTest extends TestCase
         );
 
         $response->assertRedirect('/login');
+    }
+
+    /**
+     * Test that user can update all items to latest versions.
+     */
+    public function test_user_can_update_all_items_to_latest(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create([
+            'user_id' => $user->id,
+            'minecraft_version' => '1.20.1',
+            'software' => 'forge',
+        ]);
+
+        $item1 = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 123456,
+            'mod_version' => '1.20.1-11.5.0.1000',
+            'source' => 'curseforge',
+        ]);
+
+        // Mock CurseForge API responses
+        Http::fake([
+            'api.curseforge.com/v1/mods/*/files*' => Http::response([
+                'data' => [
+                    [
+                        'id' => 999999,
+                        'displayName' => '1.20.1-11.6.0.1017',
+                        'fileName' => 'jei-1.20.1-11.6.0.1017.jar',
+                        'fileDate' => '2024-01-01T00:00:00Z',
+                        'fileLength' => 1000000,
+                        'gameVersions' => ['1.20.1'],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->post(
+            "/mod-packs/{$modPack->id}/items/update-all-to-latest"
+        );
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'success',
+            'updated_count',
+            'failed_count',
+        ]);
+        $this->assertTrue($response->json('success'));
+        $this->assertGreaterThan(0, $response->json('updated_count'));
+    }
+
+    /**
+     * Test that updating all items requires authentication.
+     */
+    public function test_updating_all_items_requires_authentication(): void
+    {
+        $modPack = ModPack::factory()->create();
+
+        $response = $this->post(
+            "/mod-packs/{$modPack->id}/items/update-all-to-latest"
+        );
+
+        $response->assertRedirect('/login');
+    }
+
+    /**
+     * Test that mod pack show includes game versions and mod loaders.
+     */
+    public function test_mod_pack_show_includes_game_versions_and_mod_loaders(): void
+    {
+        $user = User::factory()->create();
+        $modPack = ModPack::factory()->create(['user_id' => $user->id]);
+
+        // Mock ModService responses
+        Http::fake([
+            'piston-meta.mojang.com/mc/game/version_manifest_v2.json' => Http::response([
+                'versions' => [
+                    ['id' => '1.20.1', 'type' => 'release'],
+                    ['id' => '1.19.4', 'type' => 'release'],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}");
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->component('ModPacks/Show')
+            ->has('gameVersions')
+            ->has('modLoaders')
+        );
     }
 }

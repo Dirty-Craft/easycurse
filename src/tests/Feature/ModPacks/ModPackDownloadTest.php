@@ -5,14 +5,11 @@ namespace Tests\Feature\ModPacks;
 use App\Models\ModPack;
 use App\Models\ModPackItem;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ModPackDownloadTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that user can get download links for mod pack items.
      */
@@ -628,30 +625,54 @@ class ModPackDownloadTest extends TestCase
     }
 
     /**
-     * Test that getSharedItemDownloadLink returns error when downloadInfo is null.
+     * Test that download links handle mixed CurseForge and Modrinth mods.
      */
-    public function test_get_shared_item_download_link_returns_error_when_download_info_is_null(): void
+    public function test_download_links_handle_mixed_curseforge_and_modrinth_mods(): void
     {
         $user = User::factory()->create();
         $modPack = ModPack::factory()->create(['user_id' => $user->id]);
-        $item = ModPackItem::factory()->create([
+
+        $curseforgeItem = ModPackItem::factory()->create([
             'mod_pack_id' => $modPack->id,
-            'curseforge_mod_id' => 123456,
-            'curseforge_file_id' => 789012,
+            'mod_name' => 'JEI',
+            'curseforge_mod_id' => 238222,
+            'curseforge_file_id' => 4638256,
+            'source' => 'curseforge',
         ]);
-        $token = $modPack->generateShareToken();
 
-        // Mock CurseForgeService to return 404 for getModFile (which causes downloadInfo to be null)
-        // The getModFile method uses throw() which will throw RequestException for non-2xx responses
+        $modrinthItem = ModPackItem::factory()->create([
+            'mod_pack_id' => $modPack->id,
+            'mod_name' => 'Sodium',
+            'modrinth_project_id' => 'AANobbMI',
+            'modrinth_version_id' => 'version123',
+            'source' => 'modrinth',
+        ]);
+
         Http::fake([
-            'api.curseforge.com/v1/mods/123456/files/789012' => Http::response(['error' => 'Not found'], 404),
+            'api.curseforge.com/v1/mods/238222/files/4638256*' => Http::response([
+                'data' => [
+                    'downloadUrl' => 'https://mediafilez.forgecdn.net/files/4638/256/jei-1.20.1-11.6.0.1015.jar',
+                ],
+            ], 200),
+            'api.modrinth.com/v2/version/version123' => Http::response([
+                'id' => 'version123',
+                'files' => [
+                    [
+                        'url' => 'https://cdn.modrinth.com/data/AANobbMI/versions/version123/sodium-fabric-0.5.3.jar',
+                        'filename' => 'sodium-fabric-0.5.3.jar',
+                    ],
+                ],
+            ], 200),
         ]);
 
-        $response = $this->get("/shared/{$token}/items/{$item->id}/download-link");
+        $response = $this->actingAs($user)->get("/mod-packs/{$modPack->id}/download-links");
 
-        $response->assertStatus(404);
-        $response->assertJson([
-            'error' => 'Unable to retrieve download information for this mod.',
-        ]);
+        $response->assertStatus(200);
+        $data = $response->json('data');
+        $this->assertCount(2, $data);
+
+        $itemIds = array_column($data, 'item_id');
+        $this->assertContains($curseforgeItem->id, $itemIds);
+        $this->assertContains($modrinthItem->id, $itemIds);
     }
 }

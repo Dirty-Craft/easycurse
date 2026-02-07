@@ -3,13 +3,10 @@
 namespace Tests\Feature\ModPacks;
 
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ModPackCreateTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that user can create a mod pack.
      */
@@ -164,6 +161,97 @@ class ModPackCreateTest extends TestCase
         $this->assertDatabaseHas('mod_packs', [
             'name' => 'Test Mod Pack',
             'description' => null,
+        ]);
+    }
+
+    /**
+     * Test that creating mod pack accepts quilt software.
+     */
+    public function test_creating_mod_pack_accepts_quilt_software(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->post('/mod-packs', [
+            'name' => 'Test Mod Pack',
+            'minecraft_version' => '1.20.1',
+            'software' => 'quilt',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('mod_packs', [
+            'software' => 'quilt',
+        ]);
+    }
+
+    /**
+     * Test that creating mod pack accepts neoforge software.
+     */
+    public function test_creating_mod_pack_accepts_neoforge_software(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->post('/mod-packs', [
+            'name' => 'Test Mod Pack',
+            'minecraft_version' => '1.20.1',
+            'software' => 'neoforge',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('mod_packs', [
+            'software' => 'neoforge',
+        ]);
+    }
+
+    /**
+     * Test that creating mod pack validates name length.
+     */
+    public function test_creating_mod_pack_validates_name_length(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->post('/mod-packs', [
+            'name' => str_repeat('a', 256), // Too long
+            'minecraft_version' => '1.20.1',
+            'software' => 'forge',
+        ]);
+
+        $response->assertSessionHasErrors('name');
+    }
+
+    /**
+     * Test that creating mod pack validates minecraft version length.
+     */
+    public function test_creating_mod_pack_validates_minecraft_version_length(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->post('/mod-packs', [
+            'name' => 'Test Mod Pack',
+            'minecraft_version' => str_repeat('1', 256), // Too long
+            'software' => 'forge',
+        ]);
+
+        $response->assertSessionHasErrors('minecraft_version');
+    }
+
+    /**
+     * Test that creating mod pack with description works.
+     */
+    public function test_creating_mod_pack_with_description_works(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->post('/mod-packs', [
+            'name' => 'Test Mod Pack',
+            'minecraft_version' => '1.20.1',
+            'software' => 'forge',
+            'description' => 'This is a test modpack description',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('mod_packs', [
+            'name' => 'Test Mod Pack',
+            'description' => 'This is a test modpack description',
         ]);
     }
 }

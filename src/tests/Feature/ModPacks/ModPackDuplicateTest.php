@@ -5,13 +5,10 @@ namespace Tests\Feature\ModPacks;
 use App\Models\ModPack;
 use App\Models\ModPackItem;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ModPackDuplicateTest extends TestCase
 {
-    use RefreshDatabase;
-
     /**
      * Test that user can duplicate their mod pack.
      */
