@@ -159,8 +159,8 @@
                             {{ t("about.contact.p1") }}
                         </p>
                         <p>
-                            <a href="mailto:contact@easycurse.com" class="link">
-                                contact@easycurse.com
+                            <a href="mailto:support@easycurse.com" class="link">
+                                support@easycurse.com
                             </a>
                         </p>
                     </div>
