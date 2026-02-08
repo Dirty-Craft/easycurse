@@ -36,10 +36,10 @@
                                 {{ part }}
                                 <a
                                     v-if="index < contactParts.length - 1"
-                                    href="mailto:ads@easycurse.com"
+                                    href="mailto:support@easycurse.com"
                                     class="link"
                                 >
-                                    ads@easycurse.com
+                                    support@easycurse.com
                                 </a>
                             </template>
                         </p>
@@ -76,8 +76,8 @@
                             {{ t("ads.contact.p2") }}
                         </p>
                         <p>
-                            <a href="mailto:ads@easycurse.com" class="link">
-                                ads@easycurse.com
+                            <a href="mailto:support@easycurse.com" class="link">
+                                support@easycurse.com
                             </a>
                         </p>
                     </div>

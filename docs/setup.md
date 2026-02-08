@@ -108,7 +108,7 @@ The backup includes only `logs.txt` files from the `docker/virtual` directory, m
 The production setup includes **Poste.io**, a full mail server with SMTP, IMAP, and webmail. You get:
 
 - **Sending from the app** as `noreply@easycurse.com` (Laravel uses the mail server to send transactional email).
-- **Real mailboxes** (e.g. `support@easycurse.com`, `ads@easycurse.com`, `upgrade@easycurse.com`) that can **receive** mail from the internet. Each mailbox has its own password.
+- **Real mailboxes** (e.g. `support@easycurse.com`) that can **receive** mail from the internet. Each mailbox has its own password.
 - **Webmail** where admins log in with a mailbox address and password to read inbox, reply, and manage mail.
 
 #### First-time setup (Poste.io)
@@ -119,8 +119,6 @@ The production setup includes **Poste.io**, a full mail server with SMTP, IMAP, 
 
 3. In the Poste.io **admin panel**, create these mailboxes (or the ones you need), each with its own password:
    - `support@easycurse.com`
-   - `ads@easycurse.com`
-   - `upgrade@easycurse.com`
    - `noreply@easycurse.com` (used by the app to send mail; can be send-only or a normal mailbox).
 
 4. In **`src/.env`**, set the app’s mail config so it can send as `noreply@`:

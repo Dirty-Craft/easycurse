@@ -69,8 +69,8 @@
                             {{ t("premium.upgrade.p1") }}
                         </p>
                         <p>
-                            <a href="mailto:upgrade@easycurse.com" class="link">
-                                upgrade@easycurse.com
+                            <a href="mailto:support@easycurse.com" class="link">
+                                support@easycurse.com
                             </a>
                         </p>
                     </div>
